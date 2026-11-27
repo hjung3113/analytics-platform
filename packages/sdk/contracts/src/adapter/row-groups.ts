@@ -90,6 +90,7 @@ export function groupPage<T>(rows: readonly T[], options: GroupPageOptions<T>): 
   const slice = page === undefined || pageSize === undefined ? ordered : ordered.slice(start, (page + 1) * pageSize);
   const onPage = new Set(slice.map(keyOf));
   // The group of the slice's first row continues when the row just before the slice has the same (normalized) key.
-  const continuedKey = start > 0 && slice.length > 0 && keyOf(ordered[start - 1]) === keyOf(slice[0]) ? keyOf(slice[0]) : null;
+  const first = slice[0]; const before = start > 0 ? ordered[start - 1] : undefined;
+  const continuedKey = first !== undefined && before !== undefined && keyOf(before) === keyOf(first) ? keyOf(first) : null;
   return { rows: slice, total: ordered.length, groups: [...all.values()].filter(g => onPage.has(g.key)).map(g => g.key === continuedKey ? { ...g, continued: true } : g) };
 }
