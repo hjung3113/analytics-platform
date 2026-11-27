@@ -1,0 +1,42 @@
+{
+ "dataset": "interval-steps",
+ "version": 1,
+ "seed": "golden",
+ "params": {
+  "runs": 6,
+  "subjects": 3,
+  "stepsPerRun": {
+   "min": 0,
+   "max": 2
+  },
+  "skew": 1,
+  "unresolvedStepRate": 0.05,
+  "missingEndRate": 0.05,
+  "missingAmountRate": 0.1,
+  "reprocessRate": 0.1,
+  "lateLoadRate": 0.1,
+  "millisecondUnitRate": 0.3,
+  "spanDays": 7
+ },
+ "tables": {
+  "runs": [
+   {"runId":"R-000001","revision":1,"subjectKey":"S-0001","startAt":"2030-01-01T23:30:00.000Z","endAt":"2030-01-02T00:30:00.000Z","loadedAt":"2030-01-02T00:35:00.000Z","quantity":3,"elapsed":3600000,"elapsedUnit":"ms"},
+   {"runId":"R-000002","revision":1,"subjectKey":"S-0002","startAt":"2030-01-03T00:00:00.000Z","endAt":"2030-01-03T00:00:00.000Z","loadedAt":"2030-01-03T00:05:00.000Z","quantity":7,"elapsed":0,"elapsedUnit":"s"},
+   {"runId":"R-000003","revision":1,"subjectKey":"S-0001","startAt":"2030-01-04T00:00:00.000Z","endAt":null,"loadedAt":"2030-01-04T00:05:00.000Z","quantity":1,"elapsed":null,"elapsedUnit":"s"},
+   {"runId":"R-000004","revision":1,"subjectKey":"S-0003","startAt":"2030-01-05T00:00:00.000Z","endAt":"2030-01-05T01:30:00.000Z","loadedAt":"2030-01-08T01:30:00.000Z","quantity":3,"elapsed":5400,"elapsedUnit":"s"},
+   {"runId":"R-000004","revision":2,"subjectKey":"S-0003","startAt":"2030-01-05T00:00:00.000Z","endAt":"2030-01-05T01:30:00.000Z","loadedAt":"2030-01-09T01:30:00.000Z","quantity":4,"elapsed":5400,"elapsedUnit":"s"},
+   {"runId":"R-000005","revision":1,"subjectKey":"S-0003","startAt":"2030-01-02T07:47:16.014Z","endAt":"2030-01-02T08:07:16.014Z","loadedAt":"2030-01-02T08:12:16.014Z","quantity":5,"elapsed":1200000,"elapsedUnit":"ms"},
+   {"runId":"R-000006","revision":1,"subjectKey":"S-0002","startAt":"2030-01-07T18:28:25.125Z","endAt":"2030-01-07T18:48:25.125Z","loadedAt":"2030-01-07T18:53:25.125Z","quantity":9,"elapsed":1200,"elapsedUnit":"s"}
+  ],
+  "steps": [
+   {"stepId":"T-000001","runId":"R-000001","startAt":"2030-01-01T23:30:00.000Z","endAt":"2030-01-01T23:50:00.000Z","amount":3},
+   {"stepId":"T-000002","runId":"R-000001","startAt":"2030-01-01T23:50:00.000Z","endAt":"2030-01-02T00:30:00.000Z","amount":5},
+   {"stepId":"T-000003","runId":"R-000002","startAt":"2030-01-03T00:00:00.000Z","endAt":"2030-01-03T00:00:00.000Z","amount":0},
+   {"stepId":"T-000004","runId":"R-900004","startAt":"2030-01-04T00:00:00.000Z","endAt":"2030-01-04T00:10:00.000Z","amount":null},
+   {"stepId":"T-000005","runId":"R-000004","startAt":"2030-01-05T00:00:00.000Z","endAt":"2030-01-05T00:30:00.000Z","amount":2},
+   {"stepId":"T-000006","runId":"R-000005","startAt":"2030-01-02T07:47:16.014Z","endAt":"2030-01-02T07:49:16.014Z","amount":18},
+   {"stepId":"T-000007","runId":"R-000006","startAt":"2030-01-07T18:28:25.125Z","endAt":"2030-01-07T18:33:25.125Z","amount":null}
+  ]
+ },
+ "checksum": "a66edf567785ee31"
+}
