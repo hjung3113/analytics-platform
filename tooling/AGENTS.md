@@ -33,7 +33,7 @@ Package-boundary and contract lint (ESLint flat config). Boundary rule source: [
 ## scripts/quality-report.mjs (`pnpm quality:report`)
 
 - Lists every site of six patterns as `path:line` rows (jscpd clones, string-literal unions declared more than once, catches that return a default or swallow, Web Storage keys, `toLocale*` calls, files over 500 lines) for the slice-close `review-quality` to cite (#2181). `--only <ids>`, `--json`, `--out <file>`.
-- Hand runs and main push only; never add it or its test (`node --test tooling/scripts/quality-report.test.mjs`) to PR CI (#2181). A new pattern is one finder plus one `SECTIONS` row and its test.
+- The report runs by hand only, never in PR CI (#2181). Its unit test (`node --test tooling/scripts/quality-report.test.mjs`, no jscpd run, under a second) runs in the `ci.yml` static step, because every tracked node test must run in CI (`check-ci-lists.test.mjs`). A new pattern is one finder plus one `SECTIONS` row and its test.
 
 ## changes/ (`pnpm menu:changelog`)
 
