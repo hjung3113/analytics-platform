@@ -1422,6 +1422,7 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
 // #686 (ADR-0077, 06 §12.8): the workspace's second height mode. Written by the worker, who cannot run E2E: the host runs it first and derives the
 // numeric tolerances from browser measurements (`ROUNDING` is a placeholder for the engine's pixel rounding, not a measurement).
 test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
+
   const CYCLE = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
   const STORE = /^platform:workspace:v1:.+:cycle-time:drilldown$/;
   const TITLES = { summary: '사이클타임 요약', trend: '사이클타임 추세', distribution: '사이클타임 분포', slow: '느린 실행' } as const;
@@ -1732,21 +1733,32 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     expect(JSON.stringify(await stored(page))).toBe(snapshot);
   });
 
-  test('저장: 새로고침 뒤에도 모드와 줄 높이가 같고, 기본 배치는 몇 번을 눌러도 높이가 쌓이지 않으며, 모드를 오가도 조회·마운트가 늘지 않는다', async ({ page }) => {
-    await openStack(page);
+  /** Grows the first row by two keyboard steps and waits for the debounced save. */
+  async function resizeFirstRow(page: Page) {
     await rowSeparators(page).first().focus();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowDown');
     const resized = await rowPx(page);
     await expect.poll(() => stored(page)).toMatchObject([{ mode: 'stack', preset: 'column', rows: resized }]);
+    return resized;
+  }
+
+  // Four tests, not one: as one test they took 17 s of CI's 30 s budget and ran out of it on a slower runner (#3191). Check a change here with CI=1 and
+  // `Emulation.setCPUThrottlingRate` 3: the single test failed 3 of 3 runs at 30 s, these stay under 19 s.
+  test('저장: 새로고침 뒤에도 모드와 줄 높이가 같다', async ({ page }) => {
+    await openStack(page);
+    const resized = await resizeFirstRow(page);
     await page.reload();
     await ready(page);
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
     await expect(await modeItem(page, '아래로 쌓기')).toBeChecked();
     await page.keyboard.press('Escape');
     expect(await rowPx(page)).toEqual(resized);
+  });
 
-    const requests = await cycleRequests(page);
+  test('기본 배치는 몇 번을 눌러도 높이가 쌓이지 않는다', async ({ page }) => {
+    await openStack(page);
+    const resized = await resizeFirstRow(page);
     await resetWorkspaceLayout(page);
     await expect.poll(async () => (await rowPx(page)).join()).not.toBe(resized.join());
     const reset = await rowPx(page);
@@ -1754,7 +1766,12 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await resetWorkspaceLayout(page);
     // Repeating the default layout must preserve the measured row heights.
     await expect.poll(() => rowPx(page)).toEqual(reset);
+  });
 
+  test('모드를 오가도 줄 높이가 같고 조회·마운트가 늘지 않는다', async ({ page }) => {
+    await openStack(page);
+    const before = await rowPx(page);
+    const requests = await cycleRequests(page);
     await chooseMode(page, '화면 맞춤');
     await chooseMode(page, '아래로 쌓기');
     await chooseMode(page, '화면 맞춤');
@@ -1762,10 +1779,14 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
     await settleOn(() => rowPx(page), 'row heights settle after the mode round trip');
     const roundTrip = await rowPx(page);
-    roundTrip.forEach((px, index) => { expect(near(px, reset[index]!, 3)).toBe(true); });
+    roundTrip.forEach((px, index) => { expect(near(px, before[index]!, 3)).toBe(true); });
     // Nothing happens: switching modes must not re-query; give a wrongly sent query time to arrive.
     await page.waitForTimeout(500);
     expect(await cycleRequests(page)).toBe(requests);
+  });
+
+  test('쌓기 중에 프리셋을 바꾸면 모드와 함께 저장된다', async ({ page }) => {
+    await openStack(page);
     await chooseWorkspacePreset(page, '집중');
     await expect(rowSeparators(page)).toHaveCount(1);
     await expect.poll(() => stored(page)).toMatchObject([{ mode: 'stack', preset: 'focus' }]);
