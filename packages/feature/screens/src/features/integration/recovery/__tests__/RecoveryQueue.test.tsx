@@ -1,6 +1,7 @@
 import { useRecoveryQueue } from '../../../../test/host-adapters/features/integration/recovery/useRecoveryQueue';
 import { validateHomeSearch } from '../../../../test/screen-host/routes/_authed/home';
 import { validateIntegrationDashboardSearch } from '../../../../test/screen-host/routes/_authed/integration/index';
+import { registerTaggedTimeHost } from '../../../../test/fixtures/tagged-time';
 import { DetailPanelSlotProvider, PageShell, useDetailPanelSlotHost } from '@ap/ui';
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import {
@@ -12,7 +13,7 @@ import {
   createRouter,
 } from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, expect, it, onTestFinished, vi } from 'vitest';
 
 const ID = 'r1_abcdefghijklmnopqrstuvw';
 const SECOND = 'r1_bbcdefghijklmnopqrstuvw';
@@ -758,12 +759,16 @@ it.each([false, true])(
   },
 );
 
+const UNTIL = '2026-07-21T15:28:00.123456Z';
 it.each([
-  ['muted', null, '이번 항목 숨김'],
-  ['snoozed', '2026-07-21T15:28:00.123456Z', '내 화면에서 숨김 · 2026-07-21 15:28:00 UTC까지'],
+  // [label, how many times it appears]: the row and the detail show the same text for a mute.
+  ['muted', null, [['이번 항목 숨김', 2]]],
+  // A snooze-until is a deadline: an absolute instant, `list` on the comparable row and `summary` on the detail line (#2587).
+  ['snoozed', UNTIL, [[`내 화면에서 숨김 · list:${UNTIL}까지`, 1], [`내 화면에서 숨김 · summary:${UNTIL}까지`, 1]]],
 ] as const)(
   'shows %s personal state on the hidden row and named detail',
-  async (state, until, label) => {
+  async (state, until, labels) => {
+    onTestFinished(await registerTaggedTimeHost());
     const hidden = { ...item, presentation: { state, snoozed_until: until } };
     setup({
       list: () =>
@@ -780,7 +785,8 @@ it.each([
     await mount(`/integration?presentation=hidden&selected=${ID}`);
     await screen.findByRole('button', { name: '내 화면에 다시 표시' });
     expect(screen.getByRole('heading', { name: '다운로드 오류' })).toBeVisible();
-    expect(screen.getAllByText(label, { exact: false })).toHaveLength(2);
+    for (const [label, count] of labels) expect(screen.getAllByText(label, { exact: false })).toHaveLength(count);
+    expect(document.body.textContent).not.toMatch(/UTC/);
   },
 );
 
@@ -797,7 +803,9 @@ it.each([
   await screen.findByText(label);
 });
 
-it('formats microsecond resolution times and suppresses the hiding note on resolved detail', async () => {
+// The tagging host echoes the raw instant: dropping its microseconds is the Kernel notation's job (kernel.md §6.3), not this screen's.
+it('passes microsecond resolution times to the host notation and suppresses the hiding note on resolved detail', async () => {
+  onTestFinished(await registerTaggedTimeHost());
   const resolution = {
     resolved_at: '2026-07-20T08:00:00.123456Z',
     outcome: 'resolved',
@@ -817,10 +825,13 @@ it('formats microsecond resolution times and suppresses the hiding note on resol
   });
   await mount(`/integration?history=true&selected=${ID}`);
   await screen.findByText('해결됨');
-  expect(screen.getAllByText(/2026-07-20 08:00:00 UTC/)).toHaveLength(2);
+  // The history row is a comparable list (`list`); the detail resolution line is a summary (#2587).
+  expect(screen.getByText(`list:${resolution.resolved_at}`, { exact: false })).toBeVisible();
+  expect(screen.getByText(`summary:${resolution.resolved_at}`, { exact: false })).toBeVisible();
+  // «현재 UTC 월» names the server's history window rule, not a clock; no instant carries a UTC label.
+  expect(document.body.textContent).not.toMatch(/\d UTC/);
   expect(screen.getByText(/원본 화면에서 처리됨/)).toBeVisible();
   expect(screen.queryByText(/숨기기는 내 화면에만/)).toBeNull();
-  expect(screen.queryByText(/123456/)).toBeNull();
 });
 
 it('scrolls the URL-selected row into view after the queue loads', async () => {

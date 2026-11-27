@@ -1,4 +1,5 @@
 import { DETAIL_PANEL_KICKERS } from '../../../lib/copy/detail-panel';
+import { FeatureTimestamp, useFeatureTime } from '../../../components/FeatureTimestamp';
 import { ListStateMessage } from '../../../components/ListStateMessage';
 import { patchRecoveryPresentation } from '../../../lib/api/recovery';
 import { ApiError } from '../../../lib/api/types';
@@ -20,7 +21,7 @@ import {
 } from '@ap/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useContext, useEffect } from 'react';
-import { RecoveryFreshness, formatRecoveryTime } from './RecoveryFreshness';
+import { RecoveryFreshness } from './RecoveryFreshness';
 
 export type RenderRecoveryAccess = (
   permission: NonNullable<RecoveryAction['requestable_permission']>,
@@ -139,6 +140,7 @@ function RecoveryPanelBody({
 }: RecoveryPanelProps) {
   const client = useQueryClient();
   const { canLink, hostCarriesReturn } = useHostSeam();
+  const time = useFeatureTime();
   // A host that carries the return path itself gets the bare route (no feature `returnTo`).
   const outbound = (route: string) =>
     hostCarriesReturn === true ? route : sourceHref(route, returnTo);
@@ -205,7 +207,7 @@ function RecoveryPanelBody({
           </FieldRow>
           {item.resolution && (
             <FieldRow label={COPY.resolution} layout="property">
-              {formatRecoveryTime(item.resolution.resolved_at)} ·{' '}
+              <FeatureTimestamp at={item.resolution.resolved_at} notation="summary" /> ·{' '}
               {item.resolution.evidence === 'command' ? COPY.command : COPY.observation}
             </FieldRow>
           )}
@@ -217,7 +219,7 @@ function RecoveryPanelBody({
               {item.presentation.state === 'muted'
                 ? COPY.muted
                 : item.presentation.snoozed_until
-                  ? COPY.snoozed(formatRecoveryTime(item.presentation.snoozed_until))
+                  ? COPY.snoozed(time.summary(item.presentation.snoozed_until))
                   : COPY.hidden}
             </FieldRow>
           )}

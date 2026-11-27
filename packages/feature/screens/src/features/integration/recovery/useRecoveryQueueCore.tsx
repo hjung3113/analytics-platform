@@ -1,4 +1,5 @@
 import { ScopedListDenialCard } from '../../../components/ScopedListDenialCard';
+import { useFeatureTime } from '../../../components/FeatureTimestamp';
 import { ListLoadMore } from '../../../components/ListLoadMore';
 import { ListStateMessage } from '../../../components/ListStateMessage';
 import { useMeBridge } from '../../../lib/api/me';
@@ -32,7 +33,7 @@ import {
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { validateIntegrationDashboardSearch } from '../routes/integration-search';
-import { RecoveryFreshness, formatRecoveryTime } from './RecoveryFreshness';
+import { RecoveryFreshness } from './RecoveryFreshness';
 import { RecoveryPanel, type RenderRecoveryAccess, buildRecoveryPanelParts } from './RecoveryPanel';
 
 /** The recovery queue's URL and location, as a host gives them (router-bound adapter or the host seam). */
@@ -55,6 +56,7 @@ export function useRecoveryQueueCore(
   const me = useMeBridge();
   const client = useQueryClient();
   const { canLink, hostCarriesReturn } = useHostSeam();
+  const time = useFeatureTime();
   const { search, write, here } = io;
   const actor = me.data?.actor.id;
   const workspace = me.data?.workspace_id;
@@ -386,14 +388,14 @@ export function useRecoveryQueueCore(
                       )}
                       {[
                         row.episode ? '' : row.item.responsible_actor_hint.label,
-                        row.resolution ? formatRecoveryTime(row.resolution) : '',
+                        row.resolution ? time.list(row.resolution) : '',
                         !search.history && row.item.presentation.state === 'muted'
                           ? COPY.muted
                           : '',
                         !search.history &&
                         row.item.presentation.state === 'snoozed' &&
                         row.item.presentation.snoozed_until
-                          ? COPY.snoozed(formatRecoveryTime(row.item.presentation.snoozed_until))
+                          ? COPY.snoozed(time.list(row.item.presentation.snoozed_until))
                           : '',
                       ]
                         .filter(Boolean)
