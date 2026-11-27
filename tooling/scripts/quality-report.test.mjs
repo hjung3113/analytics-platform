@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { analyse, findCatchDefaults, findLocaleCalls, findStorageKeys, findStringUnions, isSourceFile, parse, toMarkdown } from './quality-report.mjs';
+import { analyse, findCatchDefaults, findLocaleCalls, findStorageKeys, findStringUnions, isSourceFile, parse, parseArgs, toMarkdown } from './quality-report.mjs';
 
 const sf = (text, file = 'a.ts') => parse(file, text);
 
@@ -16,6 +16,15 @@ test('isSourceFile keeps sources and drops tests, fixtures, stories, generated a
     'packages/x/src/mock-data/cluster.generated.ts',
     'packages/x/src/env.d.ts',
     'apps/platform-e2e/src/flow.ts',
+    'apps/platform-api/src/test-support/db.ts',
+    'packages/x/src/testing.ts',
+    'packages/x/src/modules/log/testing/engine.ts',
+    'apps/platform-api/src/seed/catalog-fixtures.ts',
+    'packages/sdk/ui/src/rich-content/fixtures-local.ts',
+    'packages/x/vitest.config.ts',
+    'packages/sdk/ui/src/vitest.setup.ts',
+    'packages/x/scripts/endpoints.vitest.mjs',
+    'tooling/storybook/src/views.tsx',
     'packages/sdk/ui/README.md',
   ]) {
     assert.equal(isSourceFile(file), false, file);
@@ -24,7 +33,10 @@ test('isSourceFile keeps sources and drops tests, fixtures, stories, generated a
 
 test('findStringUnions keys a union by its sorted string members and ignores null/undefined and mixed unions', () => {
   const hits = findStringUnions(
-    sf(`type A = 'b' | 'a';\nfunction f(x: 'a' | 'b' | undefined | null) {}\ntype Mixed = 'a' | number;\ntype One = 'a';`),
+    sf(
+      `type A = 'b' | 'a';\nfunction f(x: 'a' | 'b' | undefined | null) {}\ntype Mixed = 'a' | number;\ntype One = 'a';\n` +
+        `type P = Pick<T, 'a' | 'b'> & Omit<T, 'a' | 'b'>;\ntype E = Exclude<S, 'a' | 'b'> | Extract<S, 'a' | 'b'>;`,
+    ),
   );
   assert.deepEqual(hits, [
     { key: "'a' | 'b'", line: 1, name: 'A' },
@@ -60,6 +72,9 @@ function c() { try { return read(); } catch (e) { throw new Wrapped(e); } }
 function d() { try { return read(); } catch (e) { return { ok: false, error: e }; } }
 function e() { try { go(); } catch {} }
 function f() { try { return read(); } catch { const g = () => { throw 1; }; return FALLBACK; } }
+async function h() { try { await go(); } catch (e) { if (aborted) return; report(e); return; } }
+function i() { try { go(); } catch { return; } }
+function j() { try { return read(); } catch { return undefined; } }
 load().catch(() => undefined);
 load().catch(() => {});
 load().catch((e) => report(e));
@@ -72,33 +87,59 @@ load().catch((e) => report(e));
       [3, 'catch', 'returns', 'null'],
       [6, 'catch', 'swallows', 'empty'],
       [7, 'catch', 'returns', 'FALLBACK'],
-      [8, '.catch()', 'returns', 'undefined'],
-      [9, '.catch()', 'swallows', 'empty'],
+      [9, 'catch', 'swallows', 'empty'],
+      [10, 'catch', 'returns', 'undefined'],
+      [11, '.catch()', 'returns', 'undefined'],
+      [12, '.catch()', 'swallows', 'empty'],
     ],
   );
 });
 
-test('findStorageKeys resolves literal, template, same-file const and const-object keys', () => {
+test('findStorageKeys resolves literal, template, const, const-object and same-file key-builder keys', () => {
   const hits = findStorageKeys(
     sf(`
 const KEY = 'platform:lang';
 const KEYS = { view: 'ap.view' } as const;
+const PREFIX = 'draft';
+const v2Key = (userId: string) => \`platform:board:v2:\${userId}\`;
+function lastKey(id: string) { return \`\${PREFIX}:\${id}\`; }
+const groupsKey = () => 'platform:groups:v1:' + tuple();
 localStorage.getItem(KEY);
 window.sessionStorage.setItem(\`ap:\${id}\`, v);
 this.storage.removeItem(KEYS.view);
+store.getItem(v2Key(user));
+storage.getItem(lastKey(id));
 storage.getItem(makeKey(id));
+writePreference(TABLE_SIZE_KEY, size);
+readBrowserPreference(browserPreferenceKey('columns', user), options);
+storage.getItem(groupsKey());
+function read(key: string) { return localStorage.getItem(key); }
 map.get('not-storage');
 `),
   );
   assert.deepEqual(
     hits.map((h) => [h.line, h.method, h.key, h.resolved]),
     [
-      [4, 'getItem', 'platform:lang', true],
-      [5, 'setItem', 'ap:${id}', true],
-      [6, 'removeItem', 'ap.view', true],
-      [7, 'getItem', 'makeKey(id)', false],
+      [8, 'getItem', 'platform:lang', true],
+      [9, 'setItem', 'ap:${id}', true],
+      [10, 'removeItem', 'ap.view', true],
+      [11, 'getItem', 'platform:board:v2:${userId}', true],
+      [12, 'getItem', 'draft:${id}', true],
+      [13, 'getItem', 'makeKey(id)', false],
+      [14, 'writePreference', 'TABLE_SIZE_KEY', false],
+      [15, 'readBrowserPreference', "browserPreferenceKey('columns', user)", false],
+      [15, 'browserPreferenceKey', 'columns', true],
+      [16, 'getItem', 'platform:groups:v1:${tuple()}', true],
     ],
   );
+});
+
+test('parseArgs needs a path after --out and known ids after --only', () => {
+  assert.equal(parseArgs(['--out', 'r.md']).out, 'r.md');
+  assert.throws(() => parseArgs(['--out']), /--out takes a file path/);
+  assert.throws(() => parseArgs(['--out', '--json']), /--out takes a file path/);
+  assert.throws(() => parseArgs(['--only', 'bogus']), /--only takes/);
+  assert.deepEqual([...parseArgs(['--only', 'locale,unions']).only], ['locale', 'unions']);
 });
 
 test('findLocaleCalls finds every toLocale* call', () => {
