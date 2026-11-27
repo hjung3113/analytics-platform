@@ -439,7 +439,7 @@ const BUILD_OUTPUT = { ignores: ['dist/**'] };
 const IME_ENTER_GUARD = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: { 'ap/ime-enter-guard': 'error' } };
 
 // #2180: asserting existence hides the missing-value case. Enabled preset by preset as their sites are fixed (#2181: the
-// per-preset counts are in issue #2181); on in contracts, kernel, app-host, http-adapter, the app and the feature bridge so far. Tests may assert fixture invariants.
+// per-preset counts are in issue #2181); on in contracts, ui, kernel, app-host, http-adapter, the app and the feature bridge so far. Tests may assert fixture invariants.
 const NON_NULL = {
   files: ['**/*.{ts,tsx}'],
   ignores: TEST_ENTRY_FILES,
@@ -521,7 +521,7 @@ export const ui = [
   layerConfig({ restriction: { allow: [], denyReact: false, mockAllowed: false, allowRadix: true } }),
   designSystem({ componentSource: true }),
   IME_ENTER_GUARD,
-  directLocaleFormat(),
+  directLocaleFormat(),  NON_NULL,
 ];
 
 // #2174: ko/en copy lives in a message table, not a language ternary (rule source: no-lang-copy-ternary.js). Tests may
