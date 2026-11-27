@@ -10,14 +10,27 @@
 // checksum, and the run's measurement (elapsed ms, rows per second, peak RSS, Node, platform, CPU). The checksum
 // equals `generateSyntheticDataset` for the same inputs. `--params` goes over the profile; in-house sizes are passed
 // this way and stay in-house (docs/integration/upstream-feedback-procedure.md §3).
-// Exit status: 0 = written, 1 = generation or write failed, 2 = usage.
+// Exit status: 0 = written, 1 = generation or write failed, 2 = usage (including a parameter outside its domain; nothing is written).
 import { closeSync, existsSync, mkdirSync, openSync, realpathSync, writeFileSync, writeSync } from 'node:fs';
 import { arch, cpus, platform } from 'node:os';
-import { join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const DIST = new URL('../../packages/host/server-conformance/dist/datasets/index.js', import.meta.url);
+
+/** The real path of `path`, resolving symlinks through its nearest existing ancestor (the folder may not exist yet). */
+function realPath(path) {
+  if (existsSync(path)) return realpathSync(path);
+  const parent = dirname(path);
+  return parent === path ? path : join(realPath(parent), basename(path));
+}
+
+/** True when `path` is the repository or inside it (`../x` and `/x` are outside; a `..name` folder is inside). */
+function insideRepository(path) {
+  const inside = relative(realpathSync(root), realPath(path));
+  return inside === '' || (inside !== '..' && !inside.startsWith(`..${sep}`) && !isAbsolute(inside));
+}
 
 function parse(argv) {
   const options = { seed: 'workload', profile: 'functional', params: '{}', format: 'ndjson', batch: '10000' };
@@ -36,8 +49,7 @@ async function main(argv) {
     return 2;
   }
   const out = resolve(options.out);
-  const inside = relative(realpathSync(root), existsSync(out) ? realpathSync(out) : out);
-  if (!inside.startsWith('..')) {
+  if (insideRepository(out)) {
     console.error(`synthetic-workload: --out ${out} is inside the repository; write workloads outside it so no large file gets committed`);
     return 2;
   }
@@ -45,17 +57,26 @@ async function main(argv) {
     console.error('synthetic-workload: build the package first: pnpm --filter @ap/server-conformance build');
     return 2;
   }
-  const { SYNTHETIC_TABLES, SYNTHETIC_WORKLOAD_PROFILES, writeSyntheticWorkload } = await import(DIST.href);
+  const { streamSyntheticDataset, SYNTHETIC_TABLES, SYNTHETIC_WORKLOAD_PROFILES, writeSyntheticWorkload } = await import(DIST.href);
   const profile = SYNTHETIC_WORKLOAD_PROFILES[options.profile]?.[options.dataset];
   if (!profile || !['ndjson', 'csv'].includes(options.format)) {
     console.error(`synthetic-workload: unknown dataset, profile or format (${options.dataset}, ${options.profile}, ${options.format})`);
     return 2;
   }
-  mkdirSync(out, { recursive: true });
-  const files = new Map(SYNTHETIC_TABLES[options.dataset].map((table) => [table, openSync(join(out, `${table}.${options.format}`), 'w')]));
+  // Parameters, batch size and their domains are checked before anything touches the disk (the stream is lazy).
+  let params;
+  try {
+    params = { ...profile, ...JSON.parse(options.params) };
+    streamSyntheticDataset(options.dataset, options.seed, params, { batchParents: Number(options.batch) });
+  } catch (error) {
+    console.error(`synthetic-workload: ${error.message}`);
+    return 2;
+  }
+  const files = new Map();
   const started = performance.now();
   try {
-    const params = { ...profile, ...JSON.parse(options.params) };
+    mkdirSync(out, { recursive: true });
+    for (const table of SYNTHETIC_TABLES[options.dataset]) files.set(table, openSync(join(out, `${table}.${options.format}`), 'w'));
     const manifest = writeSyntheticWorkload(options.dataset, options.seed, params, options.format, { write: (table, text) => writeSync(files.get(table), text) }, { batchParents: Number(options.batch) });
     const elapsedMs = Math.round(performance.now() - started);
     const total = Object.values(manifest.rows).reduce((a, b) => a + b, 0);
