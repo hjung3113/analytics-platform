@@ -1,24 +1,24 @@
 // #1291 B2 — Milestone 생성 is drawn in the host head when the host offers one and still opens the create block from there.
-import { listMilestones } from '../../../lib/api/milestones';
-import { ApiError } from '../../../lib/api/types';
-import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
-import { type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
-import { HeadTargetHost } from '../../../test/primary-action-host';
+import { listMilestones } from '../../../../lib/api/milestones';
+import { ApiError } from '../../../../lib/api/types';
+import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reasons';
+import { type HostSeam, HostSeamProvider } from '../../../../lib/host/host-seam';
+import { HeadTargetHost } from '../../../../test/primary-action-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MilestonesScreen } from './MilestonesScreen';
+import { MilestonesScreen } from '../MilestonesScreen';
 
-vi.mock('../../../lib/api/milestones', () => ({
+vi.mock('../../../../lib/api/milestones', () => ({
   listMilestones: vi.fn(),
   getMilestone: vi.fn(),
   createMilestone: vi.fn(),
   updateMilestone: vi.fn(),
 }));
-vi.mock('../../../lib/api/tasks', () => ({ listTasks: vi.fn(async () => ({ items: [] })) }));
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({ useWorkspaceActors: () => ({ actors: [] }) }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/tasks', () => ({ listTasks: vi.fn(async () => ({ items: [] })) }));
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({ useWorkspaceActors: () => ({ actors: [] }) }));
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
   fetchManagedSystems: vi.fn(async () => ({ items: [], total: 0 })),
 }));

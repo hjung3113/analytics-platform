@@ -1,9 +1,9 @@
 // Previous rows stay only for a q-only change. A Managed System switch, the
 // backlog → 내 Task view switch, and a q change after a 403 must show the
 // loading state instead of the previous scope's rows.
-import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
-import { FindingsListPage, validateFindingsSearch } from '../../../test/findings-host/screen';
-import { TasksRouteView, validateTasksSearch } from '../../../test/screen-host/routes/_authed/tasks';
+import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reasons';
+import { FindingsListPage, validateFindingsSearch } from '../../../../test/findings-host/screen';
+import { TasksRouteView, validateTasksSearch } from '../../../../test/screen-host/routes/_authed/tasks';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as React from 'react';
@@ -23,18 +23,18 @@ vi.mock('@tanstack/react-router', async (original) => ({
   useSearch: () => router.search,
   Link: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
 }));
-vi.mock('../../../lib/auth/useMe', () => ({ useMe: () => ({ data: { actor: { id: 'me' } } }) }));
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/auth/useMe', () => ({ useMe: () => ({ data: { actor: { id: 'me' } } }) }));
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: async () => ({ items: [] }),
 }));
-vi.mock('../../../test/host-adapters/features/tasks/components/TaskDetailPanel', () => ({
+vi.mock('../../../../test/host-adapters/features/tasks/components/TaskDetailPanel', () => ({
   TaskDetailPanel: () => null,
 }));
-vi.mock('../../../test/host-adapters/features/findings/components/FindingDetail/index', () => ({
+vi.mock('../../../../test/host-adapters/features/findings/components/FindingDetail/index', () => ({
   FindingDetailPanel: () => null,
 }));
 

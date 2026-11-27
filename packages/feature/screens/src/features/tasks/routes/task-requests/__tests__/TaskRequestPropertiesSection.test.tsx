@@ -1,21 +1,21 @@
-import { resolveActors } from '../../../../lib/api';
-import { assignTaskRequestReviewer } from '../../../../lib/api/task-requests';
+import { resolveActors } from '../../../../../lib/api';
+import { assignTaskRequestReviewer } from '../../../../../lib/api/task-requests';
 import type { TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { TaskRequestPropertiesSection } from './TaskRequestPropertiesSection';
+import { TaskRequestPropertiesSection } from '../TaskRequestPropertiesSection';
 
-vi.mock('../../../../lib/api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../../lib/api')>()),
+vi.mock('../../../../../lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../lib/api')>()),
   resolveActors: vi.fn(),
 }));
-vi.mock('../../../../lib/api/actors', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../../lib/api/actors')>()),
+vi.mock('../../../../../lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../lib/api/actors')>()),
   resolveActors: (...args: Parameters<typeof resolveActors>) => resolveActors(...args),
 }));
-vi.mock('../../../../lib/api/task-requests', () => ({ assignTaskRequestReviewer: vi.fn() }));
-vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../../lib/api/task-requests', () => ({ assignTaskRequestReviewer: vi.fn() }));
+vi.mock('../../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
 

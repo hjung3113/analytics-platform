@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import type { PropsWithChildren } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { useTaskRequestLink } from './useTaskRequestLink';
+import { useTaskRequestLink } from '../useTaskRequestLink';
 
 const api = vi.hoisted(() => ({
   fetchPermissionCheck: vi.fn(),
@@ -12,18 +12,18 @@ const api = vi.hoisted(() => ({
 }));
 const toast = vi.hoisted(() => Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }));
 
-vi.mock('../../../../lib/api', () => ({
+vi.mock('../../../../../lib/api', () => ({
   fetchPermissionCheck: api.fetchPermissionCheck,
   linkExistingTask: api.linkExistingTask,
   listTasks: api.listTasks,
 }));
-vi.mock('../../../../lib/api/tasks', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../../lib/api/tasks')>()),
+vi.mock('../../../../../lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../lib/api/tasks')>()),
   linkExistingTask: (...args: unknown[]) => api.linkExistingTask(...args),
   listTasks: (...args: unknown[]) => api.listTasks(...args),
 }));
-vi.mock('../../../../lib/api/permission-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../../lib/api/permission-reads')>()),
+vi.mock('../../../../../lib/api/permission-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../lib/api/permission-reads')>()),
   fetchPermissionCheckViaClient: (...args: unknown[]) => api.fetchPermissionCheck(...args),
 }));
 vi.mock('sonner', () => ({ toast }));

@@ -2,7 +2,7 @@ import type { TaskRequestDto } from '@ap/feature-shared';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
-import { TaskRequestDecisionDialog } from './TaskRequestDecisionDialog';
+import { TaskRequestDecisionDialog } from '../TaskRequestDecisionDialog';
 
 const requestId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0001';
 const request = { id: requestId } as TaskRequestDto;

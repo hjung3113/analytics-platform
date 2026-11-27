@@ -1,11 +1,11 @@
 // The router-free /tasks search module (#763 s): the per-key validator the platform bridge asks before mounting a Task menu.
 import { describe, expect, test } from 'vitest';
 
-import { isTasksSearchValueValid, tasksSearchSchema } from './task-search';
+import { isTasksSearchValueValid, tasksSearchSchema } from '../task-search';
 import {
   tasksSearchSchema as routeSchema,
   validateTasksSearch,
-} from '../../../test/screen-host/routes/_authed/tasks';
+} from '../../../../test/screen-host/routes/_authed/tasks';
 
 const ID = '99999999-9999-4999-8999-999999999901';
 

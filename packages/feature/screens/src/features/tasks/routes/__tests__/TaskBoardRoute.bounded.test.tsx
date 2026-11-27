@@ -1,12 +1,12 @@
-import { TASK_LINK_MISSING_MESSAGE } from '../../../lib/copy/tasks';
-import { TaskBoardRoute } from '../../../test/screen-host/features/tasks/routes/TaskBoardRoute';
+import { TASK_LINK_MISSING_MESSAGE } from '../../../../lib/copy/tasks';
+import { TaskBoardRoute } from '../../../../test/screen-host/features/tasks/routes/TaskBoardRoute';
 import type { ListTasksQuery, TaskDto, TaskStatus } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { listBoardTasks, parseBoardQuery } from './taskBoardTestServer';
-import { TASK_STATUS_LABELS } from '../../../lib/copy/enum-labels';
+import { listBoardTasks, parseBoardQuery } from '../taskBoardTestServer';
+import { TASK_STATUS_LABELS } from '../../../../lib/copy/enum-labels';
 
 // #1178: the board loads one bounded page per status column, groups the open set for the other
 // groupings, keeps operational totals in a three-request strip, and resolves unloaded deep links.
@@ -103,8 +103,8 @@ vi.mock('@ap/ui', async () => {
     ),
   };
 });
-vi.mock('../../../ui/index', async () => {
-  const actual = await vi.importActual<typeof import('../../../ui/index')>('../../../ui/index');
+vi.mock('../../../../ui/index', async () => {
+  const actual = await vi.importActual<typeof import('../../../../ui/index')>('../../../../ui/index');
   const react = await vi.importActual<typeof import('react')>('react');
   return {
     ...actual,
@@ -116,11 +116,11 @@ vi.mock('../../../ui/index', async () => {
     },
   };
 });
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [{ id: ACTOR, display_name: '김담당' }] }),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({
     items: [
       { id: MS, name: 'Billing Ops', archived_at: null },

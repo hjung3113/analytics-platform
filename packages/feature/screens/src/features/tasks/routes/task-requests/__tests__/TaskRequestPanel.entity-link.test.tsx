@@ -20,21 +20,21 @@ const { useDecision, useConversion, useLink } = vi.hoisted(() => ({
   useLink: vi.fn(),
 }));
 
-vi.mock('../../../findings/public', () => ({
+vi.mock('../../../../findings/public', () => ({
   useFindingDetail: () => ({ data: null }),
 }));
-vi.mock('../../../findings/hooks/useFindingDetail', () => ({
+vi.mock('../../../../findings/hooks/useFindingDetail', () => ({
   useFindingDetail: () => ({ data: null }),
 }));
-vi.mock('./useTaskRequestDecision', () => ({ useTaskRequestDecision: useDecision }));
-vi.mock('./useTaskRequestConversion', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./useTaskRequestConversion')>()),
+vi.mock('../useTaskRequestDecision', () => ({ useTaskRequestDecision: useDecision }));
+vi.mock('../useTaskRequestConversion', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../useTaskRequestConversion')>()),
   useTaskRequestConversion: useConversion,
 }));
-vi.mock('./useTaskRequestLink', () => ({ useTaskRequestLink: useLink }));
+vi.mock('../useTaskRequestLink', () => ({ useTaskRequestLink: useLink }));
 
-import { TaskRequestPanel } from '../../../../test/host-adapters/features/tasks/routes/task-requests/TaskRequestPanel';
-import { convertedTaskSummaryFromEntityLinks } from './useTaskRequestConvertedTaskLink';
+import { TaskRequestPanel } from '../../../../../test/host-adapters/features/tasks/routes/task-requests/TaskRequestPanel';
+import { convertedTaskSummaryFromEntityLinks } from '../useTaskRequestConvertedTaskLink';
 
 const request: TaskRequestDto = {
   id: '10000000-0000-0000-0000-000000000001',

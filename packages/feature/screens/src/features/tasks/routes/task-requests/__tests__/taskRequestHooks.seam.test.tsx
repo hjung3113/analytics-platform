@@ -1,14 +1,14 @@
-import { TASK_REQUEST_COPY } from '../../../../lib/copy/task-requests';
-import { type HostNotice, type HostSeam, HostSeamProvider } from '../../../../lib/host/host-seam';
+import { TASK_REQUEST_COPY } from '../../../../../lib/copy/task-requests';
+import { type HostNotice, type HostSeam, HostSeamProvider } from '../../../../../lib/host/host-seam';
 import type { TaskDto, TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import type { FormEvent, PropsWithChildren } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TaskRequestLinkedTask } from './TaskRequestLinkedTask';
-import { useTaskRequestConversion } from './useTaskRequestConversion';
-import { useTaskRequestDecision } from './useTaskRequestDecision';
-import { useTaskRequestLink } from './useTaskRequestLink';
+import { TaskRequestLinkedTask } from '../TaskRequestLinkedTask';
+import { useTaskRequestConversion } from '../useTaskRequestConversion';
+import { useTaskRequestDecision } from '../useTaskRequestDecision';
+import { useTaskRequestLink } from '../useTaskRequestLink';
 
 const api = vi.hoisted(() => ({
   approveTaskRequest: vi.fn(),
@@ -19,20 +19,20 @@ const api = vi.hoisted(() => ({
   checkPermission: vi.fn(),
 }));
 
-vi.mock('../../../../lib/api/task-requests', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../../lib/api/task-requests')>()),
+vi.mock('../../../../../lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../lib/api/task-requests')>()),
   approveTaskRequest: api.approveTaskRequest,
   rejectTaskRequest: api.rejectTaskRequest,
   requestMoreEvidenceForTaskRequest: api.requestMoreEvidenceForTaskRequest,
 }));
-vi.mock('../../../../lib/api/tasks', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../../lib/api/tasks')>()),
+vi.mock('../../../../../lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../lib/api/tasks')>()),
   convertTaskRequest: api.convertTaskRequest,
   linkExistingTask: api.linkExistingTask,
 }));
 
-vi.mock('../../../../lib/api/permission-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../../lib/api/permission-reads')>()),
+vi.mock('../../../../../lib/api/permission-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../lib/api/permission-reads')>()),
   fetchPermissionCheckViaClient: api.checkPermission,
 }));
 

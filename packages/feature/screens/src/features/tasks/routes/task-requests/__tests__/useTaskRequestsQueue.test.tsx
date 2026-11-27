@@ -1,6 +1,6 @@
-import * as api from '../../../../lib/api';
-import { useMe } from '../../../../lib/auth/useMe';
-import { taskRequestPage } from '../../../../test/task-request-pages';
+import * as api from '../../../../../lib/api';
+import { useMe } from '../../../../../lib/auth/useMe';
+import { taskRequestPage } from '../../../../../test/task-request-pages';
 import type { ListTaskRequestsQuery } from '@ap/feature-shared';
 import type { TaskRequestDto } from '@ap/feature-shared';
 import type { ListToolbarTab } from '@ap/ui';
@@ -9,14 +9,14 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useTaskRequestsQueue } from './useTaskRequestsQueue';
+import { useTaskRequestsQueue } from '../useTaskRequestsQueue';
 
 const { fetchTaskRequestsMock, resolveActorsMock } = vi.hoisted(() => ({
   fetchTaskRequestsMock: vi.fn(),
   resolveActorsMock: vi.fn(),
 }));
 
-vi.mock('../../../../lib/api', async (importOriginal) => ({
+vi.mock('../../../../../lib/api', async (importOriginal) => ({
   ...(await importOriginal()),
   fetchTaskRequests: async (options: ListTaskRequestsQuery) => {
     const result = await fetchTaskRequestsMock(options);
@@ -26,27 +26,27 @@ vi.mock('../../../../lib/api', async (importOriginal) => ({
 }));
 
 // The hook imports the module paths; forward at call time so the barrel fakes above still apply.
-vi.mock('../../../../lib/api/task-requests', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../../lib/api/task-requests')>()),
+vi.mock('../../../../../lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../lib/api/task-requests')>()),
   fetchTaskRequests: (...args: Parameters<typeof api.fetchTaskRequests>) =>
     api.fetchTaskRequests(...args),
 }));
-vi.mock('../../../../lib/api/actors', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../../lib/api/actors')>()),
+vi.mock('../../../../../lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../lib/api/actors')>()),
   resolveActors: (...args: Parameters<typeof api.resolveActors>) => api.resolveActors(...args),
 }));
-vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
+vi.mock('../../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({ items: [] })),
 }));
 
-vi.mock('../../../../lib/auth/useMe', () => ({
+vi.mock('../../../../../lib/auth/useMe', () => ({
   useMe: () => ({
     data: { actor: { id: '60000000-0000-0000-0000-000000000006', role_level: 'Admin' } },
   }),
 }));
-vi.mock('../../../../lib/api/me', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../../lib/api/me')>()),
+vi.mock('../../../../../lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../lib/api/me')>()),
   useMeBridge: () => useMe(),
 }));
 

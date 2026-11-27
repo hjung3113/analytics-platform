@@ -1,9 +1,9 @@
-import { TASK_REQUEST_STATUS_LABELS } from '../../../../lib/copy/enum-labels';
+import { TASK_REQUEST_STATUS_LABELS } from '../../../../../lib/copy/enum-labels';
 import { type TaskRequestDto, taskRequestStatusSchema } from '@ap/feature-shared';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { TaskRequestRow } from './TaskRequestRow';
+import { TaskRequestRow } from '../TaskRequestRow';
 
 const REQUEST: TaskRequestDto = {
   id: '10000000-0000-0000-0000-000000000001',

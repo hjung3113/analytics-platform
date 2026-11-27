@@ -1,12 +1,12 @@
-import { type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
-import type { HostSearch } from '../../../lib/host/search';
+import { type HostSeam, HostSeamProvider } from '../../../../lib/host/host-seam';
+import type { HostSearch } from '../../../../lib/host/search';
 import type { TaskDto, TaskStatus } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TaskBoardScreen } from './TaskBoardScreen';
-import { listBoardTasks } from './taskBoardTestServer';
+import { TaskBoardScreen } from '../TaskBoardScreen';
+import { listBoardTasks } from '../taskBoardTestServer';
 
 // #763 b: the board body under a host seam with no router and no sonner. Search, links and notices go through the seam;
 // the Task detail comes from the host's `renderDetail`, rendered in place.
@@ -64,11 +64,11 @@ vi.mock('@ap/ui', async () => {
     ),
   };
 });
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [{ id: ACTOR, display_name: '김담당' }] }),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({
     items: [{ id: MS, name: 'Billing Ops', archived_at: null }],
   })),

@@ -1,11 +1,11 @@
 // #1887: an open decision and its typed reason survive a session expiry for the same user only.
-import { beginSessionDraftOwner, resetSessionDraftsForTests, snapshotSessionDrafts } from '../../../../lib/session-draft/registry';
+import { beginSessionDraftOwner, resetSessionDraftsForTests, snapshotSessionDrafts } from '../../../../../lib/session-draft/registry';
 import type { TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { PropsWithChildren } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { useTaskRequestDecision } from './useTaskRequestDecision';
+import { useTaskRequestDecision } from '../useTaskRequestDecision';
 
 const taskRequest = {
   id: '10000000-0000-0000-0000-000000000001',
