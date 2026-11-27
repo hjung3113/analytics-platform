@@ -282,7 +282,10 @@ describe('catalog import wizard', () => {
       open();
       fireEvent.click(await screen.findByRole('button', { name: '가져오기' }, slow));
       expect(((await screen.findByLabelText('붙여넣을 목록')) as HTMLTextAreaElement).value).toBe('설비사명\t모델명\nA\tB');
-      expect((screen.getByRole('button', { name: '검사' }) as HTMLButtonElement).disabled).toBe(true);
+      const check = screen.getByRole('button', { name: '검사' });
+      expect((check as HTMLButtonElement).disabled).toBe(true);
+      // #2574: the earlier job's choice is named first, though text is present.
+      expect(document.getElementById(check.getAttribute('aria-describedby') ?? '')?.textContent).toBe('이전 작업을 이어서 하거나 새로 시작하면 검사할 수 있습니다.');
       fireEvent.click(screen.getByRole('button', { name: '이어서 하기' }));
       await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
       expect(stepName()).toContain('검사 결과');

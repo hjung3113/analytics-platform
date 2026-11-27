@@ -4,7 +4,7 @@ import { PlatformLink, useMenuAction, useMenuFetch, useMenuQuery, usePlatform, u
 import { DetailDrawer } from '@ap/components';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-  Button, Callout, Combobox, FieldLabel, Input, MultiCombobox, StatusBadge, useValidatedSubmit,
+  Button, Callout, Combobox, FieldLabel, Input, MultiCombobox, StatusBadge, useImeEnterGuard, useValidatedSubmit,
 } from '@ap/ui';
 import {
   modelCreate, modelSetActive, modelUpdate, modelsEndpoint, processCreate, processSetActive, processUpdate, processesEndpoint, softwareCreate, softwareSetActive, softwareUpdate,
@@ -124,7 +124,7 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose, markDir
   const { setPage, toast } = usePlatform();
   const actions = ACTIONS[kind];
   const create = useMenuAction(actions.create), update = useMenuAction(actions.update), setActive = useMenuAction(actions.setActive);
-  const uid = useId();
+  const uid = useId(), ime = useImeEnterGuard();
   const isNew = row === null;
   const model = kind === 'model' ? (row as ModelRow | null) : null;
   const [values, setValues] = useState<Record<string, string>>(() => ({
@@ -174,9 +174,10 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose, markDir
   // model may leave 코드 blank (the server derives it from the name); 버전 표기 and an existing row's 코드 are always required.
   const codeField = kind === 'software' ? 'versionLabel' : 'code';
   const parentField = kind === 'model' ? 'vendorId' : 'modelId';
+  const codeRequired = !isNew || kind === 'software';
   const required = [
     ...(isNew && (kind === 'model' || kind === 'software') ? [parentField] : []),
-    ...(isNew && kind !== 'software' ? [] : [codeField]),
+    ...(codeRequired ? [codeField] : []),
     ...(kind === 'software' ? [] : ['name']),
   ];
   const check = useValidatedSubmit<Record<string, string>>({
@@ -198,10 +199,11 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose, markDir
   };
 
   const err = (field: string) => errors[field];
-  const describedBy = (field: string) => (err(field) ? `${uid}-${field}-error` : undefined);
+  // The error while there is one, else the field's hint (Field renders one or the other).
+  const describedBy = (field: string, hint = false) => (err(field) ? `${uid}-${field}-error` : hint ? `${uid}-${field}-hint` : undefined);
   const parentLabel = kind === 'model' ? '설비사' : '모델';
   const knownProcesses = new Map((model?.processes ?? []).map(p => [p.id, p.name] as const));
-  return <form className="flex min-h-full flex-col gap-4" noValidate onSubmit={event => { if (busy) { event.preventDefault(); return; } check.handleSubmit(values)(event); }}>
+  return <form className="flex min-h-full flex-col gap-4" noValidate onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onSubmit={event => { if (busy) { event.preventDefault(); return; } check.handleSubmit(values)(event); }}>
     {row && !row.active && <div role="status" className="grid gap-2 rounded-md border border-border-subtle bg-surface-sunken p-3">
       <p className="text-sm font-semibold">비활성 {TAB_LABEL[kind]}</p>
       <p className="text-xs text-text-secondary">비활성 항목이라 새 연결을 만들 수 없습니다. 코드와 기존 연결은 그대로 남습니다.</p>
@@ -218,15 +220,16 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose, markDir
         : <p className="text-sm" id={`${uid}-${parentField}`}>{kind === 'model' ? model?.vendorName : options.models.find(o => o.value === values[parentField])?.label ?? values[parentField]}</p>}
     </Field>}
     <div className="grid grid-cols-2 gap-3">
-      <Field id={`${uid}-${codeField}`} label={kind === 'software' ? '버전 표기' : '코드'} required error={err(codeField)}>
-        <Input id={`${uid}-${codeField}`} value={values[codeField]} onChange={e => set(codeField, e.target.value)} aria-invalid={err(codeField) !== undefined} aria-describedby={describedBy(codeField)} />
+      <Field id={`${uid}-${codeField}`} label={kind === 'software' ? '버전 표기' : codeRequired ? '코드' : '코드 (선택)'} required={codeRequired} error={err(codeField)}
+        {...(codeRequired ? {} : { hint: '비우면 이름으로 정해집니다' })}>
+        <Input id={`${uid}-${codeField}`} value={values[codeField]} onChange={e => set(codeField, e.target.value)} aria-invalid={err(codeField) !== undefined} aria-describedby={describedBy(codeField, !codeRequired)} />
       </Field>
       <Field id={`${uid}-name`} label={kind === 'software' ? '이름 (선택)' : '이름'} required={kind !== 'software'} error={err('name')}>
         <Input id={`${uid}-name`} value={values['name']} onChange={e => set('name', e.target.value)} aria-invalid={err('name') !== undefined} aria-describedby={describedBy('name')} />
       </Field>
     </div>
     {kind === 'model' && <Field id={`${uid}-processIds`} label="공정" error={err('processIds')} hint="고르지 않으면 미분류입니다">
-      <ProcessPicker id={`${uid}-processIds`} values={processIds} onChange={next => { setProcessIds(next); check.clearError('processIds'); }} known={knownProcesses} invalid={err('processIds') !== undefined} describedBy={describedBy('processIds')} />
+      <ProcessPicker id={`${uid}-processIds`} values={processIds} onChange={next => { setProcessIds(next); check.clearError('processIds'); }} known={knownProcesses} invalid={err('processIds') !== undefined} describedBy={describedBy('processIds', true)} />
     </Field>}
     <div className="sticky bottom-0 z-10 -mx-5 mt-auto flex items-center justify-between gap-2 border-t border-border-subtle bg-surface-detail px-5 py-3">
       <div>{row?.active && <Button type="button" variant="secondary" disabled={busy} onClick={() => setConfirming(true)}>비활성화</Button>}</div>

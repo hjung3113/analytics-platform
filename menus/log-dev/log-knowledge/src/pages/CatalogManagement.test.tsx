@@ -238,6 +238,10 @@ describe('catalog drawer writes', () => {
   it('lets a new vendor leave 코드 blank (the server derives it) but not 이름', async () => {
     mount(`&tab=vendor${activeOnly()}&focus=new`);
     const code = await screen.findByLabelText(/^코드/, {}, slow);
+    // Optional on a new row, and said so (#2574): no required mark, the hint is its description.
+    expect(screen.getByText('코드 (선택)')).toBeTruthy();
+    expect(code.getAttribute('aria-required')).toBeNull();
+    expect(document.getElementById(code.getAttribute('aria-describedby') ?? '')?.textContent).toBe('비우면 이름으로 정해집니다');
     const name = screen.getByLabelText(/^이름/);
     const before = writes.length;
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
@@ -247,6 +251,13 @@ describe('catalog drawer writes', () => {
     fireEvent.change(name, { target: { value: 'Zeta Corp' } });
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     await waitFor(() => expect(writes.at(-1)?.action).toBe('logKnowledge.vendorCreate'));
+  });
+
+  // A Korean name's composing Enter must not save the row (useImeEnterGuard on the form).
+  it('does not submit on the Enter that ends an IME composition', async () => {
+    mount(`&tab=vendor${activeOnly()}&focus=new`);
+    const name = await screen.findByLabelText(/^이름/, {}, slow);
+    expect(fireEvent.keyDown(name, { key: 'Enter', keyCode: 229 })).toBe(false);
   });
 
   it('moves focus to the field the server rejected', async () => {

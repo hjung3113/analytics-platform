@@ -235,6 +235,22 @@ it('focuses the editor the server rejected', async () => {
   await waitFor(() => expect(evidence.getAttribute('aria-invalid')).toBe('true'));
   await waitFor(() => expect(document.activeElement).toBe(evidence));
 });
+it('does not submit on the Enter that ends an IME composition in 근거 참조', async () => {
+  const sw = { id: 'sw-1', versionLabel: '1.0.0' } as SoftwareRow;
+  mount('', { child: <ChangeDrawer modelId={modelId} software={[sw]} mode="add" selectedSoftware={null} onClose={() => {}} /> });
+  expect(fireEvent.keyDown(await screen.findByLabelText('근거 참조'), { key: 'Enter', keyCode: 229 })).toBe(false);
+});
+// The case behind the SDK change: replacing locks 대상, so a rejection of 대상 and 메모 focuses 메모.
+it('focuses the first rejected editor the person can fix when 대상 is locked', async () => {
+  mount(`&tab=changes&drawer=retire&change=${change.id}`, { action: () => server([{ path: ['replacement', 'target', 'module'], code: 'required' }, { path: ['replacement', 'note'], code: 'required' }]) });
+  const dialog = await screen.findByRole('dialog', { name: '변경점 닫기·대체' });
+  fireEvent.click(within(dialog).getByLabelText('같은 대상의 새 변경점으로 대체'));
+  fireEvent.click(within(dialog).getByRole('button', { name: '확인' }));
+  const note = await within(dialog).findByLabelText('메모');
+  await waitFor(() => expect(note.getAttribute('aria-invalid')).toBe('true'));
+  expect((within(dialog).getByLabelText('대상 (JSON)') as HTMLTextAreaElement).disabled).toBe(true);
+  await waitFor(() => expect(document.activeElement).toBe(note));
+});
 it('names why «추가» is off when there is no software to start from', async () => {
   mount('', { child: <ChangeDrawer modelId={modelId} software={[]} mode="add" selectedSoftware={null} onClose={() => {}} /> });
   const add = await screen.findByRole('button', { name: '추가' });

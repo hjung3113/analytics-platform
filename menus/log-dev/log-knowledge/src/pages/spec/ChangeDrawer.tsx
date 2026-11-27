@@ -2,7 +2,7 @@ import { useEffect, useId, useState } from 'react';
 import type { ActionResult } from '@ap/contracts';
 import { useMenuAction, useMenuFetch } from '@ap/kernel';
 import { DetailDrawer } from '@ap/components';
-import { Button, Callout, Checkbox, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, useValidatedSubmit } from '@ap/ui';
+import { Button, Callout, Checkbox, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, useImeEnterGuard, useValidatedSubmit } from '@ap/ui';
 import { modelSpecEndpoint, specChangeAdd, specChangeConfirm, specChangeRetire, specChangesEndpoint, SPEC_CHANGE_LIMITS, type SoftwareRow, type SpecChangeAddInput, type SpecChangeKind, type SpecChangeRow, type SpecTargetKind } from '../../endpoints';
 import { ChangeComparison } from './ChangeComparison';
 import { targetOf } from './specModel';
@@ -23,7 +23,7 @@ const JSON_EXAMPLES = {
 };
 type ChangeInput = { softwareId: string; end: string; targetKind: SpecTargetKind; changeKind: SpecChangeKind; target: string; before: string; after: string; note: string; evidenceRef: string };
 export function ChangeDrawer({ modelId, software, row, mode, selectedSoftware, onClose, onDirtyChange }: { modelId: string; software: SoftwareRow[]; row?: SpecChangeRow; mode: 'add' | 'retire' | 'confirm'; selectedSoftware: string | null; onClose: () => void; onDirtyChange?: (dirty: boolean) => void }) {
-  const w = useSpecWords(), mapFieldErrors = useSpecFieldErrors(), uid = useId();
+  const w = useSpecWords(), mapFieldErrors = useSpecFieldErrors(), uid = useId(), ime = useImeEnterGuard();
   const add = useMenuAction(specChangeAdd), retire = useMenuAction(specChangeRetire), confirm = useMenuAction(specChangeConfirm);
   const latest = useMenuFetch(modelSpecEndpoint), changes = useMenuFetch(specChangesEndpoint);
   const initial: ChangeInput = { softwareId: row?.softwareId ?? selectedSoftware ?? software[0]?.id ?? '', end: row?.endsBeforeSoftwareId ?? 'none', targetKind: row?.targetKind ?? 'event' as SpecTargetKind, changeKind: row?.changeKind ?? 'behavior' as SpecChangeKind,
@@ -105,13 +105,14 @@ export function ChangeDrawer({ modelId, software, row, mode, selectedSoftware, o
   return <>
     <DetailDrawer title={mode === 'add' ? w('변경점 추가', 'Add change') : mode === 'retire' ? w('변경점 닫기·대체', 'Retire or replace change') : w('변경점 재검토 확인', 'Confirm revalidation')} copyPage={null} onClose={close}
       footer={<div className="flex justify-end gap-2"><Button variant="secondary" disabled={pending} onClick={close}>{w('취소', 'Cancel')}</Button><Button type="submit" form={formId} aria-busy={pending || undefined} disabled={disabled || noSoftware} {...(noSoftware ? { disabledReason: w('적용 시작 SW가 없습니다. 먼저 카탈로그에 SW 버전을 등록해 주세요.', 'No software to start from. Register a software version in the catalog first.') } : {})}>{pending ? w('처리 중…', 'Working…') : mode === 'add' ? w('추가', 'Add') : w('확인', 'Confirm')}</Button></div>}
-      tabs={[{ id: 'change', label: w('내용', 'Content'), content: <form id={formId} noValidate className="grid gap-4" aria-busy={pending || undefined} onSubmit={event => {
+      tabs={[{ id: 'change', label: w('내용', 'Content'), content: <form id={formId} noValidate onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="grid gap-4" aria-busy={pending || undefined} onSubmit={event => {
         if (disabled || noSoftware) { event.preventDefault(); return; }
+        // The hook checks again; the problem line needs the same verdict before it runs.
         if (Object.keys(parsed(input).errs).length > 0) setProblem(w('입력 값을 확인해 주세요.', 'Check the highlighted fields.'));
         check.handleSubmit(input)(event);
       }}>
         {problem && <Callout tone="amber" title={w('확인 필요', 'Review required')}><p role="alert" className="whitespace-pre-wrap text-sm">{problem}</p></Callout>}
-        {conflict && <Button disabled={pending} variant="secondary" onClick={() => { void recover().catch(() => setRecovering(false)); }}>{w('최신 확인 후 다시 검토', 'Check latest and review again')}</Button>}
+        {conflict && <Button type="button" disabled={pending} variant="secondary" onClick={() => { void recover().catch(() => setRecovering(false)); }}>{w('최신 확인 후 다시 검토', 'Check latest and review again')}</Button>}
         {shownRow && <><p className="text-sm">{shownRow.softwareLabel}{w('부터', ' onward')} · r{shownRow.basedOnRevNo} · {shownRow.needsRevalidation ? w('재검토 필요', 'Needs revalidation') : w('확인됨', 'Reviewed')}</p><ChangeComparison row={shownRow} /></>}
         {mode === 'confirm' ? <p className="text-sm">{w('내용을 바꾸지 않고 재검토 필요 표시만 해제합니다.', 'Clear the revalidation flag without changing the content.')}</p> : <>
           {mode === 'retire' && <label className="flex items-center gap-2 text-sm"><Checkbox checked={replace} onCheckedChange={value => setReplace(value === true)} disabled={disabled} />{w('같은 대상의 새 변경점으로 대체', 'Replace with a new change for the same target')}</label>}
