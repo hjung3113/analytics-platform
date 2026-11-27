@@ -74,13 +74,13 @@ export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remembe
 
   const columns = useMemo<PlatformColumn<CatalogRow>[]>(() => {
     const open = (row: CatalogRow) => { remember(row.id, row.name || row.code); setPage(tabPatch(childLink(row, kind))); };
-    const code: PlatformColumn<CatalogRow> = { id: 'code', header: kind === 'software' ? '버전' : '코드', size: 140, cell: r => <span className="t-mono">{r.code}</span> };
+    const code: PlatformColumn<CatalogRow> = { id: 'code', header: kind === 'software' ? '버전' : '코드', size: 112, cell: r => <span className="t-mono">{r.code}</span> };
     const status: PlatformColumn<CatalogRow> = {
       id: 'active', header: '상태', size: 116, filter: specs.active, filterPinned: 1, exportValue: r => (r.active ? '활성' : '비활성'),
       cell: r => <StatusBadge tone={r.active ? 'success' : 'neutral'}>{r.active ? '활성' : '비활성'}</StatusBadge>,
     };
-    const name: PlatformColumn<CatalogRow> = { id: 'name', header: '이름', size: 180, cell: r => r.name || '—' };
-    const updated: PlatformColumn<CatalogRow> = { id: 'updatedAt', header: '수정일', size: 132, cell: r => <span className="tabular">{updatedDate(r.updatedAt)}</span> };
+    const name: PlatformColumn<CatalogRow> = { id: 'name', header: '이름', size: 168, cell: r => r.name || '—' };
+    const updated: PlatformColumn<CatalogRow> = { id: 'updatedAt', header: '수정일', size: 120, cell: r => <span className="tabular whitespace-nowrap">{updatedDate(r.updatedAt)}</span> };
     if (kind === 'vendor' || kind === 'process') {
       return [code, status, name, {
         id: 'modelCount', header: '모델 수', size: 96, align: 'right', exportValue: r => (r as VendorRow | ProcessRow).modelCount,
@@ -91,10 +91,10 @@ export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remembe
       const models = (r: CatalogRow) => r as ModelRow;
       return [code, status, name,
         { id: 'vendorName', header: '설비사', size: 140, cell: r => models(r).vendorName },
-        { id: 'processNames', header: '공정', size: 200, sortable: false, exportValue: r => models(r).processes.map(p => p.name).join(', '),
+        { id: 'processNames', header: '공정', size: 176, sortable: false, exportValue: r => models(r).processes.map(p => p.name).join(', '),
           cell: r => models(r).processes.length === 0 ? <span className="text-text-muted">미분류</span>
             : <span className="flex flex-wrap gap-1">{models(r).processes.map(p => <StatusBadge key={p.id} tone="info">{p.name}</StatusBadge>)}</span> },
-        { id: 'softwareCount', header: 'SW 버전', size: 150, exportValue: r => softwareSummary(models(r)),
+        { id: 'softwareCount', header: 'SW 버전', size: 140, exportValue: r => softwareSummary(models(r)),
           cell: r => models(r).softwareCount === 0 ? '—' : <span className="inline-flex items-baseline gap-1.5">
             <span className="t-mono">{models(r).latestSoftwareLabel}</span>
             {models(r).softwareCount > 1 && <Count n={models(r).softwareCount - 1} text={`외 ${models(r).softwareCount - 1}`} label={`${r.name} SW 버전 ${models(r).softwareCount}개 보기`} onOpen={() => open(r)} />}
