@@ -47,10 +47,21 @@ import socket
 import subprocess
 import sys
 import time
+import shutil
 import urllib.request
 from pathlib import Path
 
-NODE22 = '/opt/homebrew/opt/node@22/bin'
+def _node_bin():
+    """The Node bin directory: Homebrew's node@22 on the Mac host, else the directory of the `node` on PATH (the desktop host has no
+    Homebrew path, so the hard-coded one made the fixtures run fail with 'failed to start')."""
+    homebrew = Path('/opt/homebrew/opt/node@22/bin')
+    if (homebrew / 'node').exists():
+        return str(homebrew)
+    found = shutil.which('node')
+    return str(Path(found).parent) if found else str(homebrew)
+
+
+NODE22 = _node_bin()
 USER_BACKEND_PORT = 3011
 DEV_DB_PORT = '5434'
 
