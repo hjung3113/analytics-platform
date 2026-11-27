@@ -18,7 +18,9 @@ const matches = (path, pattern) => path === pattern || matchesGlob(path, pattern
 
 // The CI entry points: the workflow, the gate stages it calls, and the root package scripts those two invoke by name.
 const featureOps = /^FEATURE_OPS=(\S+)$/m.exec(read('ops/platform-api/paths.sh'))[1];
-const direct = [read('.github/workflows/ci.yml'), read('ops/platform-api/scripts/ci/gate.sh').replaceAll('$FEATURE_OPS', featureOps)].join('\n');
+// Whole-line comments are dropped: a commented-out or cited command runs nothing.
+const uncommented = (text) => text.replace(/^\s*#.*$/gm, '');
+const direct = [read('.github/workflows/ci.yml'), read('ops/platform-api/scripts/ci/gate.sh').replaceAll('$FEATURE_OPS', featureOps)].map(uncommented).join('\n');
 const scripts = JSON.parse(read('package.json')).scripts;
 const invoked = Object.keys(scripts).filter((name) => new RegExp(`\\bpnpm (?:run )?${name.replace(/[.:]/g, '\\$&')}(?![\\w:-])`).test(direct));
 const runnerText = [direct, ...invoked.map((name) => scripts[name])].join('\n');
