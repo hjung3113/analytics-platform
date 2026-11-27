@@ -8,7 +8,7 @@
   },
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "ap-tsc --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "gen:primitives": "vitest run --config vitest.config.ts test/primitives.test.ts -u",
     "demo": "vite"

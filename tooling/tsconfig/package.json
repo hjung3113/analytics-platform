@@ -2,6 +2,8 @@
   "name": "@ap/tsconfig",
   "private": true,
   "version": "0.0.0",
-  "files": ["base.json"],
-  "exports": { "./base.json": "./base.json" }
+  "files": ["base.json", "bin"],
+  "exports": { "./base.json": "./base.json" },
+  "bin": { "ap-tsc": "./bin/ap-tsc.mjs" },
+  "dependencies": { "typescript7": "npm:typescript@7.0.2" }
 }

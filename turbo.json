@@ -23,6 +23,9 @@
     "typecheck": {
       "dependsOn": [
         "transit"
+      ],
+      "env": [
+        "AP_TSC"
       ]
     },
     "lint": {

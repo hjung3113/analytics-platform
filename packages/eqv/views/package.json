@@ -12,7 +12,7 @@
   },
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "ap-tsc --noEmit",
     "test": "vitest run --config vitest.config.ts"
   },
   "peerDependencies": {

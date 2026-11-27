@@ -404,7 +404,7 @@ describe('session and slot lifecycle (C1, C3)', () => {
 
 describe('a detail takes the position (C2, C4)', () => {
   /** Focuses its close button when it mounts, like DetailDrawer's arrival focus. */
-  const atFocus: { detailHidden: boolean | null; drawerHidden: boolean | null } = { detailHidden: null, drawerHidden: null };
+  const atFocus: { detailHidden: HTMLElement['hidden'] | null; drawerHidden: HTMLElement['hidden'] | null } = { detailHidden: null, drawerHidden: null };
   function FocusingDetail() {
     const button = useRef<HTMLButtonElement>(null);
     useLayoutEffect(() => {

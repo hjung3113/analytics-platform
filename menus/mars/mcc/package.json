@@ -9,7 +9,7 @@
   },
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "ap-tsc --noEmit"
   },
   "dependencies": {
     "@ap/contracts": "workspace:*",

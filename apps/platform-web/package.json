@@ -7,7 +7,7 @@
     "lint": "eslint .",
     "dev": "vite --host 127.0.0.1",
     "dev:real": "vite --host 127.0.0.1 --mode real",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "ap-tsc --noEmit",
     "gen:platform-systems": "UPDATE_PLATFORM_SYSTEMS=1 vitest run src/__tests__/space-systems/platform-systems.test.ts",
     "test": "vitest run",
     "build": "tsc --noEmit && vite build --mode mock",
