@@ -721,6 +721,10 @@
 | 미구현 | `DetailPanelHeaderActions.entityKind`·`entityId` prop 삭제 | SHE-45 소유자 결정: 사용하지 않는 prop의 소스 호환을 한 릴리스 유지 | SDK 1.0 계약 동결(go-live, #1931) 때 제거 |
 | 미구현 | `@ap/ui` `isProductionEnv` export 삭제 (#2951) | SDK 소스는 `process.env.NODE_ENV` 직접 비교로 모두 옮겼지만(#3028) 공개 export라 소비자 소스 호환을 한 릴리스 유지 | SDK 1.0 계약 동결(go-live, #1931) 때 제거 |
 | 미구현 | `AnalysisChartFrame.stacked` 삭제와 메뉴 사용처(hw-time 3곳, analytics 2곳, rcc 2곳)의 `stackMode="stack"` 이전 (#2887 F2) | 팀장 결정: 이번에는 사용 중단 표시만 하고 동작은 그대로 둔다. `stackMode`는 집계 선언이 없거나 더할 수 없는 측정을 쌓지 않으므로, 메뉴마다 측정이 더할 수 있는지 확인하고 `reaggregation`을 선언해야 한다 | SDK 1.0 계약 동결(go-live, #1931) 때 제거, 또는 메뉴가 쌓기 차트를 손볼 때 |
+| 미구현 | `PanelWorkspace.minimize` prop 삭제 (#2435) | #2435가 접기를 `collapse`로 바꾸며 사용 중단 표시만 했다. 메뉴·platform 사용처 0(#2190 재측정) | SDK 1.0 계약 동결(go-live, #1931) 때 제거 |
+| 미구현 | `AnalysisChartFrame.pointClickHint` prop 삭제 (#2538) | #2538부터 SDK가 안내 문구를 입력에서 만들어 이 prop은 읽지 않는다. 공개 prop이라 소스 호환으로 남겼다. 사용처 0(#2190 재측정) | SDK 1.0 계약 동결(go-live, #1931) 때 제거 |
+| 미구현 | `StatCard` chip `'purple'`·`'amber'` 값 삭제 (#1945) | #1945가 칩을 `blue`·`teal`로 맞추며 사용 중단 표시만 했다(주석의 «다음 minor에 제거»는 지나감). 사용처 0(#2190 재측정) | SDK 1.0 계약 동결(go-live, #1931) 때 제거 |
+| 미구현 | contracts 어댑터 `ConditionOptions`·`contextOptions`·`evaluateSelection` 삭제 (#552, ADR-0059) | #552가 `listAxisOptions`·`searchEquipment`·`resolveSelection` 포트로 옮기며 옛 포트를 사용 중단 표시만 했다. 메뉴·platform 사용처 0(#2190 재측정). `packages/host`의 http-adapter·mock-server·server-conformance 구현과 시험도 같이 지운다 | SDK 1.0 계약 동결(go-live, #1931) 때 제거 |
 
 ## 성능 감사 2026-11-23 보류 (#2816)
 
