@@ -779,7 +779,8 @@ A grant whose Space was removed stays visible while active and can still be
 revoked by ID via `POST /permissions/grants/:id/revoke`. Grant and revoke audit
 details include the Space coordinate. Active uniqueness and expired reissue
 use the exact Space, so one actor can hold independent grants in different
-Spaces. Saved View decisions consume this delegation in part (b) of #2765.
+Spaces. [Kernel §21.4](../../../contract/kernel.md#214-서버-몫-정책-decided-adr-0099)
+defines how Saved View approval uses these grants.
 
 ## Permission groups (ADR-0163, #2408)
 

@@ -35,6 +35,6 @@ node tooling/scripts/synthetic-workload.mjs --dataset shared-resource --format c
 
 참고 측정(개발 PC 1회, Node 26.13, Ryzen 7 7800X3D, WSL2, NDJSON, 기본 묶음): `interval-steps` `large` 310만 행 7.7초·최대 RSS 275 MB, `shared-resource` `large` CSV 305만 행 3.7초·216 MB. 부모 100만→300만 행에서 최대 RSS 261→267 MB(쓰기 없는 sink) — 규모와 무관하게 묶음 크기로 묶인다.
 
-## 다음
+## 엔진에 싣기
 
-- 엔진별 loader(공개 PG 최소 계약 시험, #1704)와 #2918 측정에서의 사용 기록은 #3204 조각 3.
+PostgreSQL loader, 옵트인 계약 시험, #1704·#2918에서 사용할 입력은 [엔진 가이드](synthetic-dataset-engines.md)를 따른다.

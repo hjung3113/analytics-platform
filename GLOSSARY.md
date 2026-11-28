@@ -628,6 +628,9 @@ _Avoid_: 동작 막대 — #2734 초기 명세의 설명이다.
 데이터 책임자가 발행한, 사용자 분석 메뉴의 원천 데이터. 데이터 단위, 필드 역할, 허용 집계, 승인된 관계, 버전을 가진다. 서버가 닫힌 질의로만 조회한다([ADR-0176](docs/adr/0176-user-analysis-menu-one-definition-two-homes.md), #1704).
 _Avoid_: Dataset(단독) — 검증용 테스트 데이터셋이다(«표준 로그 개발»).
 
+**합성 분석 데이터셋**:
+분석 질의와 엔진을 시험하기 위해 가상 값으로 만든 입력이다. 같은 생성기 버전·시드·파라미터면 같은 논리 행을 만들며, 같은 입력으로 여러 엔진의 결과를 비교할 수 있다. [합성 분석 실행 가이드](docs/integration/synthetic-workload.md).
+
 **내 메뉴**:
 사용자가 저장한 분석 정의(저장된 뷰 또는 `analysis-menu`)를 사이드바에 올린 내비 자리. Registry 항목이 아니며 원본 메뉴 또는 등록된 분석 메뉴 화면이 그린다. 공식 승인을 거치면 «공식»으로 보인다([ADR-0176](docs/adr/0176-user-analysis-menu-one-definition-two-homes.md)).
 _Avoid_: 사용자 메뉴(Registry 메뉴로 읽힌다).
@@ -695,6 +698,9 @@ _Avoid_: 고정 — 단계별 패널 고정(ADR-0165)과 섞인다.
 **공식** (메뉴 단계):
 내 메뉴나 공유된 정의가 공식 승인을 거쳐 오른 단계. 단계 이름으로만 쓴다(소유자 2026-11-25 «1 ok», #2760 O1).
 _Avoid_: 공식(숫자 등급) — 숫자 등급은 «공식 지표»/«탐색 값»으로 쓴다.
+
+**시스템 승인자** (`saved_view.approve`):
+해당 공간(업무 시스템)의 활성 `saved_view.approve` 부여를 받아, 그 공간 메뉴에 속한 저장된 뷰의 공식 신청을 승인하거나 반려하는 사람이다. 자기 신청은 승인하거나 반려할 수 없다. Workspace 관리자(`console:access`)는 공간 부여 없이 공식 신청을 처리한다. [ADR-0176](docs/adr/0176-user-analysis-menu-one-definition-two-homes.md), [Kernel §21.4](docs/contract/kernel.md#214-서버-몫-정책-decided-adr-0099).
 
 **공식 지표** / **탐색 값** (숫자 등급 배지):
 숫자의 출처 등급. 지표 버전을 단 공식 지표의 값은 «공식 지표», 데이터셋 측정과 사용자 계산은 «탐색 값» 배지를 제목 줄에 달고 이미지 복사와 내보내기에도 찍는다(소유자 2026-11-25 «1 ok», #2760 O1, [ADR-0176](docs/adr/0176-user-analysis-menu-one-definition-two-homes.md)).
