@@ -326,6 +326,16 @@ describe('guards equal the wire schemas', () => {
     expect(responseGuards[op](value)).toBe(savedViewResponseSchemas[op].safeParse(value).success);
   });
 
+  it.each<[string, unknown]>([
+    ['an unmarked menu view', entry],
+    ['a condition set', { capabilities: caps, view: { id: 's1', kind: 'condition-set', schemaVersion: 1, name: 'Set', ownerId: 'u1', version: 1, updatedAt: 1, visibility: { kind: 'private' }, approval: 'none', context: {} } }],
+    ['a marked menu view with canView false', { ...myMenuEntry, capabilities: { ...caps, canView: false } }],
+  ])('rejects %s in My Menus responses in both validators', (_name, invalidEntry) => {
+    const reply = [invalidEntry];
+    expect.soft(savedViewResponseSchemas.listMyMenus.safeParse(reply).success, 'wire schema').toBe(false);
+    expect.soft(responseGuards.listMyMenus(reply), 'HTTP guard').toBe(false);
+  });
+
   it('measures depth with the root at 0', () => {
     expect(withinDepth(deepArray(33))).toBe(false);
     expect(withinDepth(deepArray(32))).toBe(true);

@@ -303,17 +303,21 @@ describe('the import protocol (#1105)', () => {
 describe('reads wait for the one import (#1105)', () => {
   const store = () => ({ list: vi.fn(async () => []), getDefaultId: vi.fn(async () => null), save: vi.fn() }) as never;
 
-  it('holds list and getDefaultId until the import settled, even when it failed, and delegates the rest untouched', async () => {
+  it('holds list, listMyMenus and getDefaultId until the import settled, even when it failed, and delegates the rest untouched', async () => {
     let fail: (e: unknown) => void = () => {};
     const imported = new Promise((_, reject) => { fail = reject; });
-    const inner = store() as { list: ReturnType<typeof vi.fn>; getDefaultId: ReturnType<typeof vi.fn>; save: unknown };
+    const inner = { ...(store() as { list: ReturnType<typeof vi.fn>; getDefaultId: ReturnType<typeof vi.fn>; save: unknown }), listMyMenus: vi.fn(async () => []) };
     const wrapped = afterImport(inner as never, imported);
     const pending = wrapped.list({ userId: ACTOR, menuId: null });
+    const pendingMyMenus = wrapped.listMyMenus?.(ACTOR);
     await Promise.resolve();
     expect(inner.list).not.toHaveBeenCalled();
+    expect(inner.listMyMenus).not.toHaveBeenCalled();
     fail(new Error('x'));
     await pending;
+    await pendingMyMenus;
     expect(inner.list).toHaveBeenCalledOnce();
+    expect(inner.listMyMenus).toHaveBeenCalledExactlyOnceWith(ACTOR);
     await wrapped.getDefaultId({ userId: ACTOR, menuId: null });
     expect(inner.getDefaultId).toHaveBeenCalledOnce();
     expect(wrapped.save).toBe(inner.save);

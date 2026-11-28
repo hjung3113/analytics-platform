@@ -24,6 +24,17 @@ const REVOKE_NOTE = '공식 등록이 회수되어 개인 비공개로 돌아왔
 const fail = (reason: 'conflict' | 'forbidden' | 'unavailable' | 'invalid', detail?: string): Result<never> => ({ ok: false, reason, ...(detail ? { detail } : {}) });
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
+/** Saved content is JSON: array order matters, object key order does not. */
+function sameContent(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return left.length === right.length && left.every((value, index) => sameContent(value, right[index]));
+  }
+  if (!isObject(left) || !isObject(right)) return false;
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length && keys.every(key => Object.hasOwn(right, key) && sameContent(left[key], right[key]));
+}
+
 type Read<T> = { future: boolean; value: T | null };
 /** `value: null` = never written (the seed applies); a malformed envelope reads as empty and is replaced on the next write. */
 function readEnvelope<T>(storage: StoragePort, name: string, field: string, item: (v: unknown) => boolean): Read<T[]> {
@@ -330,7 +341,12 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
           if (myMenu) withFlag.myMenu = true;
           else delete withFlag.myMenu;
         }
-        if (myMenu !== undefined && Object.keys(contentPatch).length === 0) return commit(c, withFlag, c.actor, c.groups);
+        if (myMenu !== undefined && sameContent(
+          { ...merged, myMenu: undefined, name: checked.value.name.trim() },
+          { ...content, myMenu: undefined, name: content.name.trim() },
+        )) {
+          return commit(c, withFlag, c.actor, c.groups);
+        }
         return commit(c, { ...withFlag, pending: { ...next, approval: 'pending' } as StoredContent }, c.actor, c.groups);
       }
       return commit(c, { ...next, approval, ...(approvalNote === undefined ? {} : { approvalNote }) } as StoredContent, c.actor, c.groups);

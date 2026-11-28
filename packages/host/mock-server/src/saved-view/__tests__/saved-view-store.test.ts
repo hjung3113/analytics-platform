@@ -494,6 +494,23 @@ it('an edit of an official copy lists what the proposal changes and a rejection 
   expect((await store().listApprovalRequests(key(ENG)))[0]).toMatchObject({ rejectReason: '근거 부족' });
 });
 
+it('keeps the rejected official proposal when a My Menus patch echoes the shown name', async () => {
+  const s = store();
+  const { view: saved } = ok(await s.save({ ...draft('Published'), myMenu: true } as SavedViewDraft));
+  const { view: requested } = ok(await s.requestOfficial(saved.id, { expectedVersion: saved.version }));
+  as('admin');
+  const { view: approved } = ok(await s.decide(saved.id, 'approve', undefined, { expectedVersion: requested.version }));
+  as('engineer');
+  const proposedContent = { name: 'Proposed', page: { grain: ['day'] } };
+  const { view: pending } = ok(await s.update(saved.id, proposedContent, { expectedVersion: approved.version }));
+  as('admin');
+  const { view: rejected } = ok(await s.decide(saved.id, 'reject', 'Needs evidence', { expectedVersion: pending.version }));
+  as('engineer');
+  const { view: updated } = ok(await s.update(saved.id, { myMenu: false, name: rejected.name }, { expectedVersion: rejected.version }));
+  expect(updated).toMatchObject({ ...proposedContent, approval: 'rejected', approvalNote: 'Needs evidence' });
+  expect(updated).not.toHaveProperty('myMenu');
+});
+
 // A menu that needs two grants (menuPermissions): each grant alone is not enough on any path, both are, revoking one denies an existing view.
 describe('a menu requiring platform:view AND console:access', () => {
   let held: string[] = [];

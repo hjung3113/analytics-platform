@@ -213,16 +213,18 @@ export async function runLocalImport(deps: LocalImportDeps): Promise<ImportRepor
   }
 }
 
-/** Lists and the default wait (bounded) for the one import of this assembly, so imported views are visible; they never fail because of it. */
+/** Saved-view lists and the default wait (bounded) for the assembly's import, so imported views are visible even after a partial import. */
 export function afterImport(store: SavedViewStore, imported: Promise<unknown>, boundMs = 30_000): SavedViewStore {
   const settled = new Promise<void>((resolve) => {
     const timer = setTimeout(resolve, boundMs);
     const done = () => { clearTimeout(timer); resolve(); };
     imported.then(done, done);
   });
+  const listMyMenus = store.listMyMenus?.bind(store);
   return {
     ...store,
     list: async (key) => { await settled; return store.list(key); },
+    ...(listMyMenus && { listMyMenus: async (userId) => { await settled; return listMyMenus(userId); } }),
     getDefaultId: async (key) => { await settled; return store.getDefaultId(key); },
   };
 }

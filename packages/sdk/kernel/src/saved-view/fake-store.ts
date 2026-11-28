@@ -2,6 +2,8 @@
 import type { ApprovalRequestInfo, GroupMember, Result, SavedView, SavedViewDraft, SavedViewEntry, SavedViewListItem, SavedViewStore, ViewCapabilities, ViewGroupEntry } from '@ap/contracts';
 import { validateSavedView } from '@ap/contracts';
 
+const FAKE_WRITER_ID = 'u1';
+
 /** Capabilities the fake grants an object unless `caps` says otherwise: view, copy, edit and share; no approve or revoke. */
 export const testViewCapabilities: ViewCapabilities = { canView: true, canCopy: true, canEdit: true, canShare: true, canApprove: false, canRevoke: false };
 /** `calls` records writes only; `reads` records `list`, `listMyMenus` and `get`. */
@@ -17,13 +19,27 @@ type GroupView = Extract<SavedView, { kind: 'custom-group' }>;
 export function testSavedView<K extends SavedView['kind'] = 'condition-set'>(over: Partial<SavedView> & { id: string; kind?: K }): [K] extends ['custom-group'] ? GroupView : RestorableView;
 export function testSavedView(over: Partial<SavedView> & { id: string }): SavedView {
   const content = over.kind === 'custom-group' ? {} : { context: {} };
-  return { schemaVersion: 1, kind: 'condition-set', name: over.id, ownerId: 'u1', version: 1, updatedAt: 1, ...content, visibility: { kind: 'private' }, approval: 'none', ...over } as SavedView;
+  return { schemaVersion: 1, kind: 'condition-set', name: over.id, ownerId: FAKE_WRITER_ID, version: 1, updatedAt: 1, ...content, visibility: { kind: 'private' }, approval: 'none', ...over } as SavedView;
 }
 export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Record<string, string> = {}): FakeSavedViewStore {
   const rows = new Map(seed.map(v => [v.id, v]));
   const entry = (view: SavedView): SavedViewEntry => {
     const capabilities = fake.caps.get(view.id) ?? testViewCapabilities;
     return { view, capabilities: view.kind === 'custom-group' ? { ...capabilities, canApprove: false, canRevoke: false } : capabilities };
+  };
+  const myMenuCapabilities = (view: SavedView, userId: string): ViewCapabilities | null => {
+    const overrides = fake.caps.get(view.id);
+    if (fake.denied.has(view.id) || overrides?.canView === false) return null;
+    const { visibility } = view;
+    const owned = view.ownerId === userId;
+    const named = visibility.kind === 'people' && visibility.userIds.includes(userId);
+    const groups = visibility.kind === 'groups' ? fake.groups.filter(({ group }) => visibility.groupIds.includes(group.id)) : [];
+    const manager = groups.some(({ group }) => group.managerIds?.includes(userId));
+    const member = groups.some(({ members }) => members.some(person => person.userId === userId));
+    if (!owned && !named && !manager && !member) return null;
+    const published = visibility.kind === 'official' && view.approval === 'approved';
+    const canManage = (owned || manager) && !published;
+    return { ...testViewCapabilities, canShare: canManage, ...overrides, canEdit: !published && (overrides?.canEdit ?? canManage) };
   };
   const fake: FakeSavedViewStore = {
     rows, defaults: new Map(Object.entries(defaults)), groups: [], caps: new Map(), requests: [], calls: [], reads: [],
@@ -37,17 +53,9 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
       fake.reads.push('listMyMenus');
       await fake.listHold;
       return [...rows.values()].flatMap(view => {
-        if (view.kind !== 'menu-view' || view.myMenu !== true || fake.denied.has(view.id)) return [];
-        const { visibility } = view;
-        const owned = view.ownerId === userId;
-        const named = visibility.kind === 'people' && visibility.userIds.includes(userId);
-        const groups = visibility.kind === 'groups' ? fake.groups.filter(({ group }) => visibility.groupIds.includes(group.id)) : [];
-        const manager = groups.some(({ group }) => group.managerIds?.includes(userId));
-        const member = groups.some(({ members }) => members.some(person => person.userId === userId));
-        const capabilities = fake.caps.get(view.id);
-        if ((!owned && !named && !manager && !member) || capabilities?.canView === false) return [];
-        const canEdit = (owned || manager) && !(visibility.kind === 'official' && view.approval === 'approved');
-        return [{ view, capabilities: { ...testViewCapabilities, canEdit, canShare: canEdit, ...capabilities } }];
+        if (view.kind !== 'menu-view' || view.myMenu !== true) return [];
+        const capabilities = myMenuCapabilities(view, userId);
+        return capabilities ? [{ view, capabilities }] : [];
       }).sort((left, right) => Number(right.view.ownerId === userId) - Number(left.view.ownerId === userId)
         || right.view.updatedAt - left.view.updatedAt || left.view.id.localeCompare(right.view.id));
     },
@@ -65,7 +73,7 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
       if (fake.failSave) return { ok: false, reason: 'unavailable' };
       if ('myMenu' in input && (input.kind !== 'menu-view' || input.myMenu !== true)) return { ok: false, reason: 'invalid' };
       if (input.kind === 'custom-group') { const checked = validateSavedView(input); if (!checked.ok) return checked; }
-      const view = { ...input, id: `v${rows.size + 1}`, ownerId: 'u1', version: 1, updatedAt: 1, visibility: { kind: 'private' }, approval: 'none' } as SavedView;
+      const view = { ...input, id: `v${rows.size + 1}`, ownerId: FAKE_WRITER_ID, version: 1, updatedAt: 1, visibility: { kind: 'private' }, approval: 'none' } as SavedView;
       rows.set(view.id, view);
       return { ok: true, value: entry(view) };
     },
@@ -75,7 +83,7 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
       if (!old) return { ok: false, reason: 'unavailable' };
       const { myMenu, ...content } = patch;
       if (myMenu !== undefined) {
-        if (fake.denied.has(id) || !entry(old).capabilities.canEdit || (old.visibility.kind === 'official' && old.approval === 'approved')) return { ok: false, reason: 'forbidden' };
+        if (!myMenuCapabilities(old, FAKE_WRITER_ID)?.canEdit) return { ok: false, reason: 'forbidden' };
         if (old.kind !== 'menu-view' || typeof myMenu !== 'boolean') return { ok: false, reason: 'invalid' };
       }
       if (old.version !== opts.expectedVersion) return { ok: false, reason: 'conflict' };

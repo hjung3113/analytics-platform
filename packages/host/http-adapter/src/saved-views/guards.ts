@@ -179,17 +179,26 @@ export const isSavedViewCommand: Guard = (body) => withinCommandBounds(body) && 
 
 // ---- responses ----
 
-const capabilities = strict({ canView: bool, canCopy: bool, canEdit: bool, canShare: bool, canApprove: bool, canRevoke: bool }, { reason: str });
+const capabilityFields = { canView: bool, canCopy: bool, canEdit: bool, canShare: bool, canApprove: bool, canRevoke: bool };
+const capabilityOptions = { reason: str };
+const capabilities = strict(capabilityFields, capabilityOptions);
 const record = { id, schemaVersion: lit(1), name: str, ownerId: str, version: int, updatedAt: num, visibility, approval: oneOf('none', 'pending', 'approved', 'rejected'), context };
 const approvalNote = { approvalNote: str };
 const { context: _context, ...groupRecord } = record;
 void _context;
+const menuViewFields = { ...record, kind: lit('menu-view'), menuId: id, menuSchemaVersion: int, page, chartOptions, layout, panels: responsePanels };
+const menuViewOptions = { ...approvalNote, savedScopeId, panelsUnreadable: lit(true), tables: isTableViewStates };
 const savedView: Guard = anyOf(
   strict({ ...groupRecord, kind: lit('custom-group'), savedScopeId, target, approval: lit('none'), visibility: anyOf(strict({ kind: lit('private') }), strict({ kind: lit('groups'), groupIds: textList })) }, approvalNote),
   strict({ ...record, kind: lit('condition-set') }, { ...approvalNote, savedScopeId }),
-  strict({ ...record, kind: lit('menu-view'), menuId: id, menuSchemaVersion: int, page, chartOptions, layout, panels: responsePanels }, { ...approvalNote, savedScopeId, panelsUnreadable: lit(true), tables: isTableViewStates, myMenu: lit(true) }),
+  strict(menuViewFields, { ...menuViewOptions, myMenu: lit(true) }),
 );
-const entry = strict({ view: savedView, capabilities }, { denied: lit(false) });
+const entryOptions = { denied: lit(false) };
+const entry = strict({ view: savedView, capabilities }, entryOptions);
+const myMenuEntry = strict({
+  view: strict({ ...menuViewFields, myMenu: lit(true) }, menuViewOptions),
+  capabilities: strict({ ...capabilityFields, canView: lit(true) }, capabilityOptions),
+}, entryOptions);
 const denied = strict({ id, denied: lit(true), reason: str });
 const listItem = anyOf(entry, denied);
 const approvalRequest = strict({ viewId: id, requestedBy: str, requestedAt: num, targetVersion: int, changes: strings }, { rejectReason: str });
@@ -213,7 +222,7 @@ const importOutcome = strict({
 
 export const responseGuards = {
   list: arrayOf(listItem),
-  listMyMenus: arrayOf(entry),
+  listMyMenus: arrayOf(myMenuEntry),
   get: nullable(listItem),
   save: result(entry),
   update: result(entry),
