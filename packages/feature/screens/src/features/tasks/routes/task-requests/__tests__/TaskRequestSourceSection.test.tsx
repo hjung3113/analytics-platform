@@ -1,8 +1,8 @@
-import { shortId } from '../../../../lib/identity';
+import { shortId } from '../../../../../lib/identity';
 import type { FindingDto, TaskRequestDto } from '@ap/feature-shared';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { TaskRequestSourceSection } from './TaskRequestSourceSection';
+import { TaskRequestSourceSection } from '../TaskRequestSourceSection';
 
 const SOURCE_ID = '40000000-0000-0000-0000-000000000004';
 

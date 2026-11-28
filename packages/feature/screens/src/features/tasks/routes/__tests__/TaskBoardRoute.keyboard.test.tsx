@@ -1,13 +1,13 @@
-import { getTask, listTasks, updateTaskStatus } from '../../../lib/api/tasks';
-import { ApiError } from '../../../lib/api/types';
-import { TaskBoardRoute } from '../../../test/screen-host/features/tasks/routes/TaskBoardRoute';
+import { getTask, listTasks, updateTaskStatus } from '../../../../lib/api/tasks';
+import { ApiError } from '../../../../lib/api/types';
+import { TaskBoardRoute } from '../../../../test/screen-host/features/tasks/routes/TaskBoardRoute';
 import type { TaskStatus } from '@ap/feature-shared';
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TASK_BOARD_STATUS_COLUMNS, taskBoardColumnKey } from '../hooks/useTaskBoardData';
-import { boardList, listBoardTasks } from './taskBoardTestServer';
+import { TASK_BOARD_STATUS_COLUMNS, taskBoardColumnKey } from '../../hooks/useTaskBoardData';
+import { boardList, listBoardTasks } from '../taskBoardTestServer';
 
 const task = {
   id: '10000000-0000-0000-0000-000000000001',
@@ -37,16 +37,16 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigate,
   useRouter: () => ({ navigate }),
 }));
-vi.mock('../../../lib/api/tasks', () => ({
+vi.mock('../../../../lib/api/tasks', () => ({
   listTasks: vi.fn(),
   updateTaskStatus: vi.fn(),
   getTask: vi.fn(),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({ items: [] })),
 }));
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
 // The Task detail now registers through `useDetailPanelSlot` instead of `WorkbenchShell.detailPanel`; the mocked shell
@@ -94,8 +94,8 @@ vi.mock('@ap/ui', async () => {
     ),
   };
 });
-vi.mock('../../../ui/index', async () => {
-  const actual = await vi.importActual<typeof import('../../../ui/index')>('../../../ui/index');
+vi.mock('../../../../ui/index', async () => {
+  const actual = await vi.importActual<typeof import('../../../../ui/index')>('../../../../ui/index');
   const react = await vi.importActual<typeof import('react')>('react');
   return {
     ...actual,

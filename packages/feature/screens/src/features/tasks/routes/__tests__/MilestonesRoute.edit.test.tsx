@@ -1,15 +1,15 @@
-import { fetchAnalyticsAreas } from '../../../lib/api/analytics-areas';
-import { GENERIC_ERROR_MESSAGE, errorMapper } from '../../../lib/api/errorMapper';
-import { fetchManagedSystems } from '../../../lib/api/managed-systems';
+import { fetchAnalyticsAreas } from '../../../../lib/api/analytics-areas';
+import { GENERIC_ERROR_MESSAGE, errorMapper } from '../../../../lib/api/errorMapper';
+import { fetchManagedSystems } from '../../../../lib/api/managed-systems';
 import {
   createMilestone,
   getMilestone,
   listMilestones,
   updateMilestone,
-} from '../../../lib/api/milestones';
-import { ApiError } from '../../../lib/api/types';
-import { registerDefaultHost } from '../../../lib/host/host-seam';
-import { MilestonesRoute } from '../../../test/screen-host/features/tasks/routes/MilestonesRoute';
+} from '../../../../lib/api/milestones';
+import { ApiError } from '../../../../lib/api/types';
+import { registerDefaultHost } from '../../../../lib/host/host-seam';
+import { MilestonesRoute } from '../../../../test/screen-host/features/tasks/routes/MilestonesRoute';
 import type { MilestoneDetailDto, MilestoneDto } from '@ap/feature-shared';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -35,7 +35,7 @@ vi.mock('@tanstack/react-router', () => ({
 // The detail content renders at the slot provider, outside the route's seam: it navigates through the default host,
 // which these router-less tests route to `navigateMock` as the call objects the route wrote.
 beforeAll(async () => {
-  const { tanstackHost } = await import('../../../test/host-adapters/lib/host/tanstack-host');
+  const { tanstackHost } = await import('../../../../test/host-adapters/lib/host/tanstack-host');
   registerDefaultHost({
     ...tanstackHost,
     useTitle: titleMock,
@@ -51,7 +51,7 @@ beforeAll(async () => {
   });
 });
 
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({
     actors: [
       { id: IDS.ownerU1, display_name: '김지원', kind: 'user', role_level: 'admin' },
@@ -60,13 +60,13 @@ vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
   }),
 }));
 
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [PRODUCT_USAGE], total: 1 })),
   fetchManagedSystems: vi.fn(async () => ({ items: [POWER_BI], total: 1 })),
 }));
 
-vi.mock('../../../lib/api/milestones', () => ({
+vi.mock('../../../../lib/api/milestones', () => ({
   listMilestones: vi.fn(async () => ({ items: MILESTONES })),
   getMilestone: vi.fn(),
   createMilestone: vi.fn(),

@@ -1,10 +1,10 @@
-import { listTasks, updateTaskStatus } from '../../../lib/api/tasks';
-import { TaskBoardRoute } from '../../../test/screen-host/features/tasks/routes/TaskBoardRoute';
+import { listTasks, updateTaskStatus } from '../../../../lib/api/tasks';
+import { TaskBoardRoute } from '../../../../test/screen-host/features/tasks/routes/TaskBoardRoute';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { boardList } from './taskBoardTestServer';
+import { boardList } from '../taskBoardTestServer';
 
 const task = {
   id: '10000000-0000-0000-0000-000000000001',
@@ -33,16 +33,16 @@ vi.mock('@tanstack/react-router', () => ({
   ),
   useNavigate: () => navigate,
 }));
-vi.mock('../../../lib/api/tasks', () => ({
+vi.mock('../../../../lib/api/tasks', () => ({
   listTasks: vi.fn(),
   updateTaskStatus: vi.fn(),
   getTask: vi.fn(),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({ items: [] })),
 }));
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
 vi.mock('@ap/ui', async () => {

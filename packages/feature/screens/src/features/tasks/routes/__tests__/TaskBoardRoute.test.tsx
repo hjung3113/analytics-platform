@@ -1,18 +1,18 @@
-import { TaskBoardCardPreview } from '../components/task-board/TaskBoardCard';
-import { GLOSSARY } from '../../../lib/copy/glossary';
-import { ApiError } from '../../../lib/api/types';
-import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
-import { TASK_PRIORITY_LABELS } from '../../../lib/copy/enum-labels';
-import { TaskBoardRoute } from '../../../test/screen-host/features/tasks/routes/TaskBoardRoute';
-import { TasksRouteView, tasksSearchSchema } from '../../../test/screen-host/routes/_authed/tasks';
+import { TaskBoardCardPreview } from '../../components/task-board/TaskBoardCard';
+import { GLOSSARY } from '../../../../lib/copy/glossary';
+import { ApiError } from '../../../../lib/api/types';
+import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reasons';
+import { TASK_PRIORITY_LABELS } from '../../../../lib/copy/enum-labels';
+import { TaskBoardRoute } from '../../../../test/screen-host/features/tasks/routes/TaskBoardRoute';
+import { TasksRouteView, tasksSearchSchema } from '../../../../test/screen-host/routes/_authed/tasks';
 import { taskPrioritySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type * as React from 'react';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { boardList } from './taskBoardTestServer';
-import { TASK_STATUS_LABELS } from '../../../lib/copy/enum-labels';
+import { boardList } from '../taskBoardTestServer';
+import { TASK_STATUS_LABELS } from '../../../../lib/copy/enum-labels';
 
 const task = {
   id: '10000000-0000-0000-0000-000000000001',
@@ -173,8 +173,8 @@ vi.mock('@ap/ui', async () => {
     ),
   };
 });
-vi.mock('../../../ui/index', async () => {
-  const actual = await vi.importActual<typeof import('../../../ui/index')>('../../../ui/index');
+vi.mock('../../../../ui/index', async () => {
+  const actual = await vi.importActual<typeof import('../../../../ui/index')>('../../../../ui/index');
   const react = await vi.importActual<typeof import('react')>('react');
   return {
     ...actual,
@@ -186,23 +186,23 @@ vi.mock('../../../ui/index', async () => {
     },
   };
 });
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({
     items: [{ id: task.primary_managed_system_id, name: 'Billing Ops', archived_at: null }],
   })),
 }));
-vi.mock('../../../lib/api/tasks', () => api);
-vi.mock('../../../test/screen-host/features/tasks/routes/TaskListRoute', async () => {
+vi.mock('../../../../lib/api/tasks', () => api);
+vi.mock('../../../../test/screen-host/features/tasks/routes/TaskListRoute', async () => {
   const actual = await vi.importActual<
-    typeof import('../../../test/screen-host/features/tasks/routes/TaskListRoute')
-  >('../../../test/screen-host/features/tasks/routes/TaskListRoute');
+    typeof import('../../../../test/screen-host/features/tasks/routes/TaskListRoute')
+  >('../../../../test/screen-host/features/tasks/routes/TaskListRoute');
   return { ...actual, TaskListRoute: () => <div>task list unchanged</div> };
 });
-vi.mock('../../../test/screen-host/features/tasks/routes/TaskRequestsRoute', () => ({
+vi.mock('../../../../test/screen-host/features/tasks/routes/TaskRequestsRoute', () => ({
   TaskRequestsRoute: () => <div>task requests unchanged</div>,
 }));
 vi.mock('sonner', () => ({

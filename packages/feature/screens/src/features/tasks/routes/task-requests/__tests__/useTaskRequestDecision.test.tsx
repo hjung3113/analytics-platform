@@ -1,14 +1,14 @@
-import { ApiError } from '../../../../lib/api/types';
-import { TASK_REQUEST_COPY } from '../../../../lib/copy/task-requests';
-import { registerDefaultHost } from '../../../../lib/host/host-seam';
-import { tanstackHost } from '../../../../test/host-adapters/lib/host/tanstack-host';
+import { ApiError } from '../../../../../lib/api/types';
+import { TASK_REQUEST_COPY } from '../../../../../lib/copy/task-requests';
+import { registerDefaultHost } from '../../../../../lib/host/host-seam';
+import { tanstackHost } from '../../../../../test/host-adapters/lib/host/tanstack-host';
 import type { TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { FormEvent, PropsWithChildren } from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useTaskRequestDecision } from './useTaskRequestDecision';
-import type { UseTaskRequestDecisionResult } from './useTaskRequestDecision';
+import { useTaskRequestDecision } from '../useTaskRequestDecision';
+import type { UseTaskRequestDecisionResult } from '../useTaskRequestDecision';
 
 const api = vi.hoisted(() => ({
   approveTaskRequest: vi.fn(),
@@ -23,15 +23,15 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
   useNavigate: () => navigate,
 }));
-vi.mock('../../../../lib/api/task-requests', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../../lib/api/task-requests')>()),
+vi.mock('../../../../../lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../lib/api/task-requests')>()),
   approveTaskRequest: (...args: unknown[]) => api.approveTaskRequest(...args),
   rejectTaskRequest: (...args: unknown[]) => api.rejectTaskRequest(...args),
   requestMoreEvidenceForTaskRequest: (...args: unknown[]) =>
     api.requestMoreEvidenceForTaskRequest(...args),
 }));
-vi.mock('../../../../lib/api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../../lib/api')>()),
+vi.mock('../../../../../lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../lib/api')>()),
   approveTaskRequest: api.approveTaskRequest,
   rejectTaskRequest: api.rejectTaskRequest,
   requestMoreEvidenceForTaskRequest: api.requestMoreEvidenceForTaskRequest,

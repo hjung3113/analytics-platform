@@ -1,15 +1,15 @@
-import { getMilestone, listMilestones } from '../../../lib/api/milestones';
-import { ApiError } from '../../../lib/api/types';
-import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
-import { type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
-import type { HostSearch } from '../../../lib/host/search';
+import { getMilestone, listMilestones } from '../../../../lib/api/milestones';
+import { ApiError } from '../../../../lib/api/types';
+import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reasons';
+import { type HostSeam, HostSeamProvider } from '../../../../lib/host/host-seam';
+import type { HostSearch } from '../../../../lib/host/search';
 import type { MilestoneDetailDto, MilestoneDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { MilestonePanelParts } from './MilestonesScreen';
-import { MilestonesScreen } from './MilestonesScreen';
+import type { MilestonePanelParts } from '../MilestonesScreen';
+import { MilestonesScreen } from '../MilestonesScreen';
 
 // MilestonesScreen under a bare HostSeamProvider, with no router mocked or mounted: the bridge's situation (#763 m).
 const IDS = {
@@ -21,20 +21,20 @@ const IDS = {
   finding: 'ffffffff-ffff-4fff-8fff-ffffffff0181',
 };
 
-vi.mock('../../../lib/api/milestones', () => ({
+vi.mock('../../../../lib/api/milestones', () => ({
   listMilestones: vi.fn(),
   getMilestone: vi.fn(),
   createMilestone: vi.fn(),
   updateMilestone: vi.fn(),
 }));
-vi.mock('../../../lib/api/tasks', () => ({ listTasks: vi.fn(async () => ({ items: [] })) }));
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/api/tasks', () => ({ listTasks: vi.fn(async () => ({ items: [] })) }));
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({
     actors: [{ id: IDS.owner, display_name: '박서연', kind: 'user', role_level: 'admin' }],
   }),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
   fetchManagedSystems: vi.fn(async () => ({
     items: [{ id: IDS.ms, name: 'Power BI', archived_at: null }],

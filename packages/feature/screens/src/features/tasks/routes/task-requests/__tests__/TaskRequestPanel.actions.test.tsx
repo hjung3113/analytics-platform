@@ -17,23 +17,23 @@ const { useDecision, useConversion, useLink, useFindingDetail } = vi.hoisted(() 
   useFindingDetail: vi.fn(),
 }));
 
-vi.mock('../../../findings/public', () => ({ useFindingDetail }));
-vi.mock('../../../findings/hooks/useFindingDetail', () => ({ useFindingDetail }));
-vi.mock('./useTaskRequestDecision', () => ({ useTaskRequestDecision: useDecision }));
-vi.mock('./useTaskRequestConversion', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./useTaskRequestConversion')>()),
+vi.mock('../../../../findings/public', () => ({ useFindingDetail }));
+vi.mock('../../../../findings/hooks/useFindingDetail', () => ({ useFindingDetail }));
+vi.mock('../useTaskRequestDecision', () => ({ useTaskRequestDecision: useDecision }));
+vi.mock('../useTaskRequestConversion', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../useTaskRequestConversion')>()),
   useTaskRequestConversion: useConversion,
 }));
-vi.mock('./useTaskRequestLink', () => ({ useTaskRequestLink: useLink }));
-vi.mock('./useTaskRequestConvertedTaskLink', () => ({
+vi.mock('../useTaskRequestLink', () => ({ useTaskRequestLink: useLink }));
+vi.mock('../useTaskRequestConvertedTaskLink', () => ({
   useTaskRequestConvertedTaskLink: () => ({ isSuccess: false, data: undefined }),
 }));
 
-import { TASK_REQUEST_STATUS_LABELS as STATUS_LABELS } from '../../../../lib/copy/enum-labels';
-import { GLOSSARY } from '../../../../lib/copy/glossary';
-import { TASK_REQUEST_NEXT_COPY } from '../../../../lib/copy/task-requests';
-import { formatShortDateTime } from '../../../../lib/format/datetime';
-import { TaskRequestPanel } from '../../../../test/host-adapters/features/tasks/routes/task-requests/TaskRequestPanel';
+import { TASK_REQUEST_STATUS_LABELS as STATUS_LABELS } from '../../../../../lib/copy/enum-labels';
+import { GLOSSARY } from '../../../../../lib/copy/glossary';
+import { TASK_REQUEST_NEXT_COPY } from '../../../../../lib/copy/task-requests';
+import { formatShortDateTime } from '../../../../../lib/format/datetime';
+import { TaskRequestPanel } from '../../../../../test/host-adapters/features/tasks/routes/task-requests/TaskRequestPanel';
 
 const request: TaskRequestDto = {
   id: '10000000-0000-0000-0000-000000000001',
