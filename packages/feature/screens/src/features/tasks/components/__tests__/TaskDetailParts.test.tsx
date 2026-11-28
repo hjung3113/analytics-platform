@@ -1,0 +1,541 @@
+import { ApiError } from '../../../../lib/api/types';
+import { TASK_STATUS_LABELS } from '../../../../lib/copy/enum-labels';
+import { TASK_STATUS_CONTROL_COPY } from '../../../../lib/copy/tasks';
+import type { HostSeam } from '../../../../lib/host/host-seam';
+import { HostSeamProvider } from '../../../../lib/host/host-seam';
+import type { TaskDetailDto } from '@ap/feature-shared';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type UseTaskDetailPartsArgs, useTaskDetailParts } from '../TaskDetailParts';
+
+const api = vi.hoisted(() => ({
+  getTask: vi.fn(),
+  assignTaskResponsibility: vi.fn(),
+  updateTaskStatus: vi.fn(),
+  roleLevel: 'admin',
+  permissionState: 'denied',
+}));
+vi.mock('../../../../lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/tasks')>()),
+  getTask: api.getTask,
+  assignTaskResponsibility: api.assignTaskResponsibility,
+  updateTaskStatus: api.updateTaskStatus,
+}));
+vi.mock('../../../../lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/me')>()),
+  useMeBridge: () => ({ data: { actor: { id: 'admin', role_level: api.roleLevel } } }),
+}));
+vi.mock('../../../../lib/cross-system/usePermissionCheckBridge', () => ({
+  usePermissionCheckBridge: () =>
+    api.permissionState === 'pending'
+      ? { data: undefined, isPending: true, isSuccess: false }
+      : { data: { state: api.permissionState }, isPending: false, isSuccess: true },
+}));
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
+  fetchManagedSystems: vi.fn(async () => ({ items: [], total: 0 })),
+}));
+vi.mock('../../../../lib/api/actors', () => ({
+  resolveActors: vi.fn(async () => ({ actors: [], teams: [] })),
+}));
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
+  useWorkspaceActors: () => ({ actors: [] }),
+}));
+vi.mock('../../../cross-system/progress-notes/ProgressNotesSection', () => ({
+  ProgressNotesSection: () => null,
+}));
+
+const VOC_ID = '60000000-0000-4000-8000-000000000006';
+const FINDING_ID = '40000000-0000-4000-8000-000000000004';
+const task: TaskDetailDto = {
+  id: '10000000-0000-4000-8000-000000000001',
+  workspace_id: '90000000-0000-4000-8000-000000000009',
+  display_id: 'TASK-1000',
+  primary_managed_system_id: '30000000-0000-4000-8000-000000000003',
+  title: '배정 테스트',
+  status: 'backlog',
+  priority: 'medium',
+  assignee_actor_id: null,
+  assignee_team_id: null,
+  due_date: null,
+  milestone_id: null,
+  analytics_area_id: null,
+  source_task_request_id: null,
+  created_by: '40000000-0000-4000-8000-000000000004',
+  created_at: '2026-10-13T00:00:00.000Z',
+  updated_at: '2026-10-13T00:00:00.000Z',
+  source: {
+    finding: {
+      id: FINDING_ID,
+      display_id: 'FIN-1',
+      title: '출처 Finding',
+      summary: '요약',
+      evidence_count: 1,
+    },
+    voc: {
+      id: VOC_ID,
+      display_id: 'VOC-7',
+      title: '출처 VOC',
+      visibility_state: 'allowed',
+      reporter_facing_status: 'progress',
+    },
+  } as unknown as TaskDetailDto['source'],
+};
+
+function makeSeam(overrides: Partial<HostSeam> = {}) {
+  const navigate = vi.fn();
+  const calls = {
+    navigate,
+    success: vi.fn(),
+    error: vi.fn(),
+    title: vi.fn(),
+    canLink: vi.fn((_to: string) => true),
+  };
+  const seam: HostSeam = {
+    canLink: calls.canLink,
+    Link: () => null,
+    notifyError: calls.error,
+    notifySuccess: calls.success,
+    useNavigate: () => navigate,
+    useTitle: calls.title,
+    absoluteHref: (to) => `https://host.test${to}`,
+    ...overrides,
+  };
+  return { seam, calls };
+}
+
+function Harness(props: UseTaskDetailPartsArgs) {
+  const parts = useTaskDetailParts(props);
+  return (
+    <div>
+      <div data-testid="view">{parts.view.kind}</div>
+      <div data-testid="title">{parts.title}</div>
+      <div data-testid="actions">{parts.headerActions}</div>
+      <div data-testid="body">{parts.body}</div>
+      <div data-testid="footer">{parts.footer}</div>
+    </div>
+  );
+}
+
+function renderParts(
+  seam: HostSeam,
+  props: Partial<UseTaskDetailPartsArgs> = {},
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+): ReactNode {
+  return render(
+    <QueryClientProvider client={client}>
+      <HostSeamProvider value={seam}>
+        <Harness
+          taskId={task.id}
+          onClose={() => {}}
+          actorNamesById={new Map()}
+          managedSystemNamesById={new Map()}
+          {...props}
+        />
+      </HostSeamProvider>
+    </QueryClientProvider>,
+  ) as unknown as ReactNode;
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  api.roleLevel = 'admin';
+  api.permissionState = 'denied';
+  api.getTask.mockResolvedValue(task);
+});
+
+afterEach(() => {
+  // eslint-disable-next-line no-restricted-syntax -- removing the shadow restores the real descriptor
+  delete (navigator as { clipboard?: unknown }).clipboard;
+  // eslint-disable-next-line no-restricted-syntax -- same, for the secure-context shim
+  delete (window as { isSecureContext?: unknown }).isSecureContext;
+});
+
+describe('Task detail parts through the host seam', () => {
+  it('sends the source VOC to the inbox selection and the Finding to its path through the seam', async () => {
+    const { seam, calls } = makeSeam();
+    renderParts(seam);
+    fireEvent.click(await screen.findByRole('button', { name: /출처 VOC/ }));
+    expect(calls.navigate).toHaveBeenLastCalledWith(`/vocs?view=inbox&selected=${VOC_ID}`);
+    fireEvent.click(screen.getByRole('button', { name: /출처 Finding/ }));
+    expect(calls.navigate).toHaveBeenLastCalledWith(`/findings/${FINDING_ID}`);
+  });
+
+  describe('출처 section without a Finding (#1159 UX-3)', () => {
+    const TASK_REQUEST = {
+      id: '70000000-0000-4000-8000-000000000007',
+      display_id: 'REQ-1000',
+      status: 'converted',
+    };
+    const sourceOf = (source: unknown) => ({ ...task, source }) as unknown as TaskDetailDto;
+    const sourceSection = async () => {
+      await waitFor(() => expect(document.querySelector('[data-anchor="source"]')).not.toBeNull());
+      return document.querySelector('[data-anchor="source"]') as HTMLElement;
+    };
+
+    it('shows the Task Request origin, and the VOC only when allowed, instead of 단독 Task', async () => {
+      api.getTask.mockResolvedValue(
+        sourceOf({
+          task_request: TASK_REQUEST,
+          voc: {
+            visibility_state: 'allowed',
+            id: VOC_ID,
+            display_id: 'VOC-7',
+            title: '출처 VOC',
+            reporter_facing_status: 'progress',
+          },
+        }),
+      );
+      renderParts(makeSeam().seam);
+      const section = await sourceSection();
+      expect(section).toHaveTextContent('REQ-1000');
+      expect(section).toHaveTextContent('전환됨');
+      expect(section).toHaveTextContent('VOC-7');
+      expect(section).not.toHaveTextContent('단독 Task');
+    });
+
+    it.each(['summary_visible', 'denied'] as const)(
+      'draws no VOC identifier for a %s source VOC',
+      async (state) => {
+        api.getTask.mockResolvedValue(
+          sourceOf({ task_request: TASK_REQUEST, voc: { visibility_state: state } }),
+        );
+        renderParts(makeSeam().seam);
+        const section = await sourceSection();
+        expect(section).toHaveTextContent('REQ-1000');
+        expect(section).not.toHaveTextContent(/VOC/);
+        expect(section).not.toHaveTextContent('단독 Task');
+      },
+    );
+
+    it('keeps 단독 Task when there is neither a Finding nor a Task Request', async () => {
+      api.getTask.mockResolvedValue(sourceOf(null));
+      renderParts(makeSeam().seam);
+      expect(await sourceSection()).toHaveTextContent('단독 Task');
+    });
+  });
+
+  it('leaves the VOC and Finding nodes unnavigable when the host cannot link', async () => {
+    const { seam } = makeSeam({ canLink: () => false });
+    renderParts(seam);
+    await screen.findByText('FIN-1');
+    expect(screen.queryByRole('button', { name: /출처 VOC/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /출처 Finding/ })).not.toBeInTheDocument();
+  });
+
+  it('copies the host absolute link and shows no copy action when the host has none', async () => {
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });
+    const first = makeSeam();
+    const { unmount } = renderParts(first.seam, { view: 'my' }) as unknown as {
+      unmount: () => void;
+    };
+    fireEvent.click(await screen.findByRole('button', { name: /링크 복사/ }));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(`https://host.test/tasks?view=my&param=${task.id}`),
+    );
+    await waitFor(() => expect(first.calls.success).toHaveBeenCalled());
+    unmount();
+    const none = makeSeam({ absoluteHref: () => null });
+    renderParts(none.seam);
+    await screen.findByText('FIN-1');
+    expect(screen.getByTestId('actions')).toBeEmptyDOMElement();
+  });
+
+  it('notifies a responsibility save through the seam', async () => {
+    api.assignTaskResponsibility.mockResolvedValue(task);
+    const { seam, calls } = makeSeam();
+    renderParts(seam);
+    fireEvent.click(await screen.findByRole('button', { name: '배정 수정' }));
+    fireEvent.click(screen.getByRole('button', { name: '배정 저장' }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(calls.success).toHaveBeenCalledWith('배정을 저장했습니다.'));
+  });
+
+  it('sets the document title through the seam once the Task has loaded', async () => {
+    const { seam, calls } = makeSeam();
+    renderParts(seam);
+    await screen.findByText('FIN-1');
+    expect(calls.title).toHaveBeenCalledWith(expect.stringContaining('TASK-1000'));
+  });
+
+  it('keeps the parts title while the Task refetches in the background', async () => {
+    const { seam } = makeSeam();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    renderParts(seam, {}, client);
+    await screen.findByText('FIN-1');
+    expect(screen.getByTestId('title').textContent).toContain(task.title);
+    api.getTask.mockReturnValue(new Promise(() => {}));
+    void client.invalidateQueries({ queryKey: ['task', task.id] });
+    await waitFor(() => expect(client.isFetching({ queryKey: ['task', task.id] })).toBe(1));
+    expect(screen.getByTestId('title').textContent).toContain(task.title);
+  });
+
+  it.each([
+    { view: 'board' as const, status: 'backlog' as const, withCallback: true, footer: true },
+    { view: 'board' as const, status: 'released' as const, withCallback: true, footer: false },
+    { view: 'board' as const, status: 'backlog' as const, withCallback: false, footer: false },
+    { view: 'backlog' as const, status: 'backlog' as const, withCallback: true, footer: false },
+  ])('ready footer: $view/$status callback=$withCallback → $footer', async (c) => {
+    api.getTask.mockResolvedValue({ ...task, status: c.status });
+    const { seam } = makeSeam();
+    renderParts(seam, { view: c.view, ...(c.withCallback ? { onMoveToNextStatus: vi.fn() } : {}) });
+    await screen.findByText('FIN-1');
+    const button = screen.queryByRole('button', { name: '다음 상태로 이동' });
+    expect(button !== null).toBe(c.footer);
+  });
+
+  it.each([true, false])('loading footer placeholder follows hasActionFooter=%s', (flag) => {
+    api.getTask.mockReturnValue(new Promise(() => {}));
+    const { seam } = makeSeam();
+    renderParts(seam, { hasActionFooter: flag });
+    const placeholders = screen
+      .getByTestId('body')
+      .querySelectorAll('[aria-hidden="true"].border-t');
+    expect(placeholders).toHaveLength(flag ? 1 : 0);
+  });
+
+  it('the full-page body still renders the task title (no switch)', async () => {
+    const { seam } = makeSeam();
+    renderParts(seam);
+    await screen.findByText('FIN-1');
+
+    expect(screen.getByTestId('title').textContent).toContain('TASK-1000');
+    expect(
+      within(screen.getByTestId('body')).getByRole('heading', { name: task.title }),
+    ).toBeInTheDocument();
+  });
+
+  it('the slot body (titleInHeader) omits the title the header already shows and keeps the badges', async () => {
+    const { seam } = makeSeam();
+    renderParts(seam, { titleInHeader: true });
+    await screen.findByText('FIN-1');
+
+    expect(screen.getByTestId('title').textContent).toContain('TASK-1000');
+    expect(
+      within(screen.getByTestId('body')).queryByRole('heading', { name: task.title }),
+    ).toBeNull();
+    // The 요약 section title and the status · priority badges stay.
+    expect(within(screen.getByTestId('body')).getAllByText('요약').length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId('body')).getAllByText(TASK_STATUS_LABELS[task.status]).length)
+      .toBeGreaterThan(0);
+  });
+
+  it('uses the board statuses in the labelled Task status Select and updates through the shared mutation', async () => {
+    const user = userEvent.setup();
+    api.updateTaskStatus.mockResolvedValue({ ...task, status: 'todo' });
+    api.getTask.mockResolvedValueOnce(task).mockResolvedValue({ ...task, status: 'todo' });
+    const { seam } = makeSeam();
+    renderParts(seam);
+
+    const trigger = await screen.findByRole('combobox', { name: '상태' });
+    trigger.focus();
+    await user.keyboard('{Enter}');
+    const listbox = await screen.findByRole('listbox');
+    expect(within(listbox).getAllByRole('option').map((option) => option.textContent?.trim())).toEqual(
+      ['backlog', 'todo', 'doing', 'review', 'done', 'released', 'reopened'].map(
+        (status) => TASK_STATUS_LABELS[status as keyof typeof TASK_STATUS_LABELS],
+      ),
+    );
+
+    await user.keyboard('{ArrowDown}{Enter}');
+    await waitFor(() => expect(api.updateTaskStatus).toHaveBeenCalledTimes(1));
+    expect(api.updateTaskStatus).toHaveBeenCalledWith(
+      task.id,
+      'todo',
+      expect.objectContaining({ ifMatch: task.updated_at, idempotencyKey: expect.any(String) }),
+    );
+  });
+
+  it('uses the successful PATCH version for a second status change before refetch settles', async () => {
+    const user = userEvent.setup();
+    const firstUpdate: TaskDetailDto = {
+      ...task,
+      status: 'todo',
+      updated_at: '2026-10-14T00:00:00.000Z',
+    };
+    const secondUpdate: TaskDetailDto = {
+      ...firstUpdate,
+      status: 'doing',
+      updated_at: '2026-10-15T00:00:00.000Z',
+    };
+    api.updateTaskStatus.mockResolvedValueOnce(firstUpdate).mockResolvedValueOnce(secondUpdate);
+    api.getTask
+      .mockResolvedValueOnce(task)
+      .mockImplementation(() => new Promise<TaskDetailDto>(() => undefined));
+    const { seam } = makeSeam();
+    renderParts(seam);
+
+    const trigger = await screen.findByRole('combobox', { name: '상태' });
+    trigger.focus();
+    await user.keyboard('{Enter}{ArrowDown}{Enter}');
+    await waitFor(() => expect(api.updateTaskStatus).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(trigger).toHaveTextContent(TASK_STATUS_LABELS.todo));
+
+    trigger.focus();
+    await user.keyboard('{Enter}{ArrowDown}{Enter}');
+    await waitFor(() => expect(api.updateTaskStatus).toHaveBeenCalledTimes(2));
+    expect(api.updateTaskStatus.mock.calls[0]?.[2].ifMatch).toBe(task.updated_at);
+    expect(api.updateTaskStatus.mock.calls[1]?.[2].ifMatch).toBe(firstUpdate.updated_at);
+  });
+
+  it('keeps the current status readable and links the disabled reason for actors without permission', async () => {
+    api.roleLevel = 'user';
+    const { seam } = makeSeam();
+    renderParts(seam);
+
+    const trigger = await screen.findByRole('combobox', { name: '상태' });
+    expect(trigger).toBeDisabled();
+    expect(trigger).toHaveTextContent(TASK_STATUS_LABELS.backlog);
+    const describedBy = trigger.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    const reason = document.getElementById(describedBy as string);
+    expect(reason).toHaveTextContent(TASK_STATUS_CONTROL_COPY.permissionRequired);
+  });
+
+  it('does not announce a permission denial while a Developer check is still pending', async () => {
+    api.roleLevel = 'developer';
+    api.permissionState = 'pending';
+    const { seam } = makeSeam();
+    renderParts(seam);
+
+    const trigger = await screen.findByRole('combobox', { name: '상태' });
+    expect(trigger).toBeDisabled();
+    expect(trigger).not.toHaveAttribute('aria-describedby');
+    expect(screen.queryByText(TASK_STATUS_CONTROL_COPY.permissionRequired)).not.toBeInTheDocument();
+  });
+
+  it('uses a unique permission reason id for each Task detail', async () => {
+    api.roleLevel = 'user';
+    const { seam } = makeSeam();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <HostSeamProvider value={seam}>
+          <Harness
+            taskId={task.id}
+            onClose={() => {}}
+            actorNamesById={new Map()}
+            managedSystemNamesById={new Map()}
+          />
+          <Harness
+            taskId={task.id}
+            onClose={() => {}}
+            actorNamesById={new Map()}
+            managedSystemNamesById={new Map()}
+          />
+        </HostSeamProvider>
+      </QueryClientProvider>,
+    );
+
+    const triggers = await screen.findAllByRole('combobox', { name: '상태' });
+    const reasonIds = triggers.map((trigger) => trigger.getAttribute('aria-describedby'));
+    expect(reasonIds.every((id) => id !== null)).toBe(true);
+    expect(new Set(reasonIds).size).toBe(2);
+    for (const id of reasonIds) {
+      expect(document.getElementById(id as string)).toHaveTextContent(
+        TASK_STATUS_CONTROL_COPY.permissionRequired,
+      );
+    }
+  });
+
+  it('supports Tab, arrows, Enter, and Escape while showing pending and error feedback', async () => {
+    const user = userEvent.setup();
+    api.getTask.mockResolvedValueOnce(task).mockResolvedValue({ ...task, status: 'todo' });
+    let resolveStatus: (value: TaskDetailDto) => void = () => undefined;
+    api.updateTaskStatus.mockImplementationOnce(
+      () => new Promise<TaskDetailDto>((resolve) => { resolveStatus = resolve; }),
+    );
+    const { seam, calls } = makeSeam();
+    renderParts(seam);
+
+    const trigger = await screen.findByRole('combobox', { name: '상태' });
+    screen.getByRole('button', { name: '요약' }).focus();
+    for (let attempt = 0; document.activeElement !== trigger && attempt < 12; attempt += 1) {
+      await user.tab();
+    }
+    expect(trigger).toHaveFocus();
+    await user.keyboard('{Enter}{ArrowDown}{Enter}');
+    await waitFor(() => expect(api.updateTaskStatus).toHaveBeenCalledWith(
+      task.id,
+      'todo',
+      expect.any(Object),
+    ));
+    expect(screen.getByText(TASK_STATUS_CONTROL_COPY.updating)).toBeVisible();
+    expect(trigger).toBeDisabled();
+
+    await act(async () => resolveStatus({ ...task, status: 'todo' }));
+    await waitFor(() => expect(trigger).toHaveTextContent(TASK_STATUS_LABELS.todo));
+    trigger.focus();
+    await user.keyboard('{Enter}{Escape}');
+    expect(trigger).toHaveFocus();
+
+    api.updateTaskStatus.mockRejectedValueOnce(new Error('write failed'));
+    await user.keyboard('{Enter}{ArrowDown}{Enter}');
+    // The detail also renders other sections (e.g. outcome surveys) that may raise their own alert.
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole('alert').some((node) => node.textContent?.includes('일시적 오류')),
+      ).toBe(true),
+    );
+    expect(calls.error).not.toHaveBeenCalled();
+  });
+
+  it('shows the status Select when a Task is opened from a Task Request link', async () => {
+    api.getTask.mockResolvedValue({
+      ...task,
+      source: {
+        task_request: { id: '70000000-0000-4000-8000-000000000007', display_id: 'REQ-42', status: 'converted' },
+        finding: null,
+        voc: null,
+      },
+    });
+    const { seam } = makeSeam();
+    renderParts(seam);
+    expect(await screen.findByRole('combobox', { name: '상태' })).toBeInTheDocument();
+  });
+
+  it('shows a not-found state without a retry action on 404 (#1888)', async () => {
+    api.getTask.mockRejectedValue(new ApiError(404, { code: 'not_found.record', message: 'x' }));
+    const { seam } = makeSeam();
+    renderParts(seam);
+    await waitFor(() => expect(screen.getByTestId('view').textContent).toBe('not-found'));
+    const body = within(screen.getByTestId('body'));
+    expect(body.getByText('Task를 찾을 수 없습니다.')).toBeInTheDocument();
+    expect(body.queryByRole('button', { name: '다시 시도' })).toBeNull();
+  });
+
+  it('keeps the retry state for a non-404 failure', async () => {
+    api.getTask.mockRejectedValue(new ApiError(500, { code: 'internal.unexpected', message: 'x' }));
+    const { seam } = makeSeam();
+    renderParts(seam);
+    await waitFor(() => expect(screen.getByTestId('view').textContent).toBe('error'));
+    expect(within(screen.getByTestId('body')).getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+  });
+});
+
+
+it('recovers responsibility saving after stale-write with a fresh version and key', async () => {
+  const refreshed = { ...task, updated_at: '2026-10-14T00:00:00.000Z' };
+  api.getTask.mockResolvedValueOnce(task).mockResolvedValue(refreshed);
+  api.assignTaskResponsibility.mockRejectedValueOnce(new ApiError(409, { code: 'conflict.stale_write', message: 'stale' })).mockResolvedValue(refreshed);
+  const { seam, calls } = makeSeam();
+  renderParts(seam);
+  fireEvent.click(await screen.findByRole('button', { name: '배정 수정' }));
+  fireEvent.click(screen.getByRole('button', { name: '배정 저장' }));
+  await waitFor(() => expect(api.getTask).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.getByRole('button', { name: '배정 저장' })).toBeEnabled());
+  fireEvent.click(screen.getByRole('button', { name: '배정 저장' }));
+  await waitFor(() => expect(calls.success).toHaveBeenCalledWith('배정을 저장했습니다.'));
+  const first = api.assignTaskResponsibility.mock.calls[0];
+  const second = api.assignTaskResponsibility.mock.calls[1];
+  expect(first?.[3]).toBe(task.updated_at);
+  expect(second?.[3]).toBe(refreshed.updated_at);
+  expect(second?.[2]).not.toBe(first?.[2]);
+});

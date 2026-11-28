@@ -44,12 +44,12 @@ export function RulesTable({ onOpen, activeRule }: { onOpen: () => void; activeR
   const rules = useMenuFetch(rulesEndpoint);
   const sets = useMenuQuery(ruleSetsEndpoint, { page: 0, pageSize: 200 });
   const chosen = pageParams('filter').join('\n');
-  const specs = useMemo<Record<string, ColumnFilterSpec>>(() => {
+  const specs = useMemo(() => {
     const options = new Set(sets.response?.data?.rows.map(r => r.ruleSetKey) ?? []);
     // Dynamic options retain ids already chosen by the URL, using the shared codec.
     const parsed = parseFilterParams(chosen ? chosen.split('\n') : [], ruleFilterSpecs);
     if (parsed.ok) for (const filter of parsed.filters) if (filter.id === 'ruleSetKey' && (filter.op === 'in' || filter.op === 'notIn')) for (const id of filter.value) options.add(id);
-    return { ...ruleFilterSpecs, ruleSetKey: { ...ruleFilterSpecs.ruleSetKey!, options: [...options].map(value => ({ value, label: value })) } };
+    return { ...ruleFilterSpecs, ruleSetKey: { ...ruleFilterSpecs.ruleSetKey, options: [...options].map(value => ({ value, label: value })) } };
   }, [sets.response, chosen]);
   const filters = useMemo(() => ({ key: 'filter', specs, labels: FIELD_LABELS, validate }), [specs]);
   const url = useTableUrlState(RULE_SORT_IDS, { filters });
@@ -63,7 +63,7 @@ export function RulesTable({ onOpen, activeRule }: { onOpen: () => void; activeR
     { id: 'requirementIdCount', header: '요구사항 ID 수', size: 110, align: 'right' },
     { id: 'revision', header: 'Revision', size: 90, cell: r => <Original>{r.revision}</Original> },
   ], [specs, setPage, onOpen]);
-  const fields = useMemo<TableFilterField[]>(() => (['scope', 'requirementIds'] as const).map((id, i) => ({ id, label: { ko: FIELD_LABELS[id], en: FIELD_LABELS[id] }, spec: specs[id]!, pinned: id === 'requirementIds' ? 3 : false, order: i })), [specs]);
+  const fields = useMemo<TableFilterField[]>(() => (['scope', 'requirementIds'] as const).map((id, i) => ({ id, label: { ko: FIELD_LABELS[id], en: FIELD_LABELS[id] }, spec: specs[id], pinned: id === 'requirementIds' ? 3 : false, order: i })), [specs]);
   const search = <CommittedSearch pageKey="q" placeholder="Rule·이름·요약 검색" />;
   if (url.invalid) return <TableUrlWarning search={search} sentences={url.sentences} recoverKeys={url.recoverKeys} cause={url.cause} />;
   return <>{sets.response?.data && sets.response.data.total > 200 && <p className="text-xs text-text-secondary">RuleSet 후보는 처음 200개만 표시합니다. 주소의 RuleSet 필터는 유지됩니다.</p>}<SnapshotTable<RuleRow> title="규칙 카탈로그" ariaLabel="규칙 카탈로그" columns={columns} getRowId={r => JSON.stringify([r.ruleSetKey, r.ruleKey])}

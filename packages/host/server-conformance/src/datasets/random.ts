@@ -13,14 +13,27 @@ export function hash32(text: string): number {
   return hash;
 }
 
-/** FNV-1a 64-bit hash as 16 hex digits: the dataset checksum, over the canonical JSON of the tables. */
-export function checksum64(text: string): string {
-  let hash = 0xcbf29ce484222325n;
-  for (let i = 0; i < text.length; i++) {
-    hash ^= BigInt(text.charCodeAt(i));
-    hash = (hash * 0x100000001b3n) & 0xffffffffffffffffn;
-  }
-  return hash.toString(16).padStart(16, '0');
+/**
+ * Incremental FNV-1a 64 over UTF-16 code units, in four 16-bit limbs (no BigInt, so a million rows hash in seconds).
+ * A change detector for the dataset checksum, not a security hash.
+ */
+export function createChecksum(): { update(text: string): void; digest(): string } {
+  // Offset basis 0xcbf29ce484222325, low limb first.
+  let h0 = 0x2325, h1 = 0x8422, h2 = 0x9ce4, h3 = 0xcbf2;
+  return {
+    update(text) {
+      for (let i = 0; i < text.length; i++) {
+        h0 ^= text.charCodeAt(i);
+        // × 0x100000001b3 mod 2^64 = × 0x1b3 plus a 40-bit left shift (limbs 0 and 1 move 8 bits into limbs 2 and 3).
+        const t0 = h0 * 0x1b3;
+        const t1 = h1 * 0x1b3 + (t0 >>> 16);
+        const t2 = h2 * 0x1b3 + (h0 << 8) + (t1 >>> 16);
+        const t3 = h3 * 0x1b3 + (h1 << 8) + (t2 >>> 16);
+        h0 = t0 & 0xffff; h1 = t1 & 0xffff; h2 = t2 & 0xffff; h3 = t3 & 0xffff;
+      }
+    },
+    digest: () => [h3, h2, h1, h0].map((limb) => limb.toString(16).padStart(4, '0')).join(''),
+  };
 }
 
 export type Random = {

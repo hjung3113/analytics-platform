@@ -2,7 +2,7 @@ import { useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Cpu, Factory, GitBranch, Package } from 'lucide-react';
 import { HierarchyFailure, isHierarchyFailure, type ApiResponse, type HierarchyNode, type HierarchyPage, type HierarchySource, isAnswered } from '@ap/contracts';
 import { useMenuFetch } from '@ap/kernel';
-import { endpoints, isUuid } from './endpoints';
+import { endpointNamed, isUuid } from './endpoints';
 
 type Fetch = (params: Record<string, unknown>, signal?: AbortSignal) => Promise<ApiResponse<unknown>>;
 export function createModelHierarchySource(fetch: Fetch): HierarchySource {
@@ -34,7 +34,7 @@ export function createModelHierarchySource(fetch: Fetch): HierarchySource {
 
 /** The shell owns mounting/session lifetime; this component neither reads screen Context nor fetches during render. */
 export function ModelHierarchySource({ children }: { children: (source: HierarchySource) => ReactNode }) {
-  const { fetch } = useMenuFetch(endpoints.hierarchy!);
+  const { fetch } = useMenuFetch(endpointNamed('hierarchy'));
   const fetchRef = useRef(fetch);
   useLayoutEffect(() => {
     fetchRef.current = fetch;
@@ -51,11 +51,13 @@ export const modelHierarchyIcon = (kind: string) => icons[kind as keyof typeof i
 /** A placement contains object IDs only; labels and transient tree state never enter URLs. */
 export function isModelHierarchyNodeId(value: string): boolean {
   const parts = value.split('/');
+  const [v, vendorId, p, processId, m, modelId, s, softwareId] = parts;
+  const uuid = (part: string | undefined) => part !== undefined && isUuid(part);
   return (parts.length === 6 || parts.length === 8)
-    && parts[0] === 'v' && isUuid(parts[1]!)
-    && parts[2] === 'p' && (parts[3] === 'none' || isUuid(parts[3]!))
-    && parts[4] === 'm' && isUuid(parts[5]!)
-    && (parts.length === 6 || (parts[6] === 's' && isUuid(parts[7]!)));
+    && v === 'v' && uuid(vendorId)
+    && p === 'p' && (processId === 'none' || uuid(processId))
+    && m === 'm' && uuid(modelId)
+    && (parts.length === 6 || (s === 's' && uuid(softwareId)));
 }
 
 /** Complete URL placements need no lookup. Bare project links still require an SDK resolution seam. */

@@ -93,7 +93,11 @@ function planSelectionCarry(source: MenuEntry | undefined, target: MenuEntry, pa
   }
   const selections = inbound.flatMap(({ key, dimension }) => {
     const matches = candidates.get(key);
-    if (matches?.length === 1) return [{ dimension, pairs: matches[0] }];
+    if (matches?.length === 1) {
+      const pairs = matches[0];
+      if (pairs === undefined) throw new Error('A single selection match requires its pairs');
+      return [{ dimension, pairs }];
+    }
     if (matches) droppedSelections.push({ dimension, reason: 'ambiguous' });
     return [];
   });
@@ -310,7 +314,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const single: Record<string, string | null> = Object.assign(Object.create(null) as Record<string, string | null>, Object.fromEntries(Object.entries(requested).map(([k, v]) => [k, typeof v === 'string' || v === null ? v : (v.find(item => item !== '') ?? null)])));
     const dropped = dropDrillResetKeys(route?.menu, page, single);
     const patch: Record<string, string | readonly string[] | null> = Object.assign(Object.create(null) as Record<string, string | readonly string[] | null>, requested);
-    for (const key of Object.keys(dropped)) if (!Object.hasOwn(patch, key)) patch[key] = dropped[key];
+    for (const [key, value] of Object.entries(dropped)) if (!Object.hasOwn(patch, key)) patch[key] = value;
     const keys = Object.keys(patch);
     const kept = page.filter(([k]) => !keys.includes(k));
     const added = Object.entries(patch).flatMap(([k, v]): Pair[] => (v === null ? [] : (typeof v === 'string' ? [v] : v).map((item): Pair => [k, item]))).filter(([, item]) => item !== '');
@@ -380,7 +384,11 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       }
     }
     const proof = plan?.selections.length
-      ? mintCarry?.(href, Object.fromEntries(plan.selections.map(({ pairs }) => [pairs[0][0], pairs.map(([, value]) => value)])), g.scopeId)
+      ? mintCarry?.(href, Object.fromEntries(plan.selections.map(({ pairs }) => {
+          const head = pairs[0];
+          if (head === undefined) throw new Error('A carried selection requires a pair');
+          return [head[0], pairs.map(([, value]) => value)] as const;
+        })), g.scopeId)
       : undefined;
     const allowed = canOpen(menuId);
     const requiredPagePairs = plan ? finalPairs : pagePairs;
