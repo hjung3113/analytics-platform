@@ -60,12 +60,12 @@ it('uses candidate metadata independently for draft, applied and history summari
   const dynamic = { pageConditions: { categories: [{ id: 'choice', label, kind: { type: 'select' as const, key: 'choice', options: { endpoint: 'options' } } }] } };
   const options = (name: string) => ({ choice: [{ value: 'a', label: { ko: name, en: name } }] });
   const result = derivePageConditionExtension({ menu: dynamic, lang: 'en', draft: [['choice', 'a']], applied: [['choice', 'a']], options: options('Draft'), appliedOptions: options('Applied'), historyOptions: () => options('History') });
-  expect(result.pageSummary[0].value).toBe('Draft');
-  expect(result.appliedPageSummary?.[0].value).toBe('Applied');
-  expect(result.historyPageSummary?.(emptyGlobal, [['choice', 'a']])[0].value).toBe('History');
+  expect(result.pageSummary[0]?.value).toBe('Draft');
+  expect(result.appliedPageSummary?.[0]?.value).toBe('Applied');
+  expect(result.historyPageSummary?.(emptyGlobal, [['choice', 'a']])?.[0]?.value).toBe('History');
   const unloaded = derivePageConditionExtension({ menu: dynamic, lang: 'en', draft: [['choice', 'a']], applied: [['choice', 'a']], options: options('Draft') });
-  expect(unloaded.appliedPageSummary?.[0].value).toBe('a');
-  expect(unloaded.historyPageSummary?.(emptyGlobal, [['choice', 'a']])[0].value).toBe('a');
+  expect(unloaded.appliedPageSummary?.[0]?.value).toBe('a');
+  expect(unloaded.historyPageSummary?.(emptyGlobal, [['choice', 'a']])?.[0]?.value).toBe('a');
 });
 
 it('keeps valid categories and raw pairs while reporting a malformed category', () => {
