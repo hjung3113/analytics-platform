@@ -1,15 +1,15 @@
-import { VocClusterDetailPanel } from '../features/voc-cluster/components/detail/VocClusterDetailPanel';
-import * as api from '../lib/api';
-import { fetchTaskRequests } from '../lib/api';
-import { ApiError } from '../lib/api/types';
-import { FindingDetailPanel } from './host-adapters/features/findings/components/FindingDetail/FindingDetailPanel';
-import { MilestoneDetailPanel } from './host-adapters/features/tasks/components/MilestoneDetailPanel';
-import { TaskDetailPanel } from './host-adapters/features/tasks/components/TaskDetailPanel';
-import { VocDetailPanel } from './host-adapters/features/voc/components/detail/VocDetailPanel';
-import { type HostSeam, HostSeamProvider } from '../lib/host/host-seam';
-import { tanstackHost } from './host-adapters/lib/host/tanstack-host';
-import { AppFrame } from './detail-slot-host';
-import { TaskRequestsRoute } from './screen-host/features/tasks/routes/TaskRequestsRoute';
+import { VocClusterDetailPanel } from '../../features/voc-cluster/components/detail/VocClusterDetailPanel';
+import * as api from '../../lib/api';
+import { fetchTaskRequests } from '../../lib/api';
+import { ApiError } from '../../lib/api/types';
+import { FindingDetailPanel } from '../host-adapters/features/findings/components/FindingDetail/FindingDetailPanel';
+import { MilestoneDetailPanel } from '../host-adapters/features/tasks/components/MilestoneDetailPanel';
+import { TaskDetailPanel } from '../host-adapters/features/tasks/components/TaskDetailPanel';
+import { VocDetailPanel } from '../host-adapters/features/voc/components/detail/VocDetailPanel';
+import { type HostSeam, HostSeamProvider } from '../../lib/host/host-seam';
+import { tanstackHost } from '../host-adapters/lib/host/tanstack-host';
+import { AppFrame } from '../detail-slot-host';
+import { TaskRequestsRoute } from '../screen-host/features/tasks/routes/TaskRequestsRoute';
 import type { TaskDetailDto, TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -37,7 +37,7 @@ const readResults = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('../features/findings/components/FindingDetail/FullFindingDetail', () => ({
+vi.mock('../../features/findings/components/FindingDetail/FullFindingDetail', () => ({
   FullFindingDetail: ({ finding }: { finding: { display_id: string; title: string } }) => (
     <div data-testid="finding-record">
       {finding.display_id} {finding.title}
@@ -45,7 +45,7 @@ vi.mock('../features/findings/components/FindingDetail/FullFindingDetail', () =>
   ),
 }));
 
-vi.mock('../features/voc/components/detail/FullDetailView', () => ({
+vi.mock('../../features/voc/components/detail/FullDetailView', () => ({
   FullDetailView: ({ voc }: { voc: { display_id: string; title: string } }) => (
     <div data-testid="voc-record">
       {voc.display_id} {voc.title}
@@ -53,45 +53,45 @@ vi.mock('../features/voc/components/detail/FullDetailView', () => ({
   ),
 }));
 
-vi.mock('../features/voc/components/detail/SummaryPermissionView', () => ({
+vi.mock('../../features/voc/components/detail/SummaryPermissionView', () => ({
   SummaryPermissionView: () => <div>Summary only</div>,
 }));
 
-vi.mock('../features/voc-cluster/hooks/useConfirmCluster', () => ({
+vi.mock('../../features/voc-cluster/hooks/useConfirmCluster', () => ({
   useConfirmCluster: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
-vi.mock('../features/voc-cluster/hooks/useRemoveClusterMember', () => ({
+vi.mock('../../features/voc-cluster/hooks/useRemoveClusterMember', () => ({
   useRemoveClusterMember: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
-vi.mock('../features/voc-cluster/hooks/useRequestTaskFromCluster', () => ({
+vi.mock('../../features/voc-cluster/hooks/useRequestTaskFromCluster', () => ({
   useRequestTaskFromCluster: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
-vi.mock('../lib/cross-system/useManagedSystem', () => ({
+vi.mock('../../lib/cross-system/useManagedSystem', () => ({
   useManagedSystem: () => null,
 }));
 
-vi.mock('../lib/auth/useMe', () => ({
+vi.mock('../../lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { id: 'actor-1', role_level: 'admin' } } }),
 }));
 
 // The cluster panel reads the session through lib/api/me (761c).
-vi.mock('../lib/api/me', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/api/me')>()),
+vi.mock('../../lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../lib/api/me')>()),
   useMeBridge: () => ({ data: { actor: { id: 'actor-1', role_level: 'admin' } } }),
 }));
 
-vi.mock('../lib/cross-system/usePermissionCheck', () => ({
+vi.mock('../../lib/cross-system/usePermissionCheck', () => ({
   usePermissionCheck: () => ({ data: { state: 'approved' } }),
 }));
 
-vi.mock('../features/cross-system/progress-notes/ProgressNotesSection', () => ({
+vi.mock('../../features/cross-system/progress-notes/ProgressNotesSection', () => ({
   ProgressNotesSection: () => null,
 }));
 
-vi.mock('../features/tasks/components/milestone-detail/MilestoneDetailContent', () => ({
+vi.mock('../../features/tasks/components/milestone-detail/MilestoneDetailContent', () => ({
   MilestoneDetailContent: ({ milestone }: { milestone: { display_id: string; title: string } }) => (
     <div data-testid="milestone-record">
       {milestone.display_id} {milestone.title}
@@ -115,16 +115,16 @@ vi.mock('@ap/ui', async (importOriginal) => {
   };
 });
 
-vi.mock('../lib/api/registry-reads', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../lib/api/registry-reads')>();
+vi.mock('../../lib/api/registry-reads', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/api/registry-reads')>();
   return {
     ...actual,
     fetchManagedSystems: vi.fn(async () => ({ items: [] })),
   };
 });
 
-vi.mock('../lib/api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../lib/api')>();
+vi.mock('../../lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/api')>();
   return {
     ...actual,
     apiRequest: vi.fn(async (_method: string, path: string) => {
@@ -159,23 +159,23 @@ vi.mock('../lib/api', async (importOriginal) => {
 });
 
 // Screens import the module paths; forward at call time to the barrel overrides above.
-vi.mock('../lib/api/tasks', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/api/tasks')>()),
+vi.mock('../../lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../lib/api/tasks')>()),
   getTask: (...args: Parameters<typeof api.getTask>) => api.getTask(...args),
 }));
-vi.mock('../lib/api/task-requests', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/api/task-requests')>()),
+vi.mock('../../lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../lib/api/task-requests')>()),
   fetchTaskRequests: (...args: Parameters<typeof api.fetchTaskRequests>) =>
     api.fetchTaskRequests(...args),
 }));
-vi.mock('../lib/api/actors', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/api/actors')>()),
+vi.mock('../../lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../lib/api/actors')>()),
   resolveActors: (...args: Parameters<typeof api.resolveActors>) => api.resolveActors(...args),
 }));
 
 // useVocDetail imports the client module directly (bridge-safe graph, #654), not the barrel mocked above.
-vi.mock('../lib/api/client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../lib/api/client')>();
+vi.mock('../../lib/api/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/api/client')>();
   return {
     ...actual,
     // The cluster hooks import the client module directly (761c), like useVocDetail.
@@ -198,8 +198,8 @@ vi.mock('../lib/api/client', async (importOriginal) => {
   };
 });
 
-vi.mock('../lib/api/milestones', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../lib/api/milestones')>();
+vi.mock('../../lib/api/milestones', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/api/milestones')>();
   return {
     ...actual,
     getMilestone: vi.fn(async (id: string) => readResults.resolveRead(readResults.milestones, id)),

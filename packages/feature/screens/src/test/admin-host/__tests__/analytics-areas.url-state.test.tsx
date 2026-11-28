@@ -21,7 +21,7 @@ import {
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, test, vi } from 'vitest';
 
-import { AnalyticsAreasAdminPage, analyticsAreasSearchSchema } from './screens';
+import { AnalyticsAreasAdminPage, analyticsAreasSearchSchema } from '../screens';
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();

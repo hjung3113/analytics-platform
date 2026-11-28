@@ -16,9 +16,9 @@ import {
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
-import { type HostSeam, HostSeamProvider } from '../../lib/host/host-seam';
-import { ManagedSystemsAdminPage } from './screens';
-import { tanstackHost } from '../host-adapters/lib/host/tanstack-host';
+import { type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
+import { ManagedSystemsAdminPage } from '../screens';
+import { tanstackHost } from '../../host-adapters/lib/host/tanstack-host';
 
 function buildHarness({ initialPath }: { initialPath: string }) {
   const rootRoute = createRootRoute({ component: () => <Outlet /> });

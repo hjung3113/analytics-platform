@@ -16,7 +16,7 @@ import {
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, test, vi } from 'vitest';
 
-import { AnalyticsAreasAdminPage } from './screens';
+import { AnalyticsAreasAdminPage } from '../screens';
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();

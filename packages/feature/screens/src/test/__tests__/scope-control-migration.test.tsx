@@ -1,4 +1,4 @@
-import { ManagedSystemScopeControl } from '../operator-screens/scope-picker/ManagedSystemScopeControl';
+import { ManagedSystemScopeControl } from '../../operator-screens/scope-picker/ManagedSystemScopeControl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';

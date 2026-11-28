@@ -1,7 +1,7 @@
-import { VocClusterListShell } from '../../features/voc-cluster/components/detail/VocClusterListShell';
-import { VocClusterListPage, vocClustersSearchSchema } from './index';
-import { clusterSuggestionsFixture } from '../fixtures/cluster-suggestions';
-import { IDS, emptyList, populatedList } from '../fixtures/voc-clusters';
+import { VocClusterListShell } from '../../../features/voc-cluster/components/detail/VocClusterListShell';
+import { VocClusterListPage, vocClustersSearchSchema } from '../index';
+import { clusterSuggestionsFixture } from '../../fixtures/cluster-suggestions';
+import { IDS, emptyList, populatedList } from '../../fixtures/voc-clusters';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {

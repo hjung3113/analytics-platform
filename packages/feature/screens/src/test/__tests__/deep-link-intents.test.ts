@@ -1,8 +1,8 @@
-import { validatePermissionRequestsSearch } from '../features/admin/permissions/permission-requests-search';
-import { validateFindingsSearch } from '../features/findings/routes/findings-search';
-import { validateSurveysSearch } from '../features/surveys/routes/surveys-search';
-import { validateTasksSearch } from '../features/tasks/routes/task-search';
-import { validateVocSearch } from '../features/voc/routes/voc-search';
+import { validatePermissionRequestsSearch } from '../../features/admin/permissions/permission-requests-search';
+import { validateFindingsSearch } from '../../features/findings/routes/findings-search';
+import { validateSurveysSearch } from '../../features/surveys/routes/surveys-search';
+import { validateTasksSearch } from '../../features/tasks/routes/task-search';
+import { validateVocSearch } from '../../features/voc/routes/voc-search';
 import {
   DASHBOARD_ACTIONABLE_FINDINGS_ROUTE,
   DASHBOARD_HOP_ROUTES,

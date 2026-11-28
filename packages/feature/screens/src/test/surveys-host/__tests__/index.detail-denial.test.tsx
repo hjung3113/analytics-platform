@@ -1,5 +1,5 @@
-import { type HostSeam, HostSeamProvider } from '../../lib/host/host-seam';
-import { tanstackHost } from '../host-adapters/lib/host/tanstack-host';
+import { type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
+import { tanstackHost } from '../../host-adapters/lib/host/tanstack-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,
@@ -41,10 +41,10 @@ vi.mock('@ap/ui', async (importOriginal) => {
   };
 });
 
-import { useSurveyDetailParts } from '../../features/surveys/components/detail/SurveyDetailParts';
-import { PERMISSION_BLOCKED_REASONS } from '../../lib/copy/permission-reasons';
-import { SurveysScreen } from '../../features/surveys/routes/SurveysScreen';
-import { surveysSearchSchema } from './screen';
+import { useSurveyDetailParts } from '../../../features/surveys/components/detail/SurveyDetailParts';
+import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
+import { SurveysScreen } from '../../../features/surveys/routes/SurveysScreen';
+import { surveysSearchSchema } from '../screen';
 
 // The platform bridge's seam shape: the host owns the page title and the Survey detail parts never write one.
 const PLATFORM_LIKE_HOST: HostSeam = { ...tanstackHost, hostOwnsTitle: true, useTitle: () => undefined };

@@ -1,5 +1,5 @@
-import { DETAIL_PANEL_KICKERS } from '../lib/copy/detail-panel';
-import { AppFrame } from './detail-slot-host';
+import { DETAIL_PANEL_KICKERS } from '../../lib/copy/detail-panel';
+import { AppFrame } from '../detail-slot-host';
 import { DetailPanelHeader, ListShell } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';

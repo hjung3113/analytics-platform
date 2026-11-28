@@ -5,7 +5,7 @@
 import {
   parseAppSearch,
   stringifyAppSearch,
-} from '../host-adapters/lib/router/search-serialization';
+} from '../../host-adapters/lib/router/search-serialization';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,
@@ -39,7 +39,7 @@ vi.mock('@ap/ui', async (importOriginal) => {
   };
 });
 
-vi.mock('../host-adapters/features/findings/components/FindingDetail/index', () => ({
+vi.mock('../../host-adapters/features/findings/components/FindingDetail/index', () => ({
   FindingDetailPanel: ({
     findingId,
     headerExtras,
@@ -54,7 +54,7 @@ vi.mock('../host-adapters/features/findings/components/FindingDetail/index', () 
   ),
 }));
 
-import { FindingsListPage, findingsSearchSchema } from './screen';
+import { FindingsListPage, findingsSearchSchema } from '../screen';
 
 const F1_ID = '11111111-1111-4111-8111-111111111111';
 
