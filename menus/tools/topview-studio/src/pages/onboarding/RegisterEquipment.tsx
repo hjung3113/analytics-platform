@@ -60,7 +60,7 @@ function RegisterEquipmentDialog({ rows, onClose }: { rows: readonly FleetRowDto
     setFailure(null);
     try {
       const result = await run.run({ equipmentId, label: label.trim(), vendorId: chosen.vendorId, modelId: chosen.modelId });
-      if (result.outcome === 'ok') { toast('설비를 등록했습니다', 'info'); onClose(); return; }
+      if (result.outcome === 'ok') { toast('설비를 등록했습니다'); onClose(); return; }
       refocus.current = true;
       setFailure(registerFailure(result));
     } catch { refocus.current = true; setFailure('등록하지 못했습니다. 다시 시도하세요.'); }

@@ -120,7 +120,7 @@ export function PublishReview({ data, layout, plan, effectiveFrom, revisions, on
       }
       const result = await mappingAction.run({ equipmentId: data.equipment.equipmentId, layoutId: layout.id, layoutRevision: revision, windowHash: windowHex(data.window.hash), effectiveFrom, expectedMappingHash: reviewed },
         { expectedVersion: data.bindingsVersion });
-      if (result.outcome === 'ok') { toast('Mapping을 게시했습니다', 'info'); onClose(); return; }
+      if (result.outcome === 'ok') { toast('Mapping을 게시했습니다'); onClose(); return; }
       const code = result.fieldErrors[0]?.code;
       // Rules saved since the review: read them again so this dialog shows the diff that would be published now.
       if (result.outcome === 'invalid' && result.fieldErrors.some((f) => f.path.join('.') === 'mapping' && f.code === 'changed')) { data.reloadRules(); return; }

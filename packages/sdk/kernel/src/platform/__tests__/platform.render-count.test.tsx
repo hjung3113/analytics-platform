@@ -122,7 +122,7 @@ describe('menu and pane consumers are not woken by shell-only state', () => {
 describe('each shell-only hook wakes only its own consumers', () => {
   it('useToastList follows toasts only', () => {
     mount();
-    const raised = measure(() => { menu.toast('hello', 'warning'); });
+    const raised = measure(() => { menu.toast('hello', { tone: 'warning' }); });
     expect(raised).toMatchObject({ toasts: 1, overlay: 0, recent: 0 });
     expect(toasts.map(t => [t.text, t.tone])).toEqual([['hello', 'warning']]);
     const dismissed = measure(() => { menu.dismissToast(toasts[0]!.id); });

@@ -461,7 +461,7 @@ describe('검증·게시', () => {
     await waitFor(() => expect(writes().map((w) => w.action)).toEqual(['eqv.publishRevision', 'eqv.publishMapping']), slow);
     expect(writes()[0]).toEqual({ action: 'eqv.publishRevision', input: { layoutId: 'eq-synth-01-layout' }, expectedVersion: '1' });
     expect(writes()[1]).toMatchObject({ input: { equipmentId: 'eq-synth-01', layoutId: 'eq-synth-01-layout', layoutRevision: `sha256:${'b'.repeat(64)}`, effectiveFrom: '2026-01-01T10:30:00.000', windowHash: G1 }, expectedVersion: '2' });
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('Mapping을 게시했습니다', 'info'), slow);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Mapping을 게시했습니다'), slow);
   });
 
   it('after a publish the Bindings are read again and effectiveFrom takes the new default, with no error', async () => {
@@ -470,7 +470,7 @@ describe('검증·게시', () => {
     await waitFor(() => expect((review as HTMLButtonElement).disabled).toBe(false), slow);
     fireEvent.click(review);
     fireEvent.click(within(await screen.findByRole('alertdialog', {}, slow)).getByRole('button', { name: '게시' }));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('Mapping을 게시했습니다', 'info'), slow);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Mapping을 게시했습니다'), slow);
     const reads = () => server.state.queries.filter((q) => q.endpoint === 'eqv.bindings').length;
     await waitFor(() => expect(reads()).toBeGreaterThan(1), slow);
     const input = screen.getByLabelText(/effectiveFrom/) as HTMLInputElement;
@@ -541,7 +541,7 @@ describe('검증·게시', () => {
     const open = await screen.findByRole('alertdialog', {}, slow);
     await waitFor(() => expect(within(open).getByText('추가 0 · 삭제 0 · 변경 1 · 변경 없음 6')).toBeTruthy(), slow);
     expect(within(open).getByRole('alert').textContent).toBe('규칙이 바뀌었습니다. 다시 확인한 뒤 게시하세요.');
-    expect(notify).not.toHaveBeenCalledWith('Mapping을 게시했습니다', 'info');
+    expect(notify).not.toHaveBeenCalledWith('Mapping을 게시했습니다');
   });
 
   it('the rules-changed notice belongs to the refused review: a Sample Window change by Back/Forward clears it (#2053)', async () => {
@@ -701,7 +701,7 @@ describe('Sample Window import', () => {
     const table = await screen.findByRole('table', { name: /Sample Windows/ }, slow);
     expect(within(table).getByText('사용 중')).toBeTruthy();
     expect((await screen.findByRole('combobox', { name: 'Sample Window' }, slow)).textContent).toBe('g1 · 사용 중 · 2026-01-01 10:00–10:30');
-    expect(notify).toHaveBeenCalledWith('Sample Window를 가져왔습니다', 'info');
+    expect(notify).toHaveBeenCalledWith('Sample Window를 가져왔습니다');
     // The empty state's button is gone: focus moves to the import button above the new table (UX-9).
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Sample Window 가져오기' })), slow);
   });
@@ -1003,7 +1003,7 @@ describe('MEN-8 onboarding menu assertions', () => {
     expect(within(dialog).getByText('Mapping을 게시할까요?', { exact: true })).toBeTruthy();
     expect(within(dialog).getByText(textIs('열린 binding(2026-01-01T10:04:30.000 ~)을 2026-01-01T10:30:00.000에서 닫습니다'))).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: '게시' }));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('Mapping을 게시했습니다', 'info'), slow);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Mapping을 게시했습니다'), slow);
   });
 });
 

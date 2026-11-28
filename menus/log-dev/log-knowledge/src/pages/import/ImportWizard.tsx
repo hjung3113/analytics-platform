@@ -317,7 +317,7 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p id={`${uid}-limit`} className="t-caption text-text-muted">한 번에 {formatNumber(PASTE_ROW_LIMIT, 'ko')}행까지{dataRows > 0 && <span className="tabular"> · 지금 {formatNumber(dataRows, 'ko')}행</span>}{sourceName && <span> · 파일 {sourceName}</span>}</p>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" variant="secondary" onClick={() => { void copyText(TEMPLATE_HEADER).then(ok => toast(ok ? '머리글 행을 복사했습니다' : '복사하지 못했습니다. 직접 입력해 주세요.', ok ? 'info' : 'warning')); }}>양식 복사</Button>
+            <Button type="button" size="sm" variant="secondary" onClick={() => { void copyText(TEMPLATE_HEADER).then(ok => toast(ok ? '머리글 행을 복사했습니다' : '복사하지 못했습니다. 직접 입력해 주세요.', { tone: ok ? 'info' : 'warning' })); }}>양식 복사</Button>
             <Button type="button" size="sm" variant="secondary" onClick={() => fileInput.current?.click()}>CSV 파일 열기</Button>
             <input ref={fileInput} type="file" accept=".csv,text/csv" aria-label="CSV 파일 선택" tabIndex={-1} className="sr-only" onChange={e => {
               const file = e.target.files?.[0]; e.target.value = '';

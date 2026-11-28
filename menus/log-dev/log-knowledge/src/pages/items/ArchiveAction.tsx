@@ -11,9 +11,9 @@ function ArchiveDialog({ item, archive, onClose, onCloseAutoFocus, onChanged }: 
   const setArchived = useMenuAction(itemSetArchived);
   const confirm = () => {
     void setArchived.run({ id: item.id, archived: archive }, { expectedVersion: item.version }).then(res => {
-      if (res.outcome === 'ok') toast(archive ? '보관했습니다' : '보관을 해제했습니다', 'info');
-      else if (res.outcome === 'conflict') { toast('다른 사람이 먼저 고쳤습니다', 'warning', '새로 불러온 뒤 다시 시도해 주세요.'); onChanged(); }
-      else toast('저장하지 못했습니다', 'danger', res.outcome === 'unknown' ? '저장됐는지 확인하지 못했습니다.' : undefined);
+      if (res.outcome === 'ok') toast(archive ? '보관했습니다' : '보관을 해제했습니다');
+      else if (res.outcome === 'conflict') { toast('다른 사람이 먼저 고쳤습니다', { tone: 'warning', detail: '새로 불러온 뒤 다시 시도해 주세요.' }); onChanged(); }
+      else toast('저장하지 못했습니다', { tone: 'danger', detail: res.outcome === 'unknown' ? '저장됐는지 확인하지 못했습니다.' : undefined });
       onClose();
     }).catch(() => onClose());
   };

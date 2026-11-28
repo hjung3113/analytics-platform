@@ -60,7 +60,7 @@ function LinkDialog({ modelId, software, links, onClose, onDone }: { modelId: st
   const existing = links.find(l => l.fromSoftwareId === fromSoftwareId);
   const send = (row: (typeof rows)[number]) => {
     void link.run({ modelId, fromSoftwareId, layoutId: row.layoutId, revision: row.revision }, { expectedVersion: existing ? existing.version : '0' }).then(res => {
-      if (res.outcome === 'ok') { toast('Top View를 연결했습니다', 'info'); onDone(); onClose(); return; }
+      if (res.outcome === 'ok') { toast('Top View를 연결했습니다'); onDone(); onClose(); return; }
       if (res.outcome === 'conflict') { onDone(); setServerErrors({ form: '다른 사람이 먼저 고쳤습니다. 새로 불러온 뒤 다시 시도해 주세요.' }); return; }
       // A rejection mapped onto a picker is announced once, by the form line.
       if (res.outcome === 'invalid') { setServerErrors(withFieldsSummary(linkFieldErrors(res.fieldErrors))); return; }
@@ -101,9 +101,9 @@ function UnlinkDialog({ modelId, item, onClose, onDone, onUnlinked }: { modelId:
   const succeeded = useRef(false);
   const confirm = () => {
     void unlink.run({ modelId, fromSoftwareId: item.fromSoftwareId }, { expectedVersion: item.version }).then(res => {
-      if (res.outcome === 'ok') { succeeded.current = true; onUnlinked(); toast('Top View 연결을 해제했습니다', 'info'); }
-      else if (res.outcome === 'conflict') toast('다른 사람이 먼저 고쳤습니다', 'warning', '새로 불러온 뒤 다시 시도해 주세요.');
-      else toast('해제하지 못했습니다', 'danger');
+      if (res.outcome === 'ok') { succeeded.current = true; onUnlinked(); toast('Top View 연결을 해제했습니다'); }
+      else if (res.outcome === 'conflict') toast('다른 사람이 먼저 고쳤습니다', { tone: 'warning', detail: '새로 불러온 뒤 다시 시도해 주세요.' });
+      else toast('해제하지 못했습니다', { tone: 'danger' });
       onDone(); onClose();
     }).catch(() => onClose());
   };

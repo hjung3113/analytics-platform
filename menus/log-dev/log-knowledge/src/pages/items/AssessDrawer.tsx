@@ -54,7 +54,7 @@ function AssessForm({ detail, onReload, guard, rationale, setRationale, reloadQu
   const current = (axis: AssessmentDimension) => (axis === 'verification' ? item.verificationState : item.processingState);
 
   function settle(res: ActionResult<unknown>) {
-    if (res.outcome === 'ok') { setErrors({}); setConflict(false); setFailed(null); toast('판단 상태를 바꿨습니다', 'info'); guard.release(() => setPage({ drawer: null })); return; }
+    if (res.outcome === 'ok') { setErrors({}); setConflict(false); setFailed(null); toast('판단 상태를 바꿨습니다'); guard.release(() => setPage({ drawer: null })); return; }
     if (res.outcome === 'conflict') { setConflict(true); return; }
     const mapped = res.outcome === 'invalid' ? mapItemErrors(res.fieldErrors, KNOWN, 0) : {};
     setErrors(mapped);

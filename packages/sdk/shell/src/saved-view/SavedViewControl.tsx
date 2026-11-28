@@ -62,7 +62,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   // False once this surface was replaced or unmounted: its pending writes may finish, but nothing of theirs reaches the screen, the toasts or the parent.
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  const toast = (text: string, tone: Parameters<typeof host.toast>[1]) => { if (alive.current) host.toast(text, tone); };
+  const toast = (text: string, options?: Parameters<typeof host.toast>[1]) => { if (alive.current) host.toast(text, options); };
   const wrapper = useRef<HTMLSpanElement>(null);
   const saveTrigger = useRef<HTMLButtonElement>(null);
   const [query, setQuery] = useState('');
@@ -96,7 +96,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const blockedMessage = saveBlock?.reasons ?? m('savedViewBlocked');
   const fail = (reason: Extract<Result<never>, { ok: false }>['reason']) => failureText({ ok: false, reason }, tx);
   const report = (result: Result<unknown> & { code?: 'blocked' }, done: string): boolean => {
-    if (result.ok) toast(done, 'info'); else toast(result.code === 'blocked' ? blockedMessage : fail(result.reason), 'warning');
+    if (result.ok) toast(done); else toast(result.code === 'blocked' ? blockedMessage : fail(result.reason), { tone: 'warning' });
     return result.ok;
   };
   const pickFailed = (outcome: SelectOutcome) => {
@@ -107,7 +107,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       unavailable: 'savedViewUnavailable',
       denied: 'savedViewDenied',
     } as const;
-    toast(m(keys[outcome.reason]), 'warning');
+    toast(m(keys[outcome.reason]), { tone: 'warning' });
   };
 
   // Focus goes back to the selector after a surface that has no trigger of its own; deferred so it lands after the dialog's own cleanup.
@@ -229,7 +229,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     else if (input.visibility === 'share') { pending.current = { unit: input.unit, name: input.name }; setHandoff(true); return { ok: true, value: null }; }
     else result = await views.saveAs({ name: input.name, kind: input.unit });
     if (!result.ok && 'code' in result) return { ...result, detail: blockedMessage };
-    if (result.ok) { toast(input.mode === 'update' ? m('savedViewUpdated') : m('savedViewSavedAs', { name: input.name }), 'info'); if (saveAsDone.current) saveAsDone.current.ok = true; }
+    if (result.ok) { toast(input.mode === 'update' ? m('savedViewUpdated') : m('savedViewSavedAs', { name: input.name })); if (saveAsDone.current) saveAsDone.current.ok = true; }
     return result;
   };
 
@@ -274,8 +274,8 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       }
       pending.current = null;
       created.current = null;
-      if (shared === null) { toast(m('savedViewSavedAs', { name: made.name }), 'info'); return true; }
-      toast(draft.mode === 'official' ? m('savedViewSavedOfficialRequested', { name: made.name }) : m('savedViewSavedShared', { name: made.name }), 'info');
+      if (shared === null) { toast(m('savedViewSavedAs', { name: made.name })); return true; }
+      toast(draft.mode === 'official' ? m('savedViewSavedOfficialRequested', { name: made.name }) : m('savedViewSavedShared', { name: made.name }));
       return true;
     } catch {
       return alive.current ? refused('unavailable', created.current !== null) : false;

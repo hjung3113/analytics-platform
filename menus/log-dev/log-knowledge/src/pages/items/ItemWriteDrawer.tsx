@@ -171,14 +171,14 @@ function WriteFormBody({ target, draftState, onReload, guard }: { target: ItemWr
   const send = () => {
     const subjectPayload = subjectPayloadOf();
     if (target.mode === 'create') {
-      void create.run({ ...createInput(form), subjects: toSubjectInputs(ownerModelId, picks), relations: relationInputs(relations) }).then(res => settle(res, data => { toast('기술 Item을 등록했습니다', 'info'); goToItem(data); })).catch(() => undefined);
+      void create.run({ ...createInput(form), subjects: toSubjectInputs(ownerModelId, picks), relations: relationInputs(relations) }).then(res => settle(res, data => { toast('기술 Item을 등록했습니다'); goToItem(data); })).catch(() => undefined);
     } else if (target.mode === 'revise') {
       const { detail } = target;
       void revise.run({ ...reviseInput(detail.item.id, form), ...(subjectPayload?.send ? { subjects: subjectPayload.subjects } : {}), ...(JSON.stringify(relations) !== initialRelations ? { relations: relationInputs(relations) } : {}) }, { expectedVersion: baseVersion })
-        .then(res => settle(res, () => { toast('새 리비전을 저장했습니다', 'info'); setPage({ drawer: null, rev: null }); })).catch(() => undefined);
+        .then(res => settle(res, () => { toast('새 리비전을 저장했습니다'); setPage({ drawer: null, rev: null }); })).catch(() => undefined);
     } else {
       const { detail } = target;
-      void derive.run(deriveInput(detail.item.id, detail.revision.revisionNo, form)).then(res => settle(res, data => { toast('관련 Item을 작성했습니다', 'info'); goToItem(data); })).catch(() => undefined);
+      void derive.run(deriveInput(detail.item.id, detail.revision.revisionNo, form)).then(res => settle(res, data => { toast('관련 Item을 작성했습니다'); goToItem(data); })).catch(() => undefined);
     }
   };
 

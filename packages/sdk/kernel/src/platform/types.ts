@@ -15,7 +15,8 @@ export type ScopeState = { scopeId: string | null; status: 'none' | 'validating'
 export type Recent = { menuId: string; url: string; at: number };
 export type ToastAction = { label: string; onAction: () => void };
 export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'danger'; detail?: string; action?: ToastAction };
-export type ToastOptions = { action?: ToastAction; durationMs?: number };
+/** Options of `toast`; every field is optional. `tone` defaults to `'info'`; an action toast without `durationMs` stays until dismissed, others leave after 5 s. */
+export type ToastOptions = { tone?: Toast['tone']; detail?: string; action?: ToastAction; durationMs?: number };
 /** The undo window: an action toast without `durationMs` stays until dismissed (06 Toast), so an undo passes this essential time limit (#946 Q8). */
 export const UNDO_WINDOW_MS = 8000;
 /**
@@ -317,7 +318,7 @@ export type HostPlatform = {
   toggleFavorite: (menuId: string) => void;
   /** Latest recent visits at call time (a stable function, ADR-0076 supplement #824). Read it in an event handler; render with `useRecentVisits()`. */
   readRecent: () => readonly Recent[];
-  toast: (text: string, tone?: Toast['tone'], detail?: string, options?: ToastOptions) => number;
+  toast: (text: string, options?: ToastOptions) => number;
   dismissToast: (id: number) => void;
   /** Pauses (`true`) or restarts (`false`) a toast's auto-dismiss while focus or the pointer is inside it. */
   holdToast: (id: number, held: boolean) => void;

@@ -121,8 +121,8 @@ export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink,
     hostOwnsTitle: true,
     // The platform carries the return path as its own `returnTo`, so a screen adds no feature one (Design 6).
     hostCarriesReturn: true,
-    notifyError: message => toast(message, 'danger'),
-    notifySuccess: message => toast(message, 'info'),
+    notifyError: message => toast(message, { tone: 'danger' }),
+    notifySuccess: message => toast(message),
     useNavigate,
     useSearch,
     useTitle,
@@ -130,7 +130,7 @@ export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink,
     // screen's two action lifetimes (D5, #886): no duration is screen's short undo window (standalone 4 s) — the platform keeps its 8 s undo window;
     // `Infinity` is screen's "stay" — the kernel's action default, which stays until acted on or dismissed (06 Toast). A finite duration passes through.
     notify: ({ tone, message, description, action, durationMs }) =>
-      String(toast(message, TONE[tone], description, { ...(action ? { action } : {}), ...(durationMs === undefined ? (action ? { durationMs: UNDO_WINDOW_MS } : {}) : Number.isFinite(durationMs) ? { durationMs } : {}) })),
+      String(toast(message, { tone: TONE[tone], detail: description, ...(action ? { action } : {}), ...(durationMs === undefined ? (action ? { durationMs: UNDO_WINDOW_MS } : {}) : Number.isFinite(durationMs) ? { durationMs } : {}) })),
     dismiss: id => dismissToast(Number(id)),
     useHere,
     // The head element `FeatureScreenPage` offers for a screen's one primary action (null outside it); a module-level hook, so the seam stays stable.

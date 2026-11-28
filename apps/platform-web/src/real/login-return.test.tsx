@@ -167,7 +167,7 @@ describe('one-time login return (#2195)', () => {
     expect(location.search).toBe('');
     expect('adapter' in outcome).toBe(true);
     if ('adapter' in outcome) render(<StrictMode>{outcome.topBarTools}</StrictMode>);
-    expect(notify).toHaveBeenCalledExactlyOnceWith('이전 조회 조건을 복원하지 못했습니다.', 'warning');
+    expect(notify).toHaveBeenCalledExactlyOnceWith('이전 조회 조건을 복원하지 못했습니다.', { tone: 'warning' });
   });
 
   it.each(['{broken', 'null', '[]'])('consumes unreadable data (%s) and reports rejection', raw => {
@@ -227,7 +227,7 @@ describe('one-time login return (#2195)', () => {
     const outcome = await boot();
     expect('adapter' in outcome).toBe(true);
     if ('adapter' in outcome) render(<StrictMode>{outcome.topBarTools}</StrictMode>);
-    expect(notify).toHaveBeenCalledExactlyOnceWith('이전 조회 조건을 복원하지 못했습니다.', 'warning');
+    expect(notify).toHaveBeenCalledExactlyOnceWith('이전 조회 조건을 복원하지 못했습니다.', { tone: 'warning' });
   });
 
   it.each(['/', '/home?q=x&scopeId=MEM', '//evil', '/\\evil', '/\t/evil', '/x\u0000', '/x\u0085', '/x y', '/a/..//evil', 'https://evil', '/%2f%2fevil', '/x?q=%20'])('mirrors server URL safety for %j (length intentionally excluded)', value => {

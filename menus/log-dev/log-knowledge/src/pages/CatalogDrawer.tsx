@@ -188,14 +188,14 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose, markDir
   const save = () => {
     const run = row ? update.run(input(), { expectedVersion: row.version }) : create.run(input());
     void run.then(res => settle(res, data => {
-      toast(row ? '저장했습니다' : `${TAB_LABEL[kind]}을(를) 추가했습니다`, 'info');
+      toast(row ? '저장했습니다' : `${TAB_LABEL[kind]}을(를) 추가했습니다`);
       if (row) onReload(); else if (data) setCreatedId(data.id);
     })).catch(() => undefined);
   };
   const toggle = (active: boolean) => {
     if (!row) return;
     setConfirming(false);
-    void setActive.run({ id: row.id, active }, { expectedVersion: row.version }).then(res => settle(res, () => { toast(active ? '다시 활성화했습니다' : '비활성화했습니다', 'info'); onReload(); })).catch(() => undefined);
+    void setActive.run({ id: row.id, active }, { expectedVersion: row.version }).then(res => settle(res, () => { toast(active ? '다시 활성화했습니다' : '비활성화했습니다'); onReload(); })).catch(() => undefined);
   };
 
   const err = (field: string) => errors[field];

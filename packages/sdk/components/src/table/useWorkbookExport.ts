@@ -84,13 +84,13 @@ export function useWorkbookExport(): WorkbookExport {
       if (controller.signal.aborted) return 'cancelled';
       if (error instanceof WorkbookRefusal) {
         const refusal = exportRefusal(error.response.outcome, error.response, l);
-        toast(refusal.text, 'warning', refusal.detail);
+        toast(refusal.text, { tone: 'warning', detail: refusal.detail });
         return 'refused';
       }
       // By name: a DOMException is not an `Error` instance in every runtime (jsdom).
       const name = (error as { name?: unknown } | null)?.name;
       if (name === 'AbortError' || name === 'TimeoutError') {
-        toast(EXPORT_REFUSAL.timeout[l], 'warning');
+        toast(EXPORT_REFUSAL.timeout[l], { tone: 'warning' });
         return 'refused';
       }
       if (error instanceof WorkbookError && SIZE_CODES.has(error.code)) {
@@ -98,12 +98,12 @@ export function useWorkbookExport(): WorkbookExport {
           rows: formatNumber(WORKBOOK_LIMITS.rowsPerSheet, l),
           columns: formatNumber(WORKBOOK_LIMITS.columns, l),
           cells: formatNumber(WORKBOOK_LIMITS.cells, l),
-        }), 'warning');
+        }), { tone: 'warning' });
         return 'too-large';
       }
       // A sheet-name or sheet-count error is the menu's declaration bug: loud in dev, the generic failure toast for the user.
       if (process.env.NODE_ENV !== 'production') console.error(error);
-      toast(EXPORT_REFUSAL.error[l], 'warning');
+      toast(EXPORT_REFUSAL.error[l], { tone: 'warning' });
       return 'failed';
     } finally {
       if (running.current === controller) { running.current = null; setExporting(false); }

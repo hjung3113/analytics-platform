@@ -32,7 +32,7 @@ export function TemplateTab({ data }: { data: EquipmentData }) {
     setError(null);
     try {
       const result = await create.run({ layoutId: data.layoutId, document: instantiateLayout(document, data.layoutId) as unknown as LayoutJson }, { expectedVersion: '0' });
-      if (result.outcome === 'ok') { toast(`Layout 초안 ${data.layoutId}을(를) 만들었습니다`, 'info'); setPage({ step: 'mapping' }); }
+      if (result.outcome === 'ok') { toast(`Layout 초안 ${data.layoutId}을(를) 만들었습니다`); setPage({ step: 'mapping' }); }
       else setError(result.outcome === 'conflict' ? '이미 Layout 초안이 있습니다.' : result.outcome === 'forbidden' ? '권한이 없어 만들지 못했습니다.' : 'Layout 초안을 만들지 못했습니다.');
     } catch { setError('Layout 초안을 만들지 못했습니다.'); }
   };

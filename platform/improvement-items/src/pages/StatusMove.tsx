@@ -23,7 +23,7 @@ function MoveDialog({ item, move, compareLink, onClose }: { item: ItemRow; compa
   const busy = statusAction.pending || reopenAction.pending || reviewing;
   const legal = move === 'reopen' ? !!REOPEN[base.status] : FORWARD[base.status].includes(move);
   function settle(r: Awaited<ReturnType<typeof statusAction.run>>) {
-    if (r.outcome === 'ok') { toast(c.changed, 'info'); onClose(); return; }
+    if (r.outcome === 'ok') { toast(c.changed); onClose(); return; }
     if (r.outcome === 'conflict') { setConflict(true); setMessage(c.conflict); return; }
     setMessage(r.outcome === 'unknown' ? c.unknown : r.outcome === 'forbidden' ? c.denied : r.outcome === 'not_found' ? c.notFound : c.failed);
     setRetry(r.retry ? () => () => { void r.retry!().then(settle).catch(() => setMessage(c.failed)); } : null);

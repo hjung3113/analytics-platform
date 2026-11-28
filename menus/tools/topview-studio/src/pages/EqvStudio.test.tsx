@@ -114,7 +114,7 @@ describe('save', () => {
     select('proc-a'); rename('Edited');
     expect(within(title().parentElement!).getByText('저장 안 됨')).toBeTruthy();
     fireEvent.click(button('초안 저장'));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다', 'info'), slow);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다'), slow);
     expect(writes()).toEqual([{ action: 'eqv.saveDraft', input: expect.objectContaining({ layoutId: FIXTURE.id }), expectedVersion: '1' }]);
     expect((writes()[0]!.input.document as typeof FIXTURE).components.find(c => c.id === 'proc-a')!.label).toBe('Edited');
     expect(server.state.drafts.get(FIXTURE.id)!.version).toBe(2);
@@ -162,7 +162,7 @@ describe('save', () => {
     select('proc-a');
     rename('Fresh');
     fireEvent.click(button('초안 저장'));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다', 'info'), slow);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다'), slow);
     expect(writes().at(-1)).toMatchObject({ action: 'eqv.saveDraft', expectedVersion: '5' });
     expect(server.state.drafts.get(FIXTURE.id)!.version).toBe(6);
   });
@@ -226,7 +226,7 @@ describe('delete', () => {
     await waitFor(() => expect(screen.queryByTestId('select-proc-a')).toBeNull());
     expect(within(title().parentElement!).getByText('저장 안 됨')).toBeTruthy();
     fireEvent.click(button('초안 저장'));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다', 'info'), slow);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다'), slow);
     const saved = writes()[0]!.input.document as unknown as { components: { id: string }[]; physicalInterfaces: { id: string }[]; transferCapabilities: { id: string }[] };
     expect(saved.components.map(c => c.id)).not.toContain('proc-a');
     expect(saved.physicalInterfaces.map(i => i.id)).toEqual(['lp-a-hub-a']);
@@ -250,7 +250,7 @@ describe('import', () => {
     await waitFor(() => expect(within(title().parentElement!).getByText('저장 안 됨')).toBeTruthy(), slow);
     await waitFor(() => expect((button('초안 저장') as HTMLButtonElement).disabled).toBe(false), slow);
     fireEvent.click(button('초안 저장'));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다', 'info'), slow);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다'), slow);
     expect(writes()).toEqual([{ action: 'eqv.saveDraft', input: expect.objectContaining({ layoutId: 'brand-new' }), expectedVersion: '0' }]);
     expect(server.state.drafts.get('brand-new')!.version).toBe(1);
   });
@@ -261,7 +261,7 @@ describe('import', () => {
     await waitFor(() => expect(within(title().parentElement!).getByText('저장 안 됨')).toBeTruthy(), slow);
     expect(server.state.writes).toEqual([]);
     fireEvent.click(button('초안 저장'));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다', 'info'), slow);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다'), slow);
     expect(writes()[0]).toMatchObject({ expectedVersion: '1' });
   });
 
@@ -290,14 +290,14 @@ describe('publish', () => {
     expect((button('Revision 게시') as HTMLButtonElement).disabled).toBe(true);
     expect(within(guidance()).getByText('저장 후 게시 가능')).toBeTruthy();
     fireEvent.click(button('초안 저장'));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다', 'info'), slow);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다'), slow);
     await waitFor(() => expect((button('Revision 게시') as HTMLButtonElement).disabled).toBe(false), slow);
     fireEvent.click(button('Revision 게시'));
     const dialog = await screen.findByRole('alertdialog');
     expect(within(dialog).getByText('첫 Revision')).toBeTruthy();
     expect(within(dialog).getByText(/게시한 Revision은 바꿀 수 없습니다/)).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: '게시' }));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('Revision을 게시했습니다', 'info'), slow);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Revision을 게시했습니다'), slow);
     expect(writes().at(-1)).toEqual({ action: 'eqv.publishRevision', input: { layoutId: FIXTURE.id }, expectedVersion: '2' });
   });
 
@@ -342,12 +342,12 @@ describe('publish', () => {
     const first = await screen.findByRole('alertdialog');
     expect(await within(first).findByText('기존 Revision 2개', {}, slow)).toBeTruthy();
     fireEvent.click(within(first).getByRole('button', { name: '게시' }));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('Revision을 게시했습니다', 'info'), slow);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Revision을 게시했습니다'), slow);
     fireEvent.click(await screen.findByRole('button', { name: 'Revision 게시' }));
     const second = await screen.findByRole('alertdialog');
     expect(await within(second).findByText(/이미 .*로 게시되어 있습니다/, {}, slow)).toBeTruthy();
     fireEvent.click(within(second).getByRole('button', { name: '게시' }));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('같은 내용의 Revision이 이미 있습니다. 새로 만들지 않았습니다', 'info'), slow);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('같은 내용의 Revision이 이미 있습니다. 새로 만들지 않았습니다'), slow);
     expect(server.state.revisions).toHaveLength(3);
   });
 
@@ -401,7 +401,7 @@ describe('promote', () => {
     fireEvent.change(within(dialog).getByLabelText(/^이름/), { target: { value: 'My template' } });
     expect(submit.disabled).toBe(false);
     fireEvent.click(submit);
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('EV Template my-template 승격 완료 · 삭제 불가', 'info'), slow);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('EV Template my-template 승격 완료 · 삭제 불가'), slow);
     expect(writes().at(-1)).toEqual({ action: 'eqv.promoteTemplate', input: { layoutId: FIXTURE.id, revision: REVISION, templateId: 'my-template', name: 'My template' }, expectedVersion: undefined });
     expect(await screen.findByText('my-template', {}, slow)).toBeTruthy();
   });
@@ -678,7 +678,7 @@ describe('FIX2 review regressions', () => {
     notify.mockClear();
     await mount('both'); select('proc-a'); rename('Toast');
     fireEvent.click(button('초안 저장'));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다', 'info'));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다'));
     expect(screen.queryByText('초안을 저장했습니다')).toBeNull();
   });
 
@@ -710,14 +710,14 @@ describe('MEN-8 studio menu assertions', () => {
     expect(within(title().parentElement!).getByText('저장 안 됨')).toBeTruthy();
     expect((button('Revision 게시') as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(button('초안 저장'));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다', 'info'), slow);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다'), slow);
     await waitFor(() => expect(screen.queryByText('저장 안 됨', { exact: true })).toBeNull(), slow);
     fireEvent.click(button('Revision 게시'));
     const publish = await screen.findByRole('alertdialog');
     expect(within(publish).getByText(/^비교 기준:/)).toBeTruthy();
     expect(within(within(publish).getByRole('table', { name: 'Layout 변경 목록' })).getAllByRole('cell', { name: '변경' }).length).toBeGreaterThan(0);
     fireEvent.click(within(publish).getByRole('button', { name: '게시' }));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('Revision을 게시했습니다', 'info'), slow);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Revision을 게시했습니다'), slow);
     await waitFor(() => expect(within(title().parentElement!).getByText('게시됨', { exact: true })).toBeTruthy(), slow);
   });
 });
@@ -737,7 +737,7 @@ describe('MEN-8 template promotion', () => {
     fireEvent.change(within(dialog).getByLabelText(/^ID/), { target: { value: 'e2e-template' } });
     fireEvent.change(within(dialog).getByLabelText(/^이름/), { target: { value: 'E2E template' } });
     fireEvent.click(within(dialog).getByRole('button', { name: '승격' }));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('EV Template e2e-template 승격 완료 · 삭제 불가', 'info'), slow);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('EV Template e2e-template 승격 완료 · 삭제 불가'), slow);
     expect(await within(screen.getByRole('region', { name: 'EV Templates' })).findByRole('button', { name: 'e2e-template' }, slow)).toBeTruthy();
   });
 });
