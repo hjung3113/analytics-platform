@@ -165,6 +165,7 @@ const commandGuards: Guard[] = [
   cmd('getDefaultId', { key }),
   cmd('setVisibility', { id: cmdId, visibility, ...expected }),
   cmd('requestOfficial', { id: cmdId, ...expected }),
+  cmd('withdraw', { id: cmdId, ...expected }),
   cmd('decide', { id: cmdId, decision: oneOf('approve', 'reject'), ...expected }, { note: text }),
   cmd('revoke', { id: cmdId, ...expected }),
   cmd('listApprovalRequests', { key }),
@@ -180,7 +181,7 @@ export const isSavedViewCommand: Guard = (body) => withinCommandBounds(body) && 
 // ---- responses ----
 
 const capabilityFields = { canView: bool, canCopy: bool, canEdit: bool, canShare: bool, canApprove: bool, canRevoke: bool };
-const capabilityOptions = { reason: str };
+const capabilityOptions = { canWithdraw: bool, reason: str };
 const capabilities = strict(capabilityFields, capabilityOptions);
 const record = { id, schemaVersion: lit(1), name: str, ownerId: str, version: int, updatedAt: num, visibility, approval: oneOf('none', 'pending', 'approved', 'rejected'), context };
 const approvalNote = { approvalNote: str };
@@ -231,6 +232,7 @@ export const responseGuards = {
   getDefaultId: nullable(str),
   setVisibility: result(entry),
   requestOfficial: result(entry),
+  withdraw: result(entry),
   decide: result(entry),
   revoke: result(entry),
   listApprovalRequests: arrayOf(approvalRequest),

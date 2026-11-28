@@ -96,7 +96,9 @@ export async function runServerConformance(harness: ServerConformanceHarness): P
           const sample = original.savedViews;
           if (!sample) return undefined;
           const forwardStore = (store: typeof sample.user) => Object.fromEntries(
-            SAVED_VIEW_PORT_METHODS.map(method => [method, forwardMethod(store, method)]),
+            SAVED_VIEW_PORT_METHODS
+              .filter(method => typeof store[method] === 'function')
+              .map(method => [method, forwardMethod(store, method)]),
           ) as typeof store;
           return {
             get menuId() { return sample.menuId; },

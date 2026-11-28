@@ -1208,6 +1208,9 @@
             "canRevoke": {
               "type": "boolean"
             },
+            "canWithdraw": {
+              "type": "boolean"
+            },
             "reason": {
               "type": "string"
             }

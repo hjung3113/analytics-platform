@@ -30,10 +30,55 @@ const locks = { request: async <T,>(_name: string, callback: () => T | Promise<T
 const store = (): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, menuPermissionsOf: permissionOf });
 const key = (userId: string, menuId: string | null = MENU) => ({ userId, menuId });
 const ENG = 'engineer'; const ADMIN = 'admin';
-const draft = (name = '새 뷰'): SavedViewDraft => ({ schemaVersion: 1, kind: 'menu-view', name, menuId: MENU, menuSchemaVersion: 2, context: { relativePeriod: { hours: 24 } }, page: { grain: ['hour'] }, chartOptions: {}, layout: null, panels: null });
+const draft = (name = '새 뷰'): Extract<SavedViewDraft, { kind: 'menu-view' }> => ({ schemaVersion: 1, kind: 'menu-view', name, menuId: MENU, menuSchemaVersion: 2, context: { relativePeriod: { hours: 24 } }, page: { grain: ['hour'] }, chartOptions: {}, layout: null, panels: null });
 const visible = (items: readonly SavedViewListItem[]): SavedViewEntry[] => items.filter((i): i is SavedViewEntry => !i.denied);
 const byName = (items: readonly SavedViewListItem[], name: string) => visible(items).find(i => i.view.name === name)!;
 const ok = <T,>(r: { ok: true; value: T } | { ok: false; reason: string }): T => { if (!r.ok) throw new Error(r.reason); return r.value; };
+
+it.each(['first request', 'official edit'])('only the owner can withdraw a pending %s', async (scenario) => {
+  const s = store();
+  const original = ok(await s.save(draft())).view;
+  const shared = ok(await s.setVisibility(original.id, { kind: 'people', userIds: [ADMIN] }, { expectedVersion: original.version })).view;
+  let pending = ok(await s.requestOfficial(shared.id, { expectedVersion: shared.version })).view;
+  const official = scenario === 'official edit';
+  if (official) {
+    as('admin');
+    const published = ok(await s.decide(shared.id, 'approve', undefined, { expectedVersion: pending.version })).view;
+    as('engineer');
+    pending = ok(await s.update(shared.id, { name: 'proposal' }, { expectedVersion: published.version })).view;
+  }
+  const at = { expectedVersion: pending.version };
+  expect(await s.get(shared.id)).toMatchObject({ capabilities: { canWithdraw: true } });
+  as('admin');
+  expect(await s.withdraw?.(shared.id, at)).toMatchObject({ ok: false, reason: 'forbidden' });
+  as('engineer');
+  expect(await s.withdraw?.(shared.id, { expectedVersion: original.version })).toMatchObject({ ok: false, reason: 'conflict' });
+  const result = await s.withdraw?.(shared.id, at);
+  expect(result).toMatchObject({ ok: true, value: { view: { name: original.name, approval: official ? 'approved' : 'none', visibility: pending.visibility, version: pending.version + 1 }, capabilities: { canWithdraw: false } } });
+  expect(await s.withdraw?.(shared.id, { expectedVersion: pending.version + 1 })).toMatchObject({ ok: false, reason: 'invalid', detail: 'approval-state' });
+});
+
+it.each([undefined, '', ' \t '])('rejects a blank reason (%j) without changing the request', async (note) => {
+  const s = store();
+  const { view } = ok(await s.save(draft()));
+  const pending = ok(await s.requestOfficial(view.id, { expectedVersion: view.version })).view;
+  as('admin');
+  const before = await s.get(view.id);
+  expect(await s.decide(view.id, 'reject', note, { expectedVersion: pending.version })).toMatchObject({ ok: false, reason: 'invalid', detail: 'note' });
+  expect(await s.get(view.id)).toEqual(before);
+});
+
+it('saving the contents of an official view as a copy starts private and unofficial', async () => {
+  const s = store();
+  const { view } = ok(await s.save(draft()));
+  const pending = ok(await s.requestOfficial(view.id, { expectedVersion: view.version })).view;
+  as('admin');
+  const source = ok(await s.decide(view.id, 'approve', undefined, { expectedVersion: pending.version })).view;
+  if (source.kind !== 'menu-view') throw new Error('expected an official menu view');
+  const copy = ok(await s.save({ ...draft('private copy'), context: source.context, page: source.page })).view;
+  expect(copy).toMatchObject({ ownerId: ADMIN, visibility: { kind: 'private' }, approval: 'none', context: source.context });
+  expect(copy.id).not.toBe(source.id);
+});
 
 it('saves, sets and clears myMenu and refuses it for other view kinds', async () => {
   const s = store();
@@ -596,6 +641,25 @@ it('the three storage key formats are the pinned literals', async () => {
 const SCOPE_REASON = '조회 권한이 없는 공정이 포함되어 있습니다.';
 const conditionDraft = (roomNames: string[]): SavedViewDraft =>
   ({ schemaVersion: 1, kind: 'condition-set', name: 'CMP 조건', context: { roomNames } });
+
+it.each(['withdraw', 'revoke'] as const)('refuses to %s when the approved copy is outside the caller’s room grant', async op => {
+  const make = (userId: string, admin: boolean, rooms: string[]) => createLocalSavedViewStore({
+    getStorage: () => storage, locks, now: () => 5, menuPermissionsOf: permissionOf,
+    getActor: () => ({ userId, admin, permissions: ['analytics:view'], rooms }),
+  });
+  const ownerId = 'u-limchaewon';
+  const owner = make(ownerId, false, ['CMP', 'PHOTO']);
+  const approver = make(ADMIN, true, ['CMP', 'PHOTO']);
+  const { view: { id, version } } = ok(await owner.save(conditionDraft(['CMP'])));
+  const request = ok(await owner.requestOfficial(id, { expectedVersion: version }));
+  const approved = ok(await approver.decide(id, 'approve', undefined, { expectedVersion: request.view.version }));
+  const proposal = ok(await owner.update(id, { context: { roomNames: ['PHOTO'] } }, { expectedVersion: approved.view.version }));
+
+  const caller = op === 'withdraw' ? make(ownerId, false, ['PHOTO']) : make(ADMIN, true, ['PHOTO']);
+  expect(await caller.get(id)).toMatchObject({ view: { approval: 'pending', context: { roomNames: ['PHOTO'] } } });
+  expect(await caller[op]?.(id, { expectedVersion: proposal.view.version })).toEqual({ ok: false, reason: 'forbidden', detail: SCOPE_REASON });
+  expect(await owner.get(id)).toEqual(proposal);
+});
 
 it('a condition set with a room outside the actor is refused on save, like a menu view', async () => {
   expect(await store().save(conditionDraft(['CMP']))).toMatchObject({ ok: false, reason: 'forbidden' });

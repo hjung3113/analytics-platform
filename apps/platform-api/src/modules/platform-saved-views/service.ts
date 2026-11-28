@@ -491,6 +491,38 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       return ok(entryOf(written, actor, standings));
     });
 
+  const withdraw = (actor: ActorContext, cmd: CommandOf<'withdraw'>) =>
+    write(actor, async (tx, standings, actor) => {
+      const t = await target(
+        tx,
+        actor,
+        standings,
+        cmd.id,
+        cmd.expectedVersion,
+        (view) => view.ownerId === actor.id,
+      );
+      // Keep missing and unreadable IDs indistinguishable while refusing every non-owner.
+      if (!t.ok) return t.detail === 'not-found' ? fail('forbidden') : t;
+      const view = t.value;
+      if (view.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
+      if (!capabilitiesOf(view, actor, standings).canWithdraw)
+        return fail('invalid', 'approval-state');
+      const next: ViewRecord = view.pending
+        ? { ...view, pending: null }
+        : { ...view, approval: 'none', approvalNote: null };
+      const written = await repo.writeView(tx, actor.workspaceId, next, now());
+      await record(
+        tx,
+        actor,
+        'saved_view_official_withdrawn',
+        'saved_view',
+        view.id,
+        'Official publication request withdrawn',
+        { view_id: view.id, version: written.version },
+      );
+      return ok(entryOf(written, actor, standings));
+    });
+
   const decide = (actor: ActorContext, cmd: CommandOf<'decide'>) =>
     write(actor, async (tx, standings, actor) => {
       const note = cmd.note?.trim() || null;
@@ -511,6 +543,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       const action = cmd.decision === 'approve' ? 'approve' : 'reject';
       if (!canTransition(shownTo(view, actor).approval, action))
         return fail('invalid', 'approval-state');
+      if (cmd.decision === 'reject' && note === null) return fail('invalid', 'note');
       let next: ViewRecord;
       if (cmd.decision === 'approve') {
         const source = view.pending ?? { name: view.name, content: view.content };
@@ -915,6 +948,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
         return setVisibility(actor, cmd);
       case 'requestOfficial':
         return requestOfficial(actor, cmd);
+      case 'withdraw':
+        return withdraw(actor, cmd);
       case 'decide':
         return decide(actor, cmd);
       case 'revoke':

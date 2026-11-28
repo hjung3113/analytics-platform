@@ -20,7 +20,7 @@ export type SavedViewPortSamples = {
 /** Every `SavedViewStore` member: `uses` names these, and the sample's presence — not `implemented` — gates them. */
 export const SAVED_VIEW_PORT_METHODS: readonly SavedViewPortMethod[] = [
   'list', 'listMyMenus', 'get', 'save', 'update', 'remove', 'setDefault', 'getDefaultId', 'setVisibility', 'requestOfficial',
-  'decide', 'revoke', 'listApprovalRequests', 'listGroups', 'createGroup', 'updateGroup', 'searchPeople',
+  'decide', 'withdraw', 'revoke', 'listApprovalRequests', 'listGroups', 'createGroup', 'updateGroup', 'searchPeople',
 ];
 
 // The decision values this suite exists to pin (#1131): the mock (@ap/mock-server saved-view/saved-view-store.ts) and
@@ -432,6 +432,47 @@ export function planSavedViewChecks(harness: ServerConformanceHarness): Conforma
       const removed = okOf(await user.updateGroup(group.group.id, { removeMembers: [who.admin] }), 'remove member');
       if (typeof removed === 'string') return removed;
       return (await admin.listMyMenus(who.admin)).some(({ view }) => view.id === shared.view.id) ? 'the removed member still sees the shared view' : null;
+    },
+  });
+  checks.push({
+    id: 'port · savedViews: rejecting an official request requires a reason (#2765)',
+    uses: ['save', 'requestOfficial', 'decide', 'get'],
+    mode: 'sequential', nonEnvelope: true,
+    run: async () => {
+      const { user, admin } = sample;
+      const saved = okOf(await user.save(draft()), 'save');
+      if (typeof saved === 'string') return saved;
+      const { id, version } = saved.view;
+      const pending = okOf(await user.requestOfficial(id, { expectedVersion: version }), 'requestOfficial');
+      if (typeof pending === 'string') return pending;
+      const before = structuredClone(pending.view);
+      const refusal = want(await admin.decide(id, 'reject', '  ', { expectedVersion: before.version }), 'invalid', 'reject with a blank reason');
+      if (refusal) return refusal;
+      const after = await user.get(id);
+      return after && !after.denied && after.view.approval === 'pending' && sameJson(after.view, before)
+        ? null : 'rejecting with a blank reason must leave the pending request unchanged';
+    },
+  });
+  checks.push({
+    id: 'port · savedViews: a pending official request can be withdrawn only by its owner (#2765)',
+    uses: ['save', 'requestOfficial', 'withdraw'],
+    mode: 'sequential', nonEnvelope: true,
+    run: async () => {
+      const { user, admin } = sample;
+      if (!user.withdraw || !admin.withdraw) return { skipped: 'withdraw is optional' };
+      const saved = okOf(await user.save(draft()), 'save');
+      if (typeof saved === 'string') return saved;
+      const { id, version, visibility } = saved.view;
+      const pending = okOf(await user.requestOfficial(id, { expectedVersion: version }), 'requestOfficial');
+      if (typeof pending === 'string') return pending;
+      if (pending.capabilities.canWithdraw !== true) return 'the pending request must grant withdrawal to its owner';
+      const opts = { expectedVersion: pending.view.version };
+      const forbidden = want(await admin.withdraw(id, opts), 'forbidden', 'withdraw by approver');
+      if (forbidden) return forbidden;
+      const withdrawn = okOf(await user.withdraw(id, opts), 'withdraw');
+      if (typeof withdrawn === 'string') return withdrawn;
+      return withdrawn.view.approval === 'none' && sameJson(withdrawn.view.visibility, visibility) && withdrawn.capabilities.canWithdraw === false
+        ? null : 'withdraw must clear the request and preserve visibility';
     },
   });
   return checks;

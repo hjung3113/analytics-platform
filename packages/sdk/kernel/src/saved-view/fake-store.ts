@@ -1,8 +1,11 @@
 // Test double for the Saved View port, exported through `@ap/kernel/testing` (ADR-0040). Capabilities are granted per object, like a real store.
 import type { ApprovalRequestInfo, GroupMember, Result, SavedView, SavedViewDraft, SavedViewEntry, SavedViewListItem, SavedViewStore, ViewCapabilities, ViewGroupEntry } from '@ap/contracts';
 import { validateSavedView } from '@ap/contracts';
+import { jsonEqual } from '../json-equal';
 
 const FAKE_WRITER_ID = 'u1';
+const canWithdraw = (view: SavedView, userId: string) =>
+  view.kind !== 'custom-group' && view.ownerId === userId && view.approval === 'pending';
 
 /** Capabilities the fake grants an object unless `caps` says otherwise: view, copy, edit and share; no approve or revoke. */
 export const testViewCapabilities: ViewCapabilities = { canView: true, canCopy: true, canEdit: true, canShare: true, canApprove: false, canRevoke: false };
@@ -13,9 +16,30 @@ export type FakeSavedViewStore = SavedViewStore & {
   failGet: boolean; failSave: boolean; failShare: boolean; denied: Set<string>;
   getHold: Map<string, Promise<void>>; saveHold: Promise<void> | null; removeHold: Promise<void> | null; listHold: Promise<void> | null;
 };
-/** A saved view with filler fields; pass the fields the test means. */
 type RestorableView = Exclude<SavedView, { kind: 'custom-group' }>;
 type GroupView = Extract<SavedView, { kind: 'custom-group' }>;
+
+const proposalContent = (view: RestorableView) => {
+  const { name, context, savedScopeId } = view;
+  if (view.kind === 'condition-set') return { name, context, savedScopeId };
+  const { menuSchemaVersion, page, chartOptions, layout, panels, panelsUnreadable, tables } = view;
+  return { name, context, savedScopeId, menuSchemaVersion, page, chartOptions, layout, panels, panelsUnreadable, tables };
+};
+type ApprovedCopy = { content: ReturnType<typeof proposalContent>; approvalNote?: string };
+
+const restoreApprovedContent = (view: RestorableView, approved: ApprovedCopy | undefined): RestorableView => {
+  if (!approved) return view;
+  const restored = { ...view, ...approved.content, approvalNote: approved.approvalNote };
+  if (restored.savedScopeId === undefined) delete restored.savedScopeId;
+  if (restored.approvalNote === undefined) delete restored.approvalNote;
+  if (restored.kind === 'menu-view') {
+    if (restored.tables === undefined) delete restored.tables;
+    if (restored.panelsUnreadable === undefined) delete restored.panelsUnreadable;
+  }
+  return restored;
+};
+
+/** A saved view with filler fields; pass the fields the test means. */
 export function testSavedView<K extends SavedView['kind'] = 'condition-set'>(over: Partial<SavedView> & { id: string; kind?: K }): [K] extends ['custom-group'] ? GroupView : RestorableView;
 export function testSavedView(over: Partial<SavedView> & { id: string }): SavedView {
   const content = over.kind === 'custom-group' ? {} : { context: {} };
@@ -23,9 +47,11 @@ export function testSavedView(over: Partial<SavedView> & { id: string }): SavedV
 }
 export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Record<string, string> = {}): FakeSavedViewStore {
   const rows = new Map(seed.map(v => [v.id, v]));
+  const approvedCopies = new Map<string, ApprovedCopy>();
   const entry = (view: SavedView): SavedViewEntry => {
     const capabilities = fake.caps.get(view.id) ?? testViewCapabilities;
-    return { view, capabilities: view.kind === 'custom-group' ? { ...capabilities, canApprove: false, canRevoke: false } : capabilities };
+    return { view, capabilities: view.kind === 'custom-group' ? { ...capabilities, canApprove: false, canRevoke: false, canWithdraw: false }
+      : { ...capabilities, canWithdraw: canWithdraw(view, FAKE_WRITER_ID) } };
   };
   const myMenuCapabilities = (view: SavedView, userId: string): ViewCapabilities | null => {
     const overrides = fake.caps.get(view.id);
@@ -39,7 +65,7 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
     if (!owned && !named && !manager && !member) return null;
     const published = visibility.kind === 'official' && view.approval === 'approved';
     const canManage = (owned || manager) && !published;
-    return { ...testViewCapabilities, canShare: canManage, ...overrides, canEdit: !published && (overrides?.canEdit ?? canManage) };
+    return { ...testViewCapabilities, canShare: canManage, ...overrides, canEdit: !published && (overrides?.canEdit ?? canManage), canWithdraw: canWithdraw(view, userId) };
   };
   const fake: FakeSavedViewStore = {
     rows, defaults: new Map(Object.entries(defaults)), groups: [], caps: new Map(), requests: [], calls: [], reads: [],
@@ -73,7 +99,7 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
       if (fake.failSave) return { ok: false, reason: 'unavailable' };
       if ('myMenu' in input && (input.kind !== 'menu-view' || input.myMenu !== true)) return { ok: false, reason: 'invalid' };
       if (input.kind === 'custom-group') { const checked = validateSavedView(input); if (!checked.ok) return checked; }
-      const view = { ...input, id: `v${rows.size + 1}`, ownerId: FAKE_WRITER_ID, version: 1, updatedAt: 1, visibility: { kind: 'private' }, approval: 'none' } as SavedView;
+      const view = { ...input, name: input.name.trim(), id: `v${rows.size + 1}`, ownerId: FAKE_WRITER_ID, version: 1, updatedAt: 1, visibility: { kind: 'private' }, approval: 'none' } as SavedView;
       rows.set(view.id, view);
       return { ok: true, value: entry(view) };
     },
@@ -95,10 +121,23 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
       // `savedScopeId: null` clears the recorded Scope, as a real store does (#2175).
       if (patch.savedScopeId === null) delete (view as { savedScopeId?: string }).savedScopeId;
       if (old.kind === 'custom-group' || patch.target !== undefined) { const checked = validateSavedView(view); if (!checked.ok) return checked; }
+      if (old.kind !== 'custom-group' && view.kind !== 'custom-group' && old.visibility.kind === 'official') {
+        view.name = (patch.name ?? old.name).trim();
+        const approvedContent = proposalContent(old);
+        if (jsonEqual(approvedContent, proposalContent(view))) {
+          const wasMyMenu = old.kind === 'menu-view' && old.myMenu === true;
+          const isMyMenu = view.kind === 'menu-view' && view.myMenu === true;
+          if (wasMyMenu === isMyMenu) return { ok: true, value: entry(old) };
+        } else {
+          if (old.approval === 'approved') approvedCopies.set(id, { content: approvedContent, approvalNote: old.approvalNote });
+          view.approval = 'pending';
+          delete view.approvalNote;
+        }
+      }
       rows.set(id, view);
       return { ok: true, value: entry(view) };
     },
-    async remove(id) { fake.calls.push('remove'); await fake.removeHold; rows.delete(id); return { ok: true, value: null }; },
+    async remove(id) { fake.calls.push('remove'); await fake.removeHold; rows.delete(id); approvedCopies.delete(id); return { ok: true, value: null }; },
     async setDefault(key, id) { if (key.kind === 'custom-group' || (id !== null && rows.get(id)?.kind === 'custom-group')) return { ok: false, reason: 'invalid' }; if (id === null) fake.defaults.delete(`${key.userId}:${key.menuId}`); else fake.defaults.set(`${key.userId}:${key.menuId}`, id); return { ok: true, value: null }; },
     async getDefaultId(key) { if (key.kind === 'custom-group') return null; const id = fake.defaults.get(`${key.userId}:${key.menuId}`) ?? null; return id !== null && rows.get(id)?.kind === 'custom-group' ? null : id; },
     async setVisibility(id, visibility, opts) {
@@ -123,12 +162,33 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
       rows.set(id, view);
       return { ok: true, value: entry(view) };
     },
-    async decide(id, decision, _note, opts) {
+    async withdraw(id, opts) {
+      fake.calls.push('withdraw');
+      if (fake.failShare) return { ok: false, reason: 'unavailable' };
+      const old = rows.get(id);
+      if (!old || old.ownerId !== FAKE_WRITER_ID || fake.denied.has(id) || fake.caps.get(id)?.canView === false) return { ok: false, reason: 'forbidden' };
+      if (old.version !== opts.expectedVersion) return { ok: false, reason: 'conflict' };
+      if (old.kind === 'custom-group') return { ok: false, reason: 'invalid', detail: 'custom-group-approval' };
+      if (!canWithdraw(old, FAKE_WRITER_ID)) return { ok: false, reason: 'invalid', detail: 'approval-state' };
+      const published = approvedCopies.get(id);
+      const view: SavedView = { ...restoreApprovedContent(old, published), approval: old.visibility.kind === 'official' ? 'approved' : 'none', version: old.version + 1 };
+      if (!published) delete view.approvalNote;
+      approvedCopies.delete(id);
+      fake.requests = fake.requests.filter(request => request.viewId !== id);
+      rows.set(id, view);
+      return { ok: true, value: entry(view) };
+    },
+    async decide(id, decision, note, opts) {
       fake.calls.push('decide');
       const old = rows.get(id);
       if (old?.kind === 'custom-group') return { ok: false, reason: 'invalid' };
       if (!old || old.version !== opts.expectedVersion) return { ok: false, reason: 'conflict' };
-      const view = { ...old, approval: decision === 'approve' ? 'approved' : 'rejected', version: old.version + 1 } as SavedView;
+      if (decision === 'reject' && !note?.trim()) return { ok: false, reason: 'invalid', detail: 'note' };
+      const view: SavedView = { ...old, approval: decision === 'approve' ? 'approved' : 'rejected', version: old.version + 1 };
+      if (decision === 'approve') {
+        view.visibility = { kind: 'official' };
+        approvedCopies.delete(id);
+      }
       rows.set(id, view);
       return { ok: true, value: entry(view) };
     },
@@ -137,7 +197,8 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
       const old = rows.get(id);
       if (old?.kind === 'custom-group') return { ok: false, reason: 'invalid' };
       if (!old || old.version !== opts.expectedVersion) return { ok: false, reason: 'conflict' };
-      const view = { ...old, approval: 'none', version: old.version + 1 } as SavedView;
+      const view: SavedView = { ...restoreApprovedContent(old, approvedCopies.get(id)), visibility: { kind: 'private' }, approval: 'none', version: old.version + 1 };
+      approvedCopies.delete(id);
       rows.set(id, view);
       return { ok: true, value: entry(view) };
     },

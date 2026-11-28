@@ -69,6 +69,8 @@ export type SavedViews = {
   setVisibility: SavedViewStore['setVisibility'];
   /** On ok: same refresh and selected-view version rule as `update`. */
   requestOfficial: SavedViewStore['requestOfficial'];
+  /** On ok: same refresh and selected-view version rule as `update`. Returns unavailable if the store omits withdrawal. */
+  withdraw: NonNullable<SavedViewStore['withdraw']>;
   /** On ok: same refresh and selected-view version rule as `update`. */
   decide: SavedViewStore['decide'];
   /** On ok: same refresh and selected-view version rule as `update`. */
@@ -652,6 +654,7 @@ function useSavedViewController(
   const update = useCallback<SavedViewStore['update']>((id, patch, opts) => write(s => s.update(id, patch, opts), viewWritten), [write, viewWritten]);
   const setVisibility = useCallback<SavedViewStore['setVisibility']>((id, visibility, opts) => write(s => s.setVisibility(id, visibility, opts), viewWritten), [write, viewWritten]);
   const requestOfficial = useCallback<SavedViewStore['requestOfficial']>((id, opts) => write(s => s.requestOfficial(id, opts), viewWritten), [write, viewWritten]);
+  const withdraw = useCallback<SavedViews['withdraw']>((id, opts) => write(async s => s.withdraw?.(id, opts) ?? OFF, viewWritten), [write, viewWritten]);
   const decide = useCallback<SavedViewStore['decide']>((id, decision, note, opts) => write(s => s.decide(id, decision, note, opts), viewWritten), [write, viewWritten]);
   const revoke = useCallback<SavedViewStore['revoke']>((id, opts) => write(s => s.revoke(id, opts), viewWritten), [write, viewWritten]);
   const createGroup = useCallback<SavedViewStore['createGroup']>(input => write(s => s.createGroup(input)), [write]);
@@ -659,8 +662,8 @@ function useSavedViewController(
 
   return useMemo((): SavedViews => ({
     status, support: support ?? null, menuViews, conditionSets, defaultId, selected, state, unsupported, scopeExcluded, crossScopeSave, saveBlocked, readSaveBlocks,
-    select, clearSelection, saveAs, saveToSelected, revertToSaved, remove, setDefault, update, setVisibility, requestOfficial, decide, revoke, createGroup, updateGroup, refresh,
-  }), [status, support, menuViews, conditionSets, defaultId, selected, state, unsupported, scopeExcluded, crossScopeSave, saveBlocked, readSaveBlocks, select, clearSelection, saveAs, saveToSelected, revertToSaved, remove, setDefault, update, setVisibility, requestOfficial, decide, revoke, createGroup, updateGroup, refresh]);
+    select, clearSelection, saveAs, saveToSelected, revertToSaved, remove, setDefault, update, setVisibility, requestOfficial, withdraw, decide, revoke, createGroup, updateGroup, refresh,
+  }), [status, support, menuViews, conditionSets, defaultId, selected, state, unsupported, scopeExcluded, crossScopeSave, saveBlocked, readSaveBlocks, select, clearSelection, saveAs, saveToSelected, revertToSaved, remove, setDefault, update, setVisibility, requestOfficial, withdraw, decide, revoke, createGroup, updateGroup, refresh]);
 }
 const NOOP_SUBSCRIBE = () => () => {};
 const ZERO_SNAPSHOT = () => 0;

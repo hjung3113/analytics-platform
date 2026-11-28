@@ -113,6 +113,7 @@ export const AUDIT_ACTION_BY_EVENT_TYPE: Record<AuditEventType, PlatformAuditAct
   saved_view_official_approved: 'update',
   saved_view_official_rejected: 'update',
   saved_view_official_revoked: 'retire',
+  saved_view_official_withdrawn: 'retire',
   saved_view_visibility_changed: 'update',
   saved_view_group_created: 'create',
   saved_view_group_updated: 'update',

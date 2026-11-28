@@ -1998,6 +1998,35 @@
         },
         "op": {
           "type": "string",
+          "const": "withdraw"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expectedVersion": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "version",
+        "op",
+        "id",
+        "expectedVersion"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "number",
+          "const": 1
+        },
+        "op": {
+          "type": "string",
           "const": "decide"
         },
         "id": {
