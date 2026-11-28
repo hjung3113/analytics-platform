@@ -143,3 +143,21 @@ describe('SaveViewDialog fix round', () => {
     expect(screen.getByRole('button', { name: '트리거' })).toHaveFocus();
   });
 });
+
+describe('SaveViewDialog My Menus', () => {
+  it.each([true, false])('submits a My Menus marker only when checked (%s)', async checked => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue({ ok: true, value: null });
+    view({ units: ['menu-view'], initialName: '새 메뉴 뷰', showMyMenus: true, onSubmit });
+    const checkbox = screen.getByRole('checkbox', { name: '내 메뉴에 올리기' });
+    expect(checkbox).toBeChecked();
+    if (!checked) await user.click(checkbox);
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    expect(onSubmit).toHaveBeenCalledWith({ mode: 'new', unit: 'menu-view', name: '새 메뉴 뷰', visibility: '', ...(checked ? { myMenu: true } : {}) });
+  });
+
+  it('hides the checkbox when the store capability is absent', () => {
+    view({ units: ['menu-view'] });
+    expect(screen.queryByRole('checkbox', { name: '내 메뉴에 올리기' })).toBeNull();
+  });
+});

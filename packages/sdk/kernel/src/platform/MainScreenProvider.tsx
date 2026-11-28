@@ -6,6 +6,7 @@ import { incompleteMetricPair, menuPermissions, isAppRelativePath, type Pair, ty
 import { readSpaceLast, sameParams, writeSpaceLast } from './preferences';
 import { MainBoundContext, ScreenContext, type AppValue, type CommitOptions, type MainBound, type ScreenSource } from './contexts';
 import { useScreenState } from './useScreenState';
+import { createMyMenuPick, MyMenuPickContext, type MyMenuPick } from '../saved-view/my-menus';
 import { ScreenSavedViews } from '../saved-view/useSavedViews';
 import { createOriginHistory, originPosition, recordOrigin, type OriginRecord } from './return-origin';
 import { readHistoryIdx, readHistorySeg, withHistoryIdx } from './navigationGuard';
@@ -46,10 +47,10 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     return { url: raw, hidden: fromState.filter(([key]) => keys.includes(key)), rewrite: false };
   }, [hiddenKeysFor]);
   const originHistory = useMemo(() => createOriginHistory(registry, isCurrentGeneration), [registry, isCurrentGeneration]);
-  const [{ arrival, url, hidden }, setView] = useState(() => {
+  const [{ arrival, url, hidden, pick, myMenuVisit }, setView] = useState(() => {
     const arrival: ReturnType<typeof arrive> & { generation: symbol; origin?: { history: typeof originHistory; record: OriginRecord } }
       = { ...arrive(initialUrl, readHiddenState(location.readState?.())), generation: Symbol() };
-    return { arrival, url: arrival.url, hidden: arrival.hidden };
+    return { arrival, url: arrival.url, hidden: arrival.hidden, pick: undefined as MyMenuPick | undefined, myMenuVisit: 0 };
   });
   // Writes and traversals publish here before React renders. A newer arrival also supersedes a pending rewrite.
   const latestArrival = useRef(arrival);
@@ -112,6 +113,11 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       }
     }
     // The host's own step (#2061): after any confirmed leave and before the write, so a cancelled leave never runs it; it may still refuse.
+    if (options.myMenuPick && !options.myMenuPick.isCurrent()) {
+      usageNav.current.via = null;
+      pageNavigation.cancel();
+      return false;
+    }
     if (options.run && !options.run({ from: location.read() ?? '', to: split.url })) { pageNavigation.cancel(); return false; }
     // An accepted write changes the origin the pending request was made from (a replace, a Scope change, a confirmed replay): that request is stale (F3).
     guard.dropRequest();
@@ -177,7 +183,10 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     if (keepStep) selectionSteps.current.set(here, writtenUrl);
     const committed = { url: writtenUrl, hidden: nextHidden, rewrite: false, generation: Symbol(), origin: record ? { history: originHistory, record } : undefined };
     latestArrival.current = committed;
-    setView({ arrival: committed, url: writtenUrl, hidden: nextHidden });
+    setView(current => ({
+      arrival: committed, url: writtenUrl, hidden: nextHidden, pick: options.myMenuPick,
+      myMenuVisit: current.myMenuVisit + Number(options.myMenuPick !== undefined),
+    }));
     if (how === 'push') document.getElementById('platform-main')?.scrollTo({ top: 0 });
     return true;
   }, [pageNavigation, location, hiddenKeysFor, menuFor, guard, usageNav, stamping, registry, originHistory]);
@@ -189,9 +198,22 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   const origin = arrival.origin?.history === originHistory ? arrival.origin.record : undefined;
   const mintCarry = useCallback<NonNullable<ScreenSource['mintCarry']>>((href, carried, scopeId) =>
     originHistory.mintCarry({ href, departure: arrival.url, scopeId, generation: arrival.generation }, carried), [originHistory, arrival]);
-  const source: ScreenSource = { origin, mintCarry, mode: 'main', paneId: null, paneLabel: null, url, hidden, readAddress, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
+  const source: ScreenSource = { origin, mintCarry, myMenuVisit, mode: 'main', paneId: null, paneLabel: null, url, hidden, readAddress, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
   const { screen, sidebarSpace, resolveEntryLink, initialSavedView } = useScreenState(app, source);
   const { pathname, route, contractError, navigate, currentSpace } = screen;
+  const openMyMenu = useCallback((menuId: string, viewId: string, href: string) => {
+    const sameMenu = route?.menu.id === menuId && !route.viaAlias;
+    const request = createMyMenuPick(menuId, viewId, sameMenu ? 'current' : 'arrival', () => isCurrentGeneration() && canOpen(menuId));
+    if (!request.isCurrent()) return;
+    const prior = usageNav.current.via;
+    usageNav.current.via = 'my-menus';
+    if (sameMenu) {
+      setView(current => ({ ...current, pick: request, myMenuVisit: current.myMenuVisit + 1 }));
+      return;
+    }
+    if (!commit(href, 'push', { focus: 'page', myMenuPick: request })) usageNav.current.via = prior;
+  }, [route, isCurrentGeneration, canOpen, usageNav, commit]);
+  const myMenus = useMemo(() => ({ pick, open: openMyMenu }), [pick, openMyMenu]);
   useLayoutEffect(() => {
     const steps = selectionSteps.current;
     return () => { steps.clear(); selectionUndoPending.current = false; };
@@ -233,7 +255,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       const traversed = { url: next, hidden: arrived.hidden, rewrite: false, generation: Symbol(), origin };
       latestArrival.current = traversed;
       guard.traversed();
-      setView({ arrival: traversed, url: next, hidden: arrived.hidden });
+      setView(current => ({ ...current, arrival: traversed, url: next, hidden: arrived.hidden, pick: undefined }));
     };
     const onPop = () => {
       selectionUndoPending.current = false;
@@ -360,6 +382,6 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   // Stable while the five members are: an unrelated main Scope update must not re-render every pane consumer.
   const mainBound = useMemo<MainBound>(() => ({ visibleMenus, sidebarSpace, spaceResume, spaceEntry, switchSpace }), [visibleMenus, sidebarSpace, spaceResume, spaceEntry, switchSpace]);
   return <MainBoundContext.Provider value={mainBound}><ScreenContext.Provider value={screen}>
-    <ScreenSavedViews initial={initialSavedView}>{children}</ScreenSavedViews>
+    <MyMenuPickContext.Provider value={myMenus}><ScreenSavedViews initial={initialSavedView}>{children}</ScreenSavedViews></MyMenuPickContext.Provider>
   </ScreenContext.Provider></MainBoundContext.Provider>;
 });

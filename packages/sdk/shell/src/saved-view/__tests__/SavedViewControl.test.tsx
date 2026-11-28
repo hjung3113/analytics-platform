@@ -7,6 +7,7 @@ import { groupId, spaceId, type SavedViewSupport } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, diagnoseSavedView, useSavedViewPanels, useSavedViewSupport, useUnsavedGuard } from '@ap/kernel';
 import { PaneQueryDraftProvider, PaneScreenProvider, useHostPlatform, useLeaveRequest } from '@ap/kernel/host';
 import { ToastProbe, createFakeSavedViewStore as createFakeViewStore, memoryStorage, noContext, testAdapter, testSavedView as viewOf, testSession, testSpace, testViewCapabilities as ALL, useTestSavedViewTableSlots, type FakeSavedViewStore as FakeViewStore } from '@ap/kernel/testing';
+import { AppSidebar } from '../../frame/AppSidebar';
 import { GlobalContextBar } from '../../context/GlobalContextBar';
 
 // Passes through to the real diagnosis; one test swaps in a stale view whose migration throws when applied.
@@ -1154,5 +1155,88 @@ describe('a view saved in another Scope (#2175)', () => {
     expect(dialog).toContain('현재와 다른 Scope에서 저장한 뷰입니다. 현재 Scope로 저장하면 그곳에서 붙잡은 패널 값(room)이 지워지고, 지금 패널의 입력 방식이 저장됩니다.');
     expect(dialog).toContain('«새 뷰로 저장»');
     expect(dialog).not.toContain('현재 Scope의 값으로 바뀝니다');
+  });
+});
+
+describe('My Menus sidebar', () => {
+  if (L1.kind !== 'menu-view') throw new Error('My Menus requires a menu view');
+  const mine = { ...L1, myMenu: true } as const;
+  const shared = viewOf({ ...L1, id: 'shared', name: '공유 뷰', ownerId: 'peer', myMenu: true, visibility: { kind: 'people', userIds: ['u1'] } });
+  const section = () => screen.getByRole('region', { name: '내 메뉴' });
+
+  it.each(['unsupported', 'empty', 'failed'] as const)('hides the section for a %s list', async kind => {
+    const store = createFakeViewStore(kind === 'empty' ? [] : [mine]);
+    if (kind === 'unsupported') delete store.listMyMenus;
+    if (kind === 'failed') store.listMyMenus = vi.fn().mockRejectedValue(new Error('offline'));
+    const list = store.listMyMenus && vi.spyOn(store, 'listMyMenus');
+    mount(store, '/', <AppSidebar onToggle={() => {}} />);
+    await waitFor(() => expect(platform.scope.status).not.toBe('validating'));
+    if (kind !== 'unsupported') expect(list).toHaveBeenCalledWith('u1');
+    expect(screen.queryByRole('region', { name: '내 메뉴' })).toBeNull();
+  });
+
+  it('counts openable views and shows collapsible groups with two-line links', async () => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([mine, shared, { ...mine, id: 'missing', name: '없는 메뉴 뷰', menuId: 'missing' }]);
+    mount(store, '/', <AppSidebar onToggle={() => {}} />);
+    await screen.findByRole('region', { name: '내 메뉴' });
+    const owned = within(section()).getByRole('button', { name: '내가 만든 것 1' });
+    expect(within(section()).getByRole('button', { name: '공유받음 1' })).toBeVisible();
+    const link = within(section()).getByRole('link', { name: /포토 뷰.*home/ });
+    expect(within(link).getByText('포토 뷰')).toBeVisible();
+    expect(within(link).getByText('home')).toBeVisible();
+    expect(within(section()).getByRole('link', { name: /공유 뷰.*peer/ })).toBeVisible();
+    expect(within(section()).queryByText('없는 메뉴 뷰')).toBeNull();
+    owned.focus();
+    await user.keyboard('{Enter}');
+    expect(owned).toHaveAttribute('aria-expanded', 'false');
+    expect(link).not.toBeInTheDocument();
+  });
+
+  it('opens the source menu and selects the view using the current Scope', async () => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([mine]);
+    const recordUsage = vi.fn(async () => ({ accepted: 1 }));
+    const adapter = testAdapter({ session: () => session, recordUsage });
+    window.history.replaceState(null, '', `/live?scopeId=MEM&${period}`);
+    render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter} savedViews={store}>
+      <Probe /><AppSidebar onToggle={() => {}} /><GlobalContextBar />
+    </PlatformProvider></I18nProvider>);
+    await user.click(await screen.findByRole('link', { name: /포토 뷰.*home/ }));
+    await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰'));
+    expect(platform.route?.menu.id).toBe('home');
+    expect(platform.global.scopeId).toBe('MEM');
+    expect(platform.global.roomNames).toEqual(['PHOTO']);
+    expect(new URLSearchParams(window.location.search).has('savedViewToken')).toBe(false);
+    await waitFor(() => expect(recordUsage).toHaveBeenCalledWith([expect.objectContaining({ name: 'entry', menuId: 'home', via: 'my-menus' })]));
+  });
+
+  it('refreshes after saving a marked view and clearing the marker from its menu', async () => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([]);
+    mount(store, `/?scopeId=MEM&${period}`, <><AppSidebar onToggle={() => {}} /><GlobalContextBar /></>);
+    await user.click(await screen.findByRole('button', { name: '저장' }));
+    await user.click(await screen.findByRole('menuitem', { name: '새 뷰로 저장' }));
+    await user.type(await screen.findByLabelText('뷰 이름'), '새 메뉴 뷰');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '저장' }));
+    await screen.findByRole('link', { name: /새 메뉴 뷰.*home/ });
+    await user.click(selector());
+    await user.click(await screen.findByRole('button', { name: '새 메뉴 뷰 동작' }));
+    await user.click(await screen.findByRole('menuitem', { name: '내 메뉴에서 내리기' }));
+    await waitFor(() => expect(screen.queryByRole('region', { name: '내 메뉴' })).toBeNull());
+    expect(store.calls).toEqual(['save', 'update']);
+    expect([...store.rows.values()][0]).not.toHaveProperty('myMenu');
+  });
+
+  it('uses the existing save or discard prompt for a same-menu switch', async () => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([mine, shared]);
+    mount(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`, <><AppSidebar onToggle={() => {}} /><GlobalContextBar /></>);
+    await user.click(await screen.findByRole('link', { name: /포토 뷰.*home/ }));
+    await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰'));
+    act(() => platform.setGlobal({ roomNames: ['ETCH'] }));
+    await user.click(within(section()).getByRole('link', { name: /공유 뷰.*home/ }));
+    await user.click(await screen.findByRole('button', { name: '버리고 이동' }));
+    await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 공유 뷰'));
   });
 });

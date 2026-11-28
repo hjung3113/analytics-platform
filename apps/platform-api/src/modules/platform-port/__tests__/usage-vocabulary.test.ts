@@ -17,7 +17,7 @@ describe('usage vocabulary vs @ap/contracts/vocab.json', () => {
   it('the usage_events_via_check constraint lists PLATFORM_USAGE_VIA exactly', () => {
     const check = getTableConfig(usageEvents).checks.find((c) => c.name === 'usage_events_via_check');
     const sqlText = (check?.value.queryChunks ?? []).map((c) => (typeof c === 'object' && c !== null && 'value' in c ? String((c as { value: unknown }).value) : '')).join('');
-    const listed = [...sqlText.matchAll(/'([A-Za-z]+)'/g)].map((m) => m[1]);
+    const listed = [...sqlText.matchAll(/'([^']+)'/g)].map((m) => m[1]);
     expect([...listed].sort()).toEqual([...PLATFORM_USAGE_VIA].sort());
   });
 });

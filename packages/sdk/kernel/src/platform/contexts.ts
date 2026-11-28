@@ -6,6 +6,7 @@ import type { MenuEntry } from '../registry/registry';
 import type { DraftStore } from '../query/draft-state';
 import type { QueryEngine } from '../query/query-engine';
 import { PANE_USAGE_VIAS, type MainUsageVia, type Pair, type SpaceDef } from '@ap/contracts';
+import type { MyMenuPick, createSavedViewChanges } from '../saved-view/my-menus';
 import type { SupportRegistry } from '../saved-view/useSavedViewSupport';
 import type { createViewSlotStore } from '../saved-view/table-slots';
 import type { HostPlatform, Recent, Toast } from './types';
@@ -41,6 +42,7 @@ export type AppInternal = {
   enters: (menu: MenuEntry) => boolean;
   usageSessionId: string;
   /** Saved View support the screens declare (`useSavedViewSupport`), read by the host hook `useSavedViews`. */
+  savedViewChanges: ReturnType<typeof createSavedViewChanges>;
   savedViewSupports: SupportRegistry;
   savedViewSlots: ReturnType<typeof createViewSlotStore>;
   userIdRef: { readonly current: string };
@@ -92,7 +94,7 @@ export type ScreenNavigationOptions = NonNullable<Parameters<HostPlatform['navig
   restoreHidden?: readonly Pair[];
 };
 /** `redirect`: replace an alias address by its canonical one (ADR-0093) — the same arrival, so a pending focus request and the address-bar hash survive. */
-export type CommitOptions = { carryProof?: CarryProof; skipOrigin?: boolean; analysisSelection?: boolean; preserveSelectionUndo?: boolean; focus?: PageFocus; materialize?: boolean; redirect?: boolean; /** With `redirect`: a retired menu's page preset (#2330), added for the keys the kept query does not hold. */ redirectPage?: Readonly<Record<string, string>>; /** Hidden pairs restored for the destination (a return trip, F1): validated against the destination's declared hidden keys. */ restoreHidden?: readonly Pair[]; /** Internal: replay of a move the person confirmed leaving; skips the unsaved-edit guard (ADR-0115). */ bypassGuard?: boolean; /** Host only: this `replace` is held by the unsaved-edit guard like a push (board open, #2061). */ guard?: boolean; /** Host only: runs once the move is certain (after any confirmed leave, just before the write); `false` cancels it. Replayed with the confirmed move (#2061). */ run?: (address: AddressTransition) => boolean };
+export type CommitOptions = { myMenuPick?: MyMenuPick; carryProof?: CarryProof; skipOrigin?: boolean; analysisSelection?: boolean; preserveSelectionUndo?: boolean; focus?: PageFocus; materialize?: boolean; redirect?: boolean; /** With `redirect`: a retired menu's page preset (#2330), added for the keys the kept query does not hold. */ redirectPage?: Readonly<Record<string, string>>; /** Hidden pairs restored for the destination (a return trip, F1): validated against the destination's declared hidden keys. */ restoreHidden?: readonly Pair[]; /** Internal: replay of a move the person confirmed leaving; skips the unsaved-edit guard (ADR-0115). */ bypassGuard?: boolean; /** Host only: this `replace` is held by the unsaved-edit guard like a push (board open, #2061). */ guard?: boolean; /** Host only: runs once the move is certain (after any confirmed leave, just before the write); `false` cancels it. Replayed with the confirmed move (#2061). */ run?: (address: AddressTransition) => boolean };
 export type ScreenAddress = {
   /** The browser URL for the main screen, or the pane's virtual path and query. */
   url: string;
@@ -102,6 +104,8 @@ export type ScreenAddress = {
 
 /** What the screen state hook needs from its owner: where the URL lives and how a write or a navigation lands. */
 export type ScreenSource = ScreenAddress & {
+  /** Fresh for each accepted My Menus visit, even if its source menu is already open. */
+  myMenuVisit?: number;
   origin?: OriginRecord;
   mintCarry?: (href: string, carried: CarriedSelection, scopeId: string | null) => CarryProof;
   draftStore?: DraftStore;

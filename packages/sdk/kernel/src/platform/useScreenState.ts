@@ -122,7 +122,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const { registry, location, adapter, session, user, can, canOpen, toast, accessibleSpaces, defaultRangeTo, equipmentAxes, isCurrentGeneration } = app.pub;
   const { enters, usageSessionId, userIdRef, usageNav } = app.internal;
   const { matchRoute, menuById, safeReturnTo } = registry;
-  const { url: visibleUrl, hidden, readAddress, navigation: pageNavigation, commit, go, mode, paneId, origin, mintCarry } = source;
+  const { url: visibleUrl, hidden, readAddress, navigation: pageNavigation, commit, go, mode, paneId, origin, mintCarry, myMenuVisit } = source;
   const url = useMemo(() => fullAddress({ url: visibleUrl, hidden }), [visibleUrl, hidden]);
   const paneLabel = source.paneLabel ?? null;
   const { t, lang } = useI18n();
@@ -617,6 +617,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const admitKey = `${userId}\0${paneId ?? ''}\0${route.menu.id}\0${pathname}`;
     if (lastAdmitted.current === admitKey) return;
     lastAdmitted.current = admitKey;
+    const fromMyMenus = mode === 'main' && usageNav.current.via === 'my-menus';
     const admitUser = userId;
     const menu = route.menu;
     const spaceId = registry.spaceOf(menu)?.id ?? null;
@@ -643,7 +644,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const timer = setTimeout(() => {
       if (userIdRef.current !== admitUser) return;
       enteredAt = Date.now();
-      record({ name: 'entry', menuId: menu.id, spaceId, path: menu.path, at: enteredAt, sessionId: usageSessionId, ...provenance, ...(mode === 'main' ? takeNavigation(usageNav.current, admitUser, menu.id) : takePaneNavigation(paneTrailFor(paneTrail, paneId), admitUser, menu.id)) });
+      record({ name: 'entry', menuId: menu.id, spaceId, path: menu.path, at: enteredAt, sessionId: usageSessionId, ...provenance, ...(mode === 'main' ? takeNavigation(usageNav.current, admitUser, menu.id) : takePaneNavigation(paneTrailFor(paneTrail, paneId), admitUser, menu.id)), ...(fromMyMenus ? { via: 'my-menus' as const } : {}) });
       document.addEventListener('visibilitychange', onHidden);
     }, 0);
     return () => {
@@ -652,7 +653,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       lastAdmitted.current = null;
       sendDwell();
     };
-  }, [countsUsage, route, routeContractError, pathname, userId, can, enters, registry, adapter, usageSessionId, userIdRef, usageNav, paneId, mode]);
+  }, [countsUsage, route, routeContractError, pathname, userId, can, enters, registry, adapter, usageSessionId, userIdRef, usageNav, paneId, mode, myMenuVisit]);
 
   const pageParam = useCallback((key: string) => page.find(([k]) => k === key)?.[1] ?? null, [page]);
   const pageParams = useCallback((key: string) => page.filter(([k]) => k === key).map(([, v]) => v), [page]);

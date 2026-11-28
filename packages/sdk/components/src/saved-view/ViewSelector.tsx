@@ -59,6 +59,9 @@ export type ViewSelectorProps = {
   /** Control and anchor the selector when it opens from an existing toolbar action. */
   picker?: { open: boolean; onOpenChange(open: boolean): void; anchorRef: RefObject<HTMLButtonElement | null>; note?: ReactNode };
   onRevert?: () => void;
+  /** An external request to choose a view via the same save/discard interaction as a list row. */
+  selectionRequest?: { take: () => string | null };
+  onToggleMyMenu?: (id: string) => void;
   onMakeDefault?: (id: string | null) => void;
   onDelete?: (id: string) => void;
   onManage?: () => void;
@@ -136,6 +139,11 @@ export function ViewSelector(props: ViewSelectorProps) {
     if (discards) setPendingId(id);
     else { props.onSelect(id); trigger.current?.focus(); }
   };
+  useLayoutEffect(() => {
+    if (selectionDisabled || loading || error) return;
+    const id = props.selectionRequest?.take();
+    if (id != null) choose(id);
+  });
   const settlePending = async (save: boolean) => {
     if (save && saveBlock) return;
     const id = pendingId;
@@ -264,7 +272,7 @@ export function ViewSelector(props: ViewSelectorProps) {
                           </span>
                         </span>
                       </button>
-                      <RowMenu item={item} isDefault={item.view.id === defaultId} onDetails={() => { setDetailId(item.view.id); focusAfter.current = { kind: 'back' }; }} onMakeDefault={props.onMakeDefault} onDelete={props.onDelete ? () => { lastRow.current = { id: item.view.id, index: shown.indexOf(item) }; deleteReturn.current = lastRow.current; setDeleteId(item.view.id); } : undefined} />
+                      <RowMenu item={item} isDefault={item.view.id === defaultId} onDetails={() => { setDetailId(item.view.id); focusAfter.current = { kind: 'back' }; }} onToggleMyMenu={props.onToggleMyMenu} onMakeDefault={props.onMakeDefault} onDelete={props.onDelete ? () => { lastRow.current = { id: item.view.id, index: shown.indexOf(item) }; deleteReturn.current = lastRow.current; setDeleteId(item.view.id); } : undefined} />
                     </li>
                   ))}
                 </ul>
@@ -320,9 +328,9 @@ export function ViewSelector(props: ViewSelectorProps) {
   );
 }
 
-function RowMenu({ item, isDefault, onDetails, onMakeDefault, onDelete }: {
+function RowMenu({ item, isDefault, onDetails, onToggleMyMenu, onMakeDefault, onDelete }: {
   item: Extract<SavedViewListItem, { denied?: false }>; isDefault: boolean;
-  onDetails: () => void; onMakeDefault?: (id: string | null) => void; onDelete?: () => void;
+  onDetails: () => void; onToggleMyMenu?: (id: string) => void; onMakeDefault?: (id: string | null) => void; onDelete?: () => void;
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const canDelete = onDelete && item.capabilities.canEdit;
@@ -334,6 +342,7 @@ function RowMenu({ item, isDefault, onDetails, onMakeDefault, onDelete }: {
       <DropdownMenuContent align="end">
         <DropdownMenuItem onSelect={onDetails}>{m('svDetails')}</DropdownMenuItem>
         {onMakeDefault && <DropdownMenuItem onSelect={() => onMakeDefault(isDefault ? null : item.view.id)}>{m(isDefault ? 'svClearDefault' : 'svMakeDefault')}</DropdownMenuItem>}
+        {onToggleMyMenu && item.capabilities.canEdit && item.view.kind === 'menu-view' && <DropdownMenuItem onSelect={() => onToggleMyMenu(item.view.id)}>{m(item.view.myMenu ? 'svRemoveFromMyMenus' : 'svAddToMyMenus')}</DropdownMenuItem>}
         {canDelete && <DropdownMenuItem onSelect={onDelete}>{m('svRemove')}</DropdownMenuItem>}
       </DropdownMenuContent>
     </DropdownMenu>
