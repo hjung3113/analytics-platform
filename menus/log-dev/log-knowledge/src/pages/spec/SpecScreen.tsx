@@ -36,7 +36,7 @@ function useChanges(modelId: string, softwareId: string | null, review: boolean,
       if (rows.length >= response.data.total || response.data.rows.length === 0) return { ...response, data: { rows, total: response.data.total } };
     }
   };
-  return usePlatformQuery(run, [modelId, softwareId, review, epoch], enabled);
+  return usePlatformQuery(run, { pageInputs: [modelId, softwareId, review, epoch], enabled });
 }
 function ChangeList({ rows, software, canWrite, navigate }: { rows: SpecChangeRow[]; software: SoftwareRow[]; canWrite: boolean; navigate: (patch: Record<string, string | string[] | null>) => void }) {
   const w = useSpecWords();
@@ -92,7 +92,7 @@ export default function SpecScreen({ params }: PageProps) {
       rows.push(...response.data.rows);
       if (rows.length >= response.data.total || !response.data.rows.length) return { ...response, data: { rows, total: response.data.total } };
     }
-  }, [modelId, epoch], enabled && (swQuery.response?.outcome === 'ok' && (swQuery.response.data?.total ?? 0) > 200));
+  }, { pageInputs: [modelId, epoch], enabled: enabled && (swQuery.response?.outcome === 'ok' && (swQuery.response.data?.total ?? 0) > 200) });
   const swState = swQuery.response?.outcome === 'ok' && (swQuery.response.data?.total ?? 0) > 200 ? swAll : swQuery;
   const swData = swState.response?.outcome === 'ok' ? swState.response.data : null;
   const software = swData?.rows ?? [], canWrite = can(SPEC_PUBLISH_PERMISSION);

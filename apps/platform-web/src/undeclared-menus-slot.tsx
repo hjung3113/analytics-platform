@@ -16,7 +16,7 @@ const NONE: readonly UndeclaredMenu[] = [];
 function Read({ children }: { children: (list: readonly UndeclaredMenu[]) => ReactNode }) {
   const { adapter, can } = useHostPlatform();
   const allowed = can(CONSOLE_PERMISSION);
-  const q = usePlatformQuery<UsageSummary>(signal => adapter.usageSummary({ preset: 'all' }, signal), null, allowed, 'session');
+  const q = usePlatformQuery<UsageSummary>(signal => adapter.usageSummary({ preset: 'all' }, signal), { enabled: allowed, identity: 'session' });
   const rows = q.response?.data?.undeclaredMenuPermissions;
   const list = useMemo<readonly UndeclaredMenu[]>(() => (allowed && rows ? rows.map(({ menuId, permission }) => ({ menuId, permission })) : NONE), [allowed, rows]);
   return <>{children(list)}</>;

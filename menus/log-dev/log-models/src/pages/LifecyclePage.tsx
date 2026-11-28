@@ -33,7 +33,7 @@ function useRead<T>(name: string, params: Params, enabled = true): ReadState<T> 
   const shared = useMenuQuery(spec, projected, enabled && !gated);
   const { ready, fetch } = useMenuFetch(spec);
   const epoch = useEndpointRefreshEpoch(gated ? [spec.id] : []);
-  const own = usePlatformQuery(signal => fetch(projected, signal), [spec.id, projected], enabled && gated && ready, 'context', epoch);
+  const own = usePlatformQuery(signal => fetch(projected, signal), { pageInputs: [spec.id, projected], enabled: enabled && gated && ready, refreshEpoch: epoch });
   const query = gated ? own : shared;
   // Within one instance a re-read (retry, write refresh) never shows the prior answer either: a revoked right must not re-show it.
   const response = gated && query.status === 'refreshing' ? undefined : query.response;

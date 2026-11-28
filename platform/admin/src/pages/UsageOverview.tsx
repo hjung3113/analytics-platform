@@ -23,7 +23,7 @@ export default function UsageOverview() {
   const focus = pageParam('focus');
   const active = registry.menus.find(menu => menu.id === focus);
   // Session identity: period·room changes must not hide the counts.
-  const q = usePlatformQuery<UsageSummary>(signal => adapter.usageSummary({ preset: 'all' }, signal), null, true, 'session');
+  const q = usePlatformQuery<UsageSummary>(signal => adapter.usageSummary({ preset: 'all' }, signal), { identity: 'session' });
   // §6.1 page keys (sort/page): invalid wire values alert instead of substituting — same as EquipmentMaster.
   // #304 FIX1 (06 §19): the warning keeps each field's user name and the raw value as entered (quoted,
   // untruncated), one sentence per field — never `key=value`.

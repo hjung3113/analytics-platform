@@ -44,6 +44,18 @@ export type QueryState<T> = {
   showingPrevious?: boolean;
 };
 
+/** Options of `usePlatformQuery`; every field is optional and an omitted one takes the default shown. */
+export type PlatformQueryOptions = {
+  /** Inputs the result depends on beyond the Context (structurally compared, part of the identity). Default `null`. */
+  pageInputs?: unknown;
+  /** False sends nothing and shows no result. Default `true`. */
+  enabled?: boolean;
+  /** `'context'` (default) puts the global Context in the identity; `'session'` leaves it out. */
+  identity?: 'context' | 'session';
+  /** Outside the identity: a change refetches like `refetch()`. Default `0`. */
+  refreshEpoch?: number;
+};
+
 /**
  * Platform request lifecycle (§11/§19) on the Kernel's internal query client (ADR-0086). The identity of a result is
  * (session generation = adapter, revision, user; identity scope; page inputs): when it changes the previous result is
@@ -53,7 +65,8 @@ export type QueryState<T> = {
  * `refreshEpoch` is outside the identity: a change refetches like `refetch()` (prior result kept, `refreshing`).
  * The key carries a per-instance id, because `run` is the caller's: no sharing across instances.
  */
-export function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<ApiResponse<T>>, pageInputs: unknown = null, enabled = true, identity: 'context' | 'session' = 'context', refreshEpoch = 0): QueryState<T> {
+export function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<ApiResponse<T>>, options: PlatformQueryOptions = {}): QueryState<T> {
+  const { pageInputs = null, enabled = true, identity = 'context', refreshEpoch = 0 } = options;
   const { global } = useHostPlatform();
   const instance = useId();
   return useQueryLifecycle(['platform', instance, identity === 'session' ? null : serializeGlobal(global), pageInputs], async signal => ({ response: await run(signal) }), enabled, refreshEpoch, null);

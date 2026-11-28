@@ -17,7 +17,7 @@ export { customGroupItemId, customGroupMembers, customGroupReadState, expandCust
 export type { ExpandCustomGroupsInput, ExpandCustomGroupsResult } from './saved-view/expand-custom-groups';
 export type { DiagnoseCode, DiagnoseContext, DiagnoseReason, Migration, SavedViewDiagnosis } from './saved-view';
 export { useMenuAction, type MenuActionState } from './query/action';
-export { useEndpointRefreshEpoch, useEntityAudit, useEntityQuery, useMenuFetch, useMenuQuery, usePlatformQuery, type AuditMore, type AuditMoreError, type AuditMoreLast, type AuditMoreStatus, type MenuFetch, type MenuQueryOptions, type MenuQueryState, type QueryState, type QueryStatus, type RequestState } from './query/query';
+export { useEndpointRefreshEpoch, useEntityAudit, useEntityQuery, useMenuFetch, useMenuQuery, usePlatformQuery, type AuditMore, type AuditMoreError, type AuditMoreLast, type AuditMoreStatus, type MenuFetch, type MenuQueryOptions, type MenuQueryState, type PlatformQueryOptions, type QueryState, type QueryStatus, type RequestState } from './query/query';
 export {
   CONTEXT_LABELS, CUSTOM_GROUP_LABELS, createRegistry, isBoardPath, PAGE_TYPE_LABELS, pathFor, routeParamNames, RegistryError,
   type AnyGroupId, type GroupDef, type MenuEntry, type MissingLinkTarget, type ModuleGroupDef, type ModuleMenuEntry, type PageProps, type PlatformGroupDef, type MenuSuccessor, type PlatformMenuEntry, type Registry, type RetiredMenu, type RouteMatch, withPagePreset,
