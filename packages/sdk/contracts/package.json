@@ -36,7 +36,7 @@
   "devDependencies": {
     "@ap/eslint-config": "workspace:*",
     "@ap/tsconfig": "workspace:*",
-    "eslint": "^10.14.0",
+    "eslint": "^10.15.0",
     "typescript": "^5.9.3"
   }
 }

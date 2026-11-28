@@ -14,7 +14,7 @@
   "dependencies": {
     "@ap/contracts": "workspace:*",
     "@ap/kernel": "workspace:*",
-    "lucide-react": "^1.72.0"
+    "lucide-react": "^1.79.0"
   },
   "peerDependencies": {
     "react": "^19.3.1",
@@ -23,9 +23,9 @@
   "devDependencies": {
     "@ap/eslint-config": "workspace:*",
     "@ap/tsconfig": "workspace:*",
-    "@types/react": "^19.3.0",
+    "@types/react": "^19.3.1",
     "@types/react-dom": "^19.3.0",
-    "eslint": "^10.14.0",
+    "eslint": "^10.15.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "typescript": "^5.9.3"
