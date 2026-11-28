@@ -27,6 +27,7 @@ function localStamp(at: Instant, timeZone: string | undefined) {
     const ms = typeof at === 'string' ? instantEpochMs(at) : at;
     const stamp = formatInstant(ms, 'en', timeZone, 'minute');
     const [date, clock] = stamp.split(' ');
+    if (date === undefined) return null;
     const [year, month, day] = date.split('-');
     return { ms, clock, year, month: Number(month), day: Number(day), date: date.padStart(10, '0') };
   } catch {

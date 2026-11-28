@@ -18,7 +18,11 @@ export function sameAvailability(a: AnalysisSelectionAvailability | undefined, b
   if ('from' in a && 'from' in b) {
     const x = a.candidates; const y = b.candidates;
     return a.from === b.from && a.to === b.to && a.compare === b.compare
-      && (x === y || (!!x && !!y && x.length === y.length && x.every((item, i) => item.value === y[i].value && item.label === y[i].label)));
+      && (x === y || (!!x && !!y && x.length === y.length && x.every((item, i) => {
+        const other = y[i];
+        if (other === undefined) throw new Error('Equal-length availability candidates must have matching entries');
+        return item.value === other.value && item.label === other.label;
+      })));
   }
   return !('from' in a) && !('from' in b) && sameItems(a, b);
 }

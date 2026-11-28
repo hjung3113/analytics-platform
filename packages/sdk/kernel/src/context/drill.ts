@@ -40,7 +40,9 @@ function drillEntryPatch(levels: readonly DrillLevel[], page: readonly Pair[], k
   if (levels.slice(0, index).some(level => !page.find(([name]) => name === level.key)?.[1])) {
     throw new Error(`drill enter "${key}" is past the next level`);
   }
-  const { basisKey, bases } = levels[index];
+  const level = levels[index];
+  if (level === undefined) throw new Error(`drill enter "${key}" is not a declared level`);
+  const { basisKey, bases } = level;
   if (options?.basis !== undefined && !bases?.some(basis => basis.id === options.basis)) {
     throw new Error(`drill enter "${key}" needs a declared basis`);
   }

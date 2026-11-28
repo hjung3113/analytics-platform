@@ -162,8 +162,8 @@ export function useScreenHistory(input: DraftInputs, store: DraftStore, normaliz
     if (!enabled || !current() || !state || state.historyInitialized || view.status !== 'ready' || view.rows[0]?.status === 'loading' || !authorizedScope()) return;
     store.put({ ...state, historyInitialized: true });
     if (state.editRevision !== 0 || !historyEmpty(input) || !view.rows.length) return;
-    const row = view.rows[0];
-    if (row.status === 'ready') replace(row.candidate);
+    const [row] = view.rows;
+    if (row !== undefined && row.status === 'ready') replace(row.candidate);
   });
   const status = enabled ? visible?.status ?? 'loading' : 'disabled';
   // A masked row keeps one identity while its inputs are equal, so the render converges (#824).
@@ -180,12 +180,18 @@ export function useScreenHistory(input: DraftInputs, store: DraftStore, normaliz
       if (!current() || !authorizedScope()) return false;
       const source = history.get(); const index = source.rows.indexOf(row);
       if (index < 0 || row.status !== 'ready') return false;
+      const entry = source.raw[index];
+      if (entry === undefined) return false;
       const revision = store.get()?.editRevision;
       const addressGeneration = store.get()?.addressGeneration;
-      const checked = await validate([source.raw[index]]);
+      const checked = await validate([entry]);
       if (!current() || history.get() !== source || store.get()?.editRevision !== revision || store.get()?.addressGeneration !== addressGeneration) return false;
-      if (checked[0]?.status !== 'ready') { history.put({ ...source, rows: source.rows.map((old, i) => i === index ? checked[0] : old) }); return false; }
-      replace(checked[0].candidate); return true;
+      const [next] = checked;
+      if (next === undefined || next.status !== 'ready') {
+        if (next !== undefined) history.put({ ...source, rows: source.rows.map((old, i) => i === index ? next : old) });
+        return false;
+      }
+      replace(next.candidate); return true;
     },
     async remove(id) {
       if (!current() || !input.history) return;
