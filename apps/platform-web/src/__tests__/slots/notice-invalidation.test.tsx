@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { EndpointInvalidationBridge } from '@ap/app-host';
 import { defineEndpoint, type ActionOutcome, type ActionResponse, type MenuQuery, type Notice, type PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, useMenuQuery } from '@ap/kernel';
-import { testAdapter, testSession } from '@ap/kernel/testing';
+import { createFakeSavedViewStore, testAdapter, testSession } from '@ap/kernel/testing';
 import { EQUIPMENT_AXES } from '../../equipmentAxes';
 import { registry } from '../../menus';
 import { createEndpointInvalidation, withNoticeInvalidation } from '../../real/endpoint-invalidation';
@@ -161,7 +161,7 @@ describe('notice write → targeted Home refresh (#1106)', () => {
 describe('the real assembly wires the decorated adapter once per bootstrap', () => {
   it('ready → a stable decorated adapter, an invalidation source, and the other methods untouched', async () => {
     const base = testAdapter({ session: () => session });
-    const create = createRealAssembly({ bootstrap: async () => ({ kind: 'ready', adapter: base } as never), where: () => ({ pathname: '/home', search: '' }) });
+    const create = createRealAssembly({ bootstrap: async () => ({ kind: 'ready', adapter: base, store: createFakeSavedViewStore() } as never), where: () => ({ pathname: '/home', search: '' }) });
     const outcome = await create();
     if (!('adapter' in outcome) || !outcome.invalidation) throw new Error('expected a ready assembly with invalidation');
     expect(outcome.adapter).not.toBe(base);
@@ -172,7 +172,7 @@ describe('the real assembly wires the decorated adapter once per bootstrap', () 
     const seen: Array<readonly string[]> = [];
     outcome.invalidation.subscribe(ids => seen.push(ids));
     const ok = testAdapter({ saveNotice: async () => action('ok'), deleteNotice: async () => ({ ...action('ok'), data: { id: 'N-1' } }) });
-    const created = await createRealAssembly({ bootstrap: async () => ({ kind: 'ready', adapter: ok } as never), where: () => ({ pathname: '/home', search: '' }) })();
+    const created = await createRealAssembly({ bootstrap: async () => ({ kind: 'ready', adapter: ok, store: createFakeSavedViewStore() } as never), where: () => ({ pathname: '/home', search: '' }) })();
     if (!('adapter' in created) || !created.invalidation) throw new Error('expected a ready assembly');
     created.invalidation.subscribe(ids => seen.push(ids));
     await created.adapter.deleteNotice({ id: 'N-1', expectedVersion: 'v1', idempotencyKey: 'k' });

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { SavedView, SavedViewDraft, SavedViewEntry, SavedViewListItem, SavedViewPatch, SavedViewStore } from '@ap/contracts';
+import type { JsonValue, SavedView, SavedViewDraft, SavedViewEntry, SavedViewListItem, SavedViewPatch, SavedViewStore } from '@ap/contracts';
 import { rejectedChartConfigCases, storedPanelCases } from '@ap/contracts/testing/saved-view-panels';
 import { createLocalSavedViewStore, savedViewDefaultStorageKey, savedViewGroupsStorageKey, savedViewsStorageKey } from '../saved-view-store';
 // The kernel `testing` entry is not a dependency of this package, so the storage helper is defined here with the same semantics.
@@ -34,6 +34,53 @@ const draft = (name = '새 뷰'): SavedViewDraft => ({ schemaVersion: 1, kind: '
 const visible = (items: readonly SavedViewListItem[]): SavedViewEntry[] => items.filter((i): i is SavedViewEntry => !i.denied);
 const byName = (items: readonly SavedViewListItem[], name: string) => visible(items).find(i => i.view.name === name)!;
 const ok = <T,>(r: { ok: true; value: T } | { ok: false; reason: string }): T => { if (!r.ok) throw new Error(r.reason); return r.value; };
+
+it('saves, sets and clears myMenu and refuses it for other view kinds', async () => {
+  const s = store();
+  const { view } = ok(await s.save({ ...draft(), myMenu: true } as SavedViewDraft));
+  expect(await s.get(view.id)).toMatchObject({ view: { myMenu: true } });
+  const cleared = ok(await s.update(view.id, { myMenu: false }, { expectedVersion: view.version }));
+  expect(cleared.view).not.toHaveProperty('myMenu');
+  expect(await s.get(view.id)).not.toHaveProperty('view.myMenu');
+  expect(ok(await s.update(view.id, { myMenu: true }, { expectedVersion: cleared.view.version })).view).toHaveProperty('myMenu', true);
+  const condition = { schemaVersion: 1, kind: 'condition-set', name: 'C', context: {} } as const;
+  expect(await s.save({ ...condition, myMenu: true } as SavedViewDraft)).toMatchObject({ ok: false, reason: 'invalid' });
+  const custom = { schemaVersion: 1, kind: 'custom-group', name: 'Custom', savedScopeId: 'S', target: { fixed: ['a'] } } as const;
+  expect(await s.save({ ...custom, myMenu: true } as SavedViewDraft)).toMatchObject({ ok: false, reason: 'invalid' });
+  for (const input of [condition, custom]) {
+    const { view: other } = ok(await s.save(input));
+    expect(await s.update(other.id, { myMenu: false }, { expectedVersion: other.version })).toMatchObject({ ok: false, reason: 'invalid' });
+  }
+});
+
+it('lists current people and group shares with owned views first', async () => {
+  const s = store();
+  const { group } = ok(await s.createGroup({ name: 'Audience', memberIds: [ADMIN] }));
+  const { view: grouped } = ok(await s.save({ ...draft('Grouped'), myMenu: true } as SavedViewDraft));
+  const { view: named } = ok(await s.save({ ...draft('Named'), myMenu: true } as SavedViewDraft));
+  const { view: pending } = ok(await s.save({ ...draft('Pending'), myMenu: true } as SavedViewDraft));
+  const { view: hidden } = ok(await s.save({ ...draft('Hidden'), myMenu: true } as SavedViewDraft));
+  const { view: unmarked } = ok(await s.save(draft('Unmarked')));
+  ok(await s.setVisibility(grouped.id, { kind: 'groups', groupIds: [group.id] }, { expectedVersion: grouped.version }));
+  const { view: namedShared } = ok(await s.setVisibility(named.id, { kind: 'people', userIds: [ADMIN] }, { expectedVersion: named.version }));
+  ok(await s.requestOfficial(pending.id, { expectedVersion: pending.version }));
+  const ids = async (actor: string) => (await s.listMyMenus?.(actor))?.map(({ view }) => view.id);
+  expect(await ids(ENG)).toEqual([grouped.id, named.id, pending.id, hidden.id].sort());
+  as('admin');
+  const { view: own } = ok(await s.save({ ...draft('Own'), myMenu: true } as SavedViewDraft));
+  expect(await ids(ADMIN)).toEqual([own.id, ...[grouped.id, named.id].sort()]);
+  expect(await ids(ENG)).toEqual([]);
+  expect(await s.update(named.id, { myMenu: false }, { expectedVersion: namedShared.version })).toMatchObject({ ok: false, reason: 'forbidden' });
+  expect(await ids(ADMIN)).not.toContain(unmarked.id);
+  as('engineer');
+  ok(await s.updateGroup(group.id, { removeMembers: [ADMIN] }));
+  as('admin');
+  expect(await ids(ADMIN)).toEqual([own.id, named.id]);
+  as('engineer');
+  ok(await s.setVisibility(named.id, { kind: 'private' }, { expectedVersion: namedShared.version }));
+  as('admin');
+  expect(await ids(ADMIN)).toEqual([own.id]);
+});
 
 it.each(storedPanelCases)('projects $label panels and preserves the stored value on rename', async ({ stored, read, rename }) => {
   const s = store();
@@ -445,6 +492,41 @@ it('an edit of an official copy lists what the proposal changes and a rejection 
   ok(await store().decide(official.id, 'reject', '근거 부족', { expectedVersion: edited.view.version }));
   as('engineer');
   expect((await store().listApprovalRequests(key(ENG)))[0]).toMatchObject({ rejectReason: '근거 부족' });
+});
+
+it('keeps the rejected official proposal when a My Menus patch echoes the shown name', async () => {
+  const s = store();
+  const { view: saved } = ok(await s.save({ ...draft('Published'), myMenu: true } as SavedViewDraft));
+  const { view: requested } = ok(await s.requestOfficial(saved.id, { expectedVersion: saved.version }));
+  as('admin');
+  const { view: approved } = ok(await s.decide(saved.id, 'approve', undefined, { expectedVersion: requested.version }));
+  as('engineer');
+  const proposedContent = { name: 'Proposed', page: { grain: ['day'] } };
+  const { view: pending } = ok(await s.update(saved.id, proposedContent, { expectedVersion: approved.version }));
+  as('admin');
+  const { view: rejected } = ok(await s.decide(saved.id, 'reject', 'Needs evidence', { expectedVersion: pending.version }));
+  as('engineer');
+  const { view: updated } = ok(await s.update(saved.id, { myMenu: false, name: rejected.name }, { expectedVersion: rejected.version }));
+  expect(updated).toMatchObject({ ...proposedContent, approval: 'rejected', approvalNote: 'Needs evidence' });
+  expect(updated).not.toHaveProperty('myMenu');
+});
+
+it('treats a sparse layout sent with a My Menus patch as a content edit, as stored JSON reads it', async () => {
+  const s = store();
+  const { view: saved } = ok(await s.save({ ...draft('Published'), myMenu: true } as SavedViewDraft));
+  const { view: requested } = ok(await s.requestOfficial(saved.id, { expectedVersion: saved.version }));
+  as('admin');
+  const { view: approved } = ok(await s.decide(saved.id, 'approve', undefined, { expectedVersion: requested.version }));
+  as('engineer');
+  const { view: pending } = ok(await s.update(saved.id, { layout: [1] }, { expectedVersion: approved.version }));
+  as('admin');
+  const { view: rejected } = ok(await s.decide(saved.id, 'reject', 'Needs evidence', { expectedVersion: pending.version }));
+  as('engineer');
+  // A hole is written as null, so `[1]` → `new Array(1)` changes the content and must become a pending proposal again.
+  ok(await s.update(saved.id, { myMenu: false, layout: new Array<JsonValue>(1) }, { expectedVersion: rejected.version }));
+  const read = await s.get(saved.id);
+  expect(read).toMatchObject({ view: { approval: 'pending', layout: [null] } });
+  expect(read).not.toHaveProperty('view.myMenu');
 });
 
 // A menu that needs two grants (menuPermissions): each grant alone is not enough on any path, both are, revoking one denies an existing view.

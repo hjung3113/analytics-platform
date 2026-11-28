@@ -32,6 +32,8 @@ export type ConditionSetView = SavedViewBase & { kind: 'condition-set'; context:
 export type CustomGroupView = SavedViewBase & { kind: 'custom-group'; savedScopeId: string; target: CustomGroupTarget };
 export type MenuView = SavedViewBase & {
   kind: 'menu-view';
+  /** The owner put this view in My Menus. Absence means no nav entry. */
+  myMenu?: true;
   menuId: string;
   menuSchemaVersion: number;
   context: SavedViewContext;
@@ -60,8 +62,8 @@ export type MenuViewDraft = Omit<MenuView, 'id' | 'ownerId' | 'version' | 'updat
 export type CustomGroupDraft = Omit<CustomGroupView, 'id' | 'ownerId' | 'version' | 'updatedAt'>;
 export type SavedViewDraft = ConditionSetDraft | MenuViewDraft | CustomGroupDraft;
 /** `menuSchemaVersion` is for menu views only: a migration that rewrote the content raises it in the same write. */
-/** `savedScopeId: null` clears the recorded Scope (an overwrite made with no current Scope). */
-export type SavedViewPatch = { name?: string; target?: CustomGroupTarget; menuSchemaVersion?: number; context?: SavedViewContext; savedScopeId?: string | null; page?: MenuView['page']; chartOptions?: MenuView['chartOptions']; layout?: JsonValue; panels?: MenuView['panels']; tables?: MenuView['tables'] };
+/** `savedScopeId: null` clears the recorded Scope (an overwrite made with no current Scope). `myMenu: false` clears the nav entry. */
+export type SavedViewPatch = { name?: string; myMenu?: boolean; target?: CustomGroupTarget; menuSchemaVersion?: number; context?: SavedViewContext; savedScopeId?: string | null; page?: MenuView['page']; chartOptions?: MenuView['chartOptions']; layout?: JsonValue; panels?: MenuView['panels']; tables?: MenuView['tables'] };
 
 export type ViewGroup = { id: string; kind: 'org-team' | 'custom'; name: string; memberCount: number; managerIds?: string[] };
 /** `affiliation` tells same-named people apart in people search and member lists. */
@@ -100,6 +102,8 @@ export type ExpectedVersion = { expectedVersion: number };
 /** Async port injected into the provider like QueryHistoryStore (not a server adapter). */
 export type SavedViewStore = {
   list(key: SavedViewKey): Promise<readonly SavedViewListItem[]>;
+  /** Marked menu views the actor owns or receives through people or group sharing. Own first, then shared, each by updatedAt descending and id ascending. An absent method means an empty list. */
+  listMyMenus?(userId: string): Promise<readonly SavedViewEntry[]>;
   get(id: string): Promise<SavedViewListItem | null>;
   save(input: SavedViewDraft): Promise<Result<SavedViewEntry>>;
   update(id: string, patch: SavedViewPatch, opts: ExpectedVersion): Promise<Result<SavedViewEntry>>;
@@ -210,7 +214,7 @@ export function validateSavedView(input: unknown, options?: unknown): Result<Sav
     if (badContext) return invalid(badContext);
     if ('target' in input) return invalid('target is only for custom groups');
   }
-  const menuOnly = ['page', 'chartOptions', 'layout', 'panels', 'tables'];
+  const menuOnly = ['page', 'chartOptions', 'layout', 'panels', 'tables', 'myMenu'];
   if (input.kind === 'custom-group') {
     if ('visibility' in input && (!isObject(input.visibility) || (input.visibility.kind !== 'private' && input.visibility.kind !== 'groups'))) return invalid('custom groups allow private or groups visibility only');
     if ('approval' in input && input.approval !== 'none') return invalid('custom groups have no official approval');
@@ -228,6 +232,7 @@ export function validateSavedView(input: unknown, options?: unknown): Result<Sav
     const extra = menuOnly.find(k => k in input);
     if (extra) return invalid(`a condition set has no ${extra}`);
   } else if (input.kind === 'menu-view') {
+    if ('myMenu' in input && input.myMenu !== true) return invalid('myMenu must be true');
     if (typeof input.menuId !== 'string' || input.menuId === '') return invalid('menuId is required');
     if (typeof input.menuSchemaVersion !== 'number' || !Number.isInteger(input.menuSchemaVersion)) return invalid('menuSchemaVersion is required');
     if (!Array.isArray(input.page) && !isObject(input.page)) return invalid('page must be pairs or a key map');

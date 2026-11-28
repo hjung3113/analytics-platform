@@ -24,6 +24,7 @@ import {
   canTransition,
   capabilitiesOf,
   isOwnerOrManager,
+  isPersonallyReachable,
   isReachable,
   proposalChanges,
   savedViewOf,
@@ -229,6 +230,14 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
             .map((v): SavedViewListItemJson => entryOf(v, actor, standings));
         });
 
+  const listMyMenus = (actor: ActorContext) =>
+    read(async (tx) => {
+      const standings = await repo.standingsOf(tx, actor);
+      const views = await repo.myMenuCandidates(tx, actor);
+      return views.filter((view) => isPersonallyReachable(view, actor, standings))
+        .map((view) => entryOf(view, actor, standings));
+    });
+
   const get = (actor: ActorContext, id: string) =>
     read(async (tx): Promise<SavedViewListItemJson | null> => {
       const uuid = asUuid(id);
@@ -248,6 +257,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
         ownerId: actor.id,
         kind: draft.kind,
         menuId: draft.kind === 'menu-view' ? draft.menuId : null,
+        myMenu: draft.kind === 'menu-view' && draft.myMenu === true,
         name: draft.name.trim(),
         content: bodyOf(draft),
         now: now(),
@@ -266,7 +276,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
         cmd.expectedVersion,
         (view) => isOwnerOrManager(view, actor, standings),
         (view, caps) =>
-          caps.canEdit || (view.ownerId === actor.id && view.visibilityKind === 'official'),
+          caps.canEdit || (cmd.patch.myMenu === undefined && view.ownerId === actor.id && view.visibilityKind === 'official'),
       );
       if (!t.ok) return t;
       const view = t.value;
@@ -279,7 +289,9 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
         return fail('invalid', 'a condition set has no page');
       }
       const shown = shownTo(view, actor);
-      const { name: patchName, ...patchBody } = patch;
+      const { name: patchName, myMenu: patchedMyMenu, ...patchBody } = patch;
+      if (view.kind !== 'menu-view' && patchedMyMenu !== undefined)
+        return fail('invalid', 'myMenu is only for menu views');
       const { savedScopeId: patchedScope, ...otherPatch } = patchBody as typeof patchBody & { savedScopeId?: string | null };
       const keepPanels = view.kind === 'menu-view' && !Object.hasOwn(patch, 'panels');
       const candidate = {
@@ -299,22 +311,23 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       const name = checked.data.name.trim();
       const storedPanels = Object.hasOwn(shown.content, 'panels') ? { panels: shown.content.panels } : {};
       const content = bodyOf(checked.data, keepPanels ? storedPanels : undefined);
-      if (
-        canonicalJson({ name, content }) ===
-        canonicalJson({ name: shown.name, content: shown.content })
-      )
-        return ok(entryOf(view, actor, standings));
-      // A personal edit of an official copy is a separate pending change: readers keep the approved copy.
-      const next: ViewRecord =
-        view.visibilityKind === 'official'
-          ? {
-              ...view,
-              pending: { name, content, approval: 'pending', note: null } satisfies Pending,
-            }
-          : { ...view, name, content };
+      const { myMenu: priorMyMenu, ...row } = view;
+      const wasMyMenu = priorMyMenu === true;
+      const myMenu = patchedMyMenu ?? wasMyMenu;
+      const contentChanged = canonicalJson({ name, content }) !==
+        canonicalJson({ name: shown.name, content: shown.content });
+      if (myMenu === wasMyMenu && !contentChanged) return ok(entryOf(view, actor, standings));
+      // Editing official content creates a proposal. The navigation flag belongs to the view itself.
+      const next: ViewRecord = { ...row, ...(myMenu ? { myMenu: true } : {}) };
+      const propose = view.visibilityKind === 'official' && contentChanged;
+      if (propose) next.pending = { name, content, approval: 'pending', note: null } satisfies Pending;
+      else if (contentChanged) {
+        next.name = name;
+        next.content = content;
+      }
       const written = await repo.writeView(tx, actor.workspaceId, next, now());
       // The new pending proposal is an application like `requestOfficial`: it is audited the same way, ids only.
-      if (view.visibilityKind === 'official')
+      if (propose)
         await record(
           tx,
           actor,
@@ -831,6 +844,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
                   ownerId: actor.id,
                   kind: row.draft.kind,
                   menuId: row.draft.kind === 'menu-view' ? row.draft.menuId : null,
+                  myMenu: row.draft.kind === 'menu-view' && row.draft.myMenu === true,
                   name: row.draft.name.trim(),
                   content: bodyOf(row.draft),
                   now: now(),
@@ -907,6 +921,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
         return revoke(actor, cmd);
       case 'listApprovalRequests':
         return listApprovalRequests(actor, cmd.key.menuId, cmd.key.kind);
+      case 'listMyMenus':
+        return listMyMenus(actor);
       case 'listGroups':
         return listGroups(actor);
       case 'createGroup':

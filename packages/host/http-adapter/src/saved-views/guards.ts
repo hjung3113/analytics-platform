@@ -103,13 +103,13 @@ const target: Guard = anyOf(
 const draftShape: Guard = anyOf(
   strict({ schemaVersion: lit(1), kind: lit('custom-group'), name, savedScopeId, target }),
   strict({ schemaVersion: lit(1), kind: lit('condition-set'), name, context }, { savedScopeId }),
-  strict({ schemaVersion: lit(1), kind: lit('menu-view'), name, menuId, menuSchemaVersion: int, context, page, chartOptions, layout, panels }, { savedScopeId, tables: isTableViewStates }),
+  strict({ schemaVersion: lit(1), kind: lit('menu-view'), name, menuId, menuSchemaVersion: int, context, page, chartOptions, layout, panels }, { savedScopeId, tables: isTableViewStates, myMenu: lit(true) }),
 );
 
 /** The exact draft shape, and every string value and key (panels, tables included) is well-formed text: the server's row rule (#2991). */
 export const isSavedViewDraft: Guard = (v) => draftShape(v) && malformedTextPath(v) === null;
 
-const patchShape = strict({}, { target, savedScopeId: v => v === null || savedScopeId(v), name: text, menuSchemaVersion: int, context, page, chartOptions, layout, panels, tables: isTableViewStates });
+const patchShape = strict({}, { target, savedScopeId: v => v === null || savedScopeId(v), name: text, menuSchemaVersion: int, context, page, chartOptions, layout, panels, tables: isTableViewStates, myMenu: bool });
 const patch: Guard = (v) => patchShape(v) && malformedTextPath(v) === null;
 const visibility: Guard = (v) =>
   isRecord(v) &&
@@ -156,6 +156,7 @@ const importLocal: Guard = (v) => {
 };
 const commandGuards: Guard[] = [
   cmd('list', { key }),
+  cmd('listMyMenus', {}),
   cmd('get', { id: cmdId }),
   cmd('save', { draft: isSavedViewDraft }),
   cmd('update', { id: cmdId, patch, ...expected }),
@@ -178,17 +179,26 @@ export const isSavedViewCommand: Guard = (body) => withinCommandBounds(body) && 
 
 // ---- responses ----
 
-const capabilities = strict({ canView: bool, canCopy: bool, canEdit: bool, canShare: bool, canApprove: bool, canRevoke: bool }, { reason: str });
+const capabilityFields = { canView: bool, canCopy: bool, canEdit: bool, canShare: bool, canApprove: bool, canRevoke: bool };
+const capabilityOptions = { reason: str };
+const capabilities = strict(capabilityFields, capabilityOptions);
 const record = { id, schemaVersion: lit(1), name: str, ownerId: str, version: int, updatedAt: num, visibility, approval: oneOf('none', 'pending', 'approved', 'rejected'), context };
 const approvalNote = { approvalNote: str };
 const { context: _context, ...groupRecord } = record;
 void _context;
+const menuViewFields = { ...record, kind: lit('menu-view'), menuId: id, menuSchemaVersion: int, page, chartOptions, layout, panels: responsePanels };
+const menuViewOptions = { ...approvalNote, savedScopeId, panelsUnreadable: lit(true), tables: isTableViewStates };
 const savedView: Guard = anyOf(
   strict({ ...groupRecord, kind: lit('custom-group'), savedScopeId, target, approval: lit('none'), visibility: anyOf(strict({ kind: lit('private') }), strict({ kind: lit('groups'), groupIds: textList })) }, approvalNote),
   strict({ ...record, kind: lit('condition-set') }, { ...approvalNote, savedScopeId }),
-  strict({ ...record, kind: lit('menu-view'), menuId: id, menuSchemaVersion: int, page, chartOptions, layout, panels: responsePanels }, { ...approvalNote, savedScopeId, panelsUnreadable: lit(true), tables: isTableViewStates }),
+  strict(menuViewFields, { ...menuViewOptions, myMenu: lit(true) }),
 );
-const entry = strict({ view: savedView, capabilities }, { denied: lit(false) });
+const entryOptions = { denied: lit(false) };
+const entry = strict({ view: savedView, capabilities }, entryOptions);
+const myMenuEntry = strict({
+  view: strict({ ...menuViewFields, myMenu: lit(true) }, menuViewOptions),
+  capabilities: strict({ ...capabilityFields, canView: lit(true) }, capabilityOptions),
+}, entryOptions);
 const denied = strict({ id, denied: lit(true), reason: str });
 const listItem = anyOf(entry, denied);
 const approvalRequest = strict({ viewId: id, requestedBy: str, requestedAt: num, targetVersion: int, changes: strings }, { rejectReason: str });
@@ -212,6 +222,7 @@ const importOutcome = strict({
 
 export const responseGuards = {
   list: arrayOf(listItem),
+  listMyMenus: arrayOf(myMenuEntry),
   get: nullable(listItem),
   save: result(entry),
   update: result(entry),

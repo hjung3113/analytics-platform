@@ -14,10 +14,31 @@ export const savedViewDefaultStorageKey = (userId: string, menuId: string | null
 export const savedViewGroupsStorageKey = () => 'platform:saved-view-groups:v1:' + tuple();
 /** One origin lock serializes every mutation of every key (views, defaults, groups) across tabs. */
 const LOCK = 'platform:saved-views:v1';
+const MY_MENU_BUCKETS = 'platform:saved-views:v1:my-menu-buckets';
+type MenuBucket = [ownerId: string, menuId: string];
+const isMenuBucket = (value: unknown): value is MenuBucket =>
+  Array.isArray(value) && value.length === 2 && value.every(part => typeof part === 'string');
+const readMyMenuBuckets = (storage: StoragePort) => readEnvelope<MenuBucket>(storage, MY_MENU_BUCKETS, 'buckets', isMenuBucket);
 const REVOKE_NOTE = '공식 등록이 회수되어 개인 비공개로 돌아왔습니다.';
 
 const fail = (reason: 'conflict' | 'forbidden' | 'unavailable' | 'invalid', detail?: string): Result<never> => ({ ok: false, reason, ...(detail ? { detail } : {}) });
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** Saved content is JSON: array order matters, object key order does not. An array hole is stored as null, so it compares as null. */
+function sameContent(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (Array.isArray(left) && Array.isArray(right)) {
+    if (left.length !== right.length) return false;
+    // An index loop, not `every`: `every` skips holes.
+    for (let index = 0; index < left.length; index += 1) {
+      if (!sameContent(left[index] ?? null, right[index] ?? null)) return false;
+    }
+    return true;
+  }
+  if (!isObject(left) || !isObject(right)) return false;
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length && keys.every(key => Object.hasOwn(right, key) && sameContent(left[key], right[key]));
+}
 
 type Read<T> = { future: boolean; value: T | null };
 /** `value: null` = never written (the seed applies); a malformed envelope reads as empty and is replaced on the next write. */
@@ -98,7 +119,13 @@ type StoredContent = Exclude<SavedView, { kind: 'menu-view' }>
   | (Omit<Extract<SavedView, { kind: 'menu-view' }>, 'panels' | 'panelsUnreadable'> & { panels?: unknown });
 type Stored = StoredContent & { pending?: StoredContent };
 /** The owner and an approver see the proposed change; everyone else the approved copy. */
-const shownTo = (v: Stored, a: Actor, owner: boolean): StoredContent => { const { pending, ...published } = v; return pending && (owner || a.admin) ? pending : published; };
+const shownTo = (v: Stored, a: Actor, owner: boolean): StoredContent => {
+  const { pending, ...published } = v;
+  if (!pending || !(owner || a.admin)) return published;
+  if (pending.kind !== 'menu-view' || v.kind !== 'menu-view') return pending;
+  const { myMenu: _flag, ...proposal } = pending; void _flag;
+  return { ...proposal, ...(v.myMenu ? { myMenu: true } : {}) };
+};
 /** Why this content is out of the actor's reach, or null. An unknown menu is denied, not waved through. The messages are shown as-is by the ViewSelector. */
 function denial(content: SavedViewDraft | StoredContent, a: Actor, perm: MenuPermissionsOf): string | null {
   if (content.kind === 'custom-group') return null;
@@ -111,11 +138,15 @@ function denial(content: SavedViewDraft | StoredContent, a: Actor, perm: MenuPer
   if (content.context.roomNames?.some(r => !a.rooms.includes(r))) return '조회 권한이 없는 공정이 포함되어 있습니다.';
   return null;
 }
+const personallyReachable = (v: Stored, a: Actor, groups: readonly GroupRecord[]) =>
+  v.ownerId === a.userId
+  || (v.visibility.kind === 'people' && v.visibility.userIds.includes(a.userId))
+  || sharedGroups(v, groups).some(g => isMember(g, a) || isManager(g, a));
+
 function evaluate(stored: Stored, a: Actor, groups: readonly GroupRecord[], perm: MenuPermissionsOf, forced = false): SavedViewListItem | null {
   const v = stored;
   const owner = v.ownerId === a.userId;
-  const viaGroup = sharedGroups(v, groups).some(g => isMember(g, a) || isManager(g, a));
-  const reachable = owner || isOfficial(v) || (v.visibility.kind === 'people' && v.visibility.userIds.includes(a.userId)) || viaGroup || (a.admin && (v.approval === 'pending' || v.pending?.approval === 'pending'));
+  const reachable = personallyReachable(v, a, groups) || isOfficial(v) || (a.admin && (v.approval === 'pending' || v.pending?.approval === 'pending'));
   if (!reachable && !forced) return null;
   const shown = shownTo(v, a, owner);
   const reason = denial(shown, a, perm);
@@ -209,6 +240,17 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
         if (g.future) return fail('unavailable');
         const result = work({ storage, actor, groups: g.groups, tx, bucket });
         if (!result.ok) return result;
+        const marked = [...tx.buckets.values()].flatMap(({ ownerId, menuId, views }): MenuBucket[] =>
+          menuId !== null && views.some(view => view.kind === 'menu-view' && view.myMenu) ? [[ownerId, menuId]] : []);
+        if (marked.length) {
+          const index = readMyMenuBuckets(storage);
+          if (index.future) return fail('unavailable');
+          const known = new Map((index.value ?? []).map(bucket => [tuple(...bucket), bucket]));
+          const size = known.size;
+          for (const bucket of marked) known.set(tuple(...bucket), bucket);
+          // Write discovery first. If a row write fails, the extra bucket cannot expose any uncommitted view.
+          if (known.size > size) storage.setItem(MY_MENU_BUCKETS, JSON.stringify({ schemaVersion: 1, buckets: [...known.values()] }));
+        }
         for (const [name, b] of tx.buckets) storage.setItem(name, JSON.stringify({ schemaVersion: 1, views: b.views }));
         if (tx.groups) storage.setItem(savedViewGroupsStorageKey(), JSON.stringify({ schemaVersion: 1, groups: tx.groups }));
         for (const [name, id] of tx.defaults) { if (id === null) storage.removeItem(name); else storage.setItem(name, JSON.stringify({ schemaVersion: 1, id })); }
@@ -246,6 +288,24 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       const storage = getStorage(); const a = actorNow(); if (key.userId !== a.userId) return [];
       return visibleIn(storage, a, key, readGroups(storage).groups);
     },
+    listMyMenus: async userId => {
+      const a = actorNow(); if (userId !== a.userId) return [];
+      const storage = getStorage();
+      const index = readMyMenuBuckets(storage);
+      if (index.future) throw new Error('Unsupported My Menus storage version');
+      const buckets = new Map((index.value ?? []).map(bucket => [tuple(...bucket), bucket]));
+      const owners = new Set([userId, ...seed.directory.map(person => person.userId)]);
+      for (const menuId of seed.myMenuSeedIds ?? []) {
+        for (const ownerId of owners) buckets.set(tuple(ownerId, menuId), [ownerId, menuId]);
+      }
+      const { groups } = readGroups(storage);
+      return [...buckets.values()].flatMap(([owner, menu]) => readBucket(storage, owner, menu).views.flatMap(stored => {
+        if (stored.kind !== 'menu-view' || !stored.myMenu || !personallyReachable(stored, a, groups)) return [];
+        const item = ev(stored, a, groups);
+        return item && !item.denied ? [item] : [];
+      })).sort((left, right) => Number(right.view.ownerId === userId) - Number(left.view.ownerId === userId)
+        || right.view.updatedAt - left.view.updatedAt || left.view.id.localeCompare(right.view.id));
+    },
     get: async id => { const storage = getStorage(); return find(storage, actorNow(), id, readGroups(storage).groups); },
     save: input => run(c => {
       const checked = validateSavedView(input); if (!checked.ok) return checked;
@@ -262,22 +322,38 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       return { ok: true, value: ev(view, c.actor, c.groups, true) as SavedViewEntry };
     }),
     update: (id, patch: SavedViewPatch, { expectedVersion }) => run(c => {
-      const t = target(c, id, expectedVersion, e => e.capabilities.canEdit || (e.view.ownerId === c.actor.userId && isOfficial(e.view)));
+      const t = target(c, id, expectedVersion, e => e.capabilities.canEdit || (patch.myMenu === undefined && e.view.ownerId === c.actor.userId && isOfficial(e.view)));
       if (!t.ok) return t;
       const stored = t.value; const view = shownTo(stored, c.actor, stored.ownerId === c.actor.userId);
+      if (view.kind !== 'menu-view' && patch.myMenu !== undefined) return fail('invalid', 'myMenu is only for menu views');
       if (view.kind === 'condition-set' && ('menuSchemaVersion' in patch || 'page' in patch || 'chartOptions' in patch || 'layout' in patch || 'panels' in patch || 'tables' in patch)) return fail('invalid', 'a condition set has no page');
       const { id: _id, ownerId: _o, version: _v, updatedAt: _u, visibility, approval, approvalNote, ...content } = view;
       void [_id, _o, _v, _u];
-      const merged: Record<string, unknown> = { ...content, ...patch };
+      const { myMenu, ...contentPatch } = patch;
+      const merged: Record<string, unknown> = { ...content, ...contentPatch, ...(myMenu === undefined ? {} : { myMenu }) };
       // `savedScopeId: null` clears the recorded Scope (#2175); the stored shape has the key absent.
       if (merged['savedScopeId'] === null) delete merged['savedScopeId'];
+      if (merged['myMenu'] === false || merged['myMenu'] === undefined) delete merged['myMenu'];
       const keepPanels = view.kind === 'menu-view' && !Object.hasOwn(patch, 'panels');
       const checked = validateSavedView(keepPanels ? { ...merged, panels: null } : merged); if (!checked.ok) return checked;
       // The edit is judged like a save: a context the editor may not read is refused before anything is written.
       if (denial(checked.value, c.actor, menuPermissionsOf)) return fail('forbidden', 'context');
       const next = { ...merged, id: view.id, ownerId: view.ownerId, version: view.version, updatedAt: view.updatedAt, visibility };
       // A personal edit of an official copy is a separate pending change: readers keep the approved copy, visibility is unchanged.
-      if (isOfficial(stored)) return commit(c, { ...stored, pending: { ...next, approval: 'pending' } as StoredContent }, c.actor, c.groups);
+      if (isOfficial(stored)) {
+        const withFlag = { ...stored };
+        if (withFlag.kind === 'menu-view' && myMenu !== undefined) {
+          if (myMenu) withFlag.myMenu = true;
+          else delete withFlag.myMenu;
+        }
+        if (myMenu !== undefined && sameContent(
+          { ...merged, myMenu: undefined, name: checked.value.name.trim() },
+          { ...content, myMenu: undefined, name: content.name.trim() },
+        )) {
+          return commit(c, withFlag, c.actor, c.groups);
+        }
+        return commit(c, { ...withFlag, pending: { ...next, approval: 'pending' } as StoredContent }, c.actor, c.groups);
+      }
       return commit(c, { ...next, approval, ...(approvalNote === undefined ? {} : { approvalNote }) } as StoredContent, c.actor, c.groups);
     }),
     remove: id => run(c => {
@@ -336,7 +412,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       if (!canTransition(shown.approval, action)) return fail('invalid', 'approval-state');
       const note1 = note?.trim() || undefined;
       const { pending, ...published } = stored;
-      if (decision === 'approve') return commit(c, { ...(pending ?? published), approval: 'approved', visibility: { kind: 'official' }, approvalNote: note1 }, c.actor, c.groups);
+      if (decision === 'approve') return commit(c, { ...shown, approval: 'approved', visibility: { kind: 'official' }, approvalNote: note1 }, c.actor, c.groups);
       // A rejected change never reaches readers: the approved copy stays and only the proposal carries the rejection.
       if (pending) return commit(c, { ...stored, pending: { ...pending, approval: 'rejected', approvalNote: note1 } }, c.actor, c.groups);
       return commit(c, { ...published, approval: 'rejected', approvalNote: note1 }, c.actor, c.groups);

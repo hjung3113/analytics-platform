@@ -47,6 +47,7 @@ export interface ViewRecord {
   ownerId: string;
   kind: SavedViewJson['kind'];
   menuId: string | null;
+  myMenu?: true;
   name: string;
   content: ViewBody;
   version: number;
@@ -116,12 +117,17 @@ export function isOwnerOrManager(view: ViewRecord, actor: ActorContext, standing
   return view.ownerId === actor.id || (view.kind !== 'custom-group' && sharedStanding(view, standings).some((s) => s.manager));
 }
 
-/** Reachable by any path: owner, named person, shared group member/manager, official, or an approver of a pending application. */
+/** Owner, named person, or shared group member/manager. */
+export function isPersonallyReachable(view: ViewRecord, actor: ActorContext, standings: Standings): boolean {
+  return view.ownerId === actor.id
+    || (view.visibilityKind === 'people' && view.people.includes(actor.id))
+    || sharedStanding(view, standings).some((s) => s.member || s.manager);
+}
+
+/** Reachable by any path, including publication or a pending application. */
 export function isReachable(view: ViewRecord, actor: ActorContext, standings: Standings): boolean {
-  if (view.ownerId === actor.id || view.visibilityKind === 'official') return true;
-  if (view.visibilityKind === 'people' && view.people.includes(actor.id)) return true;
-  if (sharedStanding(view, standings).some((s) => s.member || s.manager)) return true;
-  return actor.approver && (view.approval === 'pending' || view.pending?.approval === 'pending');
+  return isPersonallyReachable(view, actor, standings) || view.visibilityKind === 'official'
+    || (actor.approver && (view.approval === 'pending' || view.pending?.approval === 'pending'));
 }
 
 export function capabilitiesOf(
@@ -206,6 +212,7 @@ export function savedViewOf(
     context: shown.content.context,
     kind: 'menu-view',
     menuId: view.menuId,
+    ...(view.myMenu ? { myMenu: true } : {}),
     menuSchemaVersion: shown.content.menuSchemaVersion,
     page: shown.content.page,
     chartOptions: shown.content.chartOptions,

@@ -272,6 +272,7 @@ export const savedViewDraftSchema = z.discriminatedUnion('kind', [
     name,
     menuId: id,
     menuSchemaVersion: version,
+    myMenu: z.literal(true).optional(),
     context: contextSchema,
     savedScopeId: savedScopeId.optional(),
     page: pageSchema,
@@ -286,6 +287,7 @@ export const savedViewPatchSchema = z.strictObject({
   target: customGroupTarget.optional(),
   name: z.string().optional(),
   menuSchemaVersion: version.optional(),
+  myMenu: z.boolean().optional(),
   context: contextSchema.optional(),
   /** `null` clears it. */
   savedScopeId: savedScopeId.nullable().optional(),
@@ -319,6 +321,7 @@ const importLocal = command('importLocal', {
 
 const commandUnion = z.union([
   command('list', { key }),
+  command('listMyMenus', {}),
   command('get', { id }),
   command('save', { draft: savedViewDraftSchema }),
   command('update', { id, patch: savedViewPatchSchema, ...expected }),
@@ -361,6 +364,7 @@ const record = {
   context: contextSchema,
   savedScopeId: savedScopeId.optional(),
 };
+const menuViewRecord = z.strictObject({ ...record, kind: z.literal('menu-view'), menuId: id, menuSchemaVersion: version, myMenu: z.literal(true).optional(), page: pageSchema, chartOptions: chartOptionsSchema, layout: layoutSchema, panels: menuViewPanelsSchema, panelsUnreadable: z.literal(true).optional(), tables: tablesSchema.optional() });
 export const savedViewSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     ...record, context: z.never().optional(), kind: z.literal('custom-group'), savedScopeId, target: customGroupTarget,
@@ -368,10 +372,14 @@ export const savedViewSchema = z.discriminatedUnion('kind', [
     approval: z.literal('none'),
   }).omit({ context: true }),
   z.strictObject({ ...record, kind: z.literal('condition-set') }),
-  z.strictObject({ ...record, kind: z.literal('menu-view'), menuId: id, menuSchemaVersion: version, page: pageSchema, chartOptions: chartOptionsSchema, layout: layoutSchema, panels: menuViewPanelsSchema, panelsUnreadable: z.literal(true).optional(), tables: tablesSchema.optional() }),
+  menuViewRecord,
 ]);
 const capabilities = z.strictObject({ canView: z.boolean(), canCopy: z.boolean(), canEdit: z.boolean(), canShare: z.boolean(), canApprove: z.boolean(), canRevoke: z.boolean(), reason: z.string().optional() });
 export const savedViewEntrySchema = z.strictObject({ denied: z.literal(false).optional(), view: savedViewSchema, capabilities });
+const myMenuEntrySchema = savedViewEntrySchema.extend({
+  view: menuViewRecord.required({ myMenu: true }),
+  capabilities: capabilities.extend({ canView: z.literal(true) }),
+});
 /** Out of permission: id and reason only, never a title, owner or content. */
 const deniedView = z.strictObject({ id, denied: z.literal(true), reason: z.string() });
 export const savedViewListItemSchema = z.union([savedViewEntrySchema, deniedView]);
@@ -402,6 +410,7 @@ const nullResult = result(z.null());
 /** Response schema by `op`; `ack` carries no value. Read commands resolve to the plain value and reject on transport failure. */
 export const savedViewResponseSchemas = {
   list: z.array(savedViewListItemSchema),
+  listMyMenus: z.array(myMenuEntrySchema),
   get: savedViewListItemSchema.nullable(),
   save: entryResult,
   update: entryResult,
