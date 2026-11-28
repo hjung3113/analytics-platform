@@ -19,6 +19,13 @@ export interface FacetedSetDialogProps {
   onApply(next: FacetedSetValue): void;
   /** Hide fixed-ID selection for callers that apply rules only. Defaults to true. */
   allowFixed?: boolean;
+  /**
+   * Opt-in (default false), with `allowFixed`: a tri-state «select all found» checkbox in the result header and a «clear
+   * found» action. Both act on the whole queried result set, not the rendered rows, and turn it into fixed IDs (ADR-0164:
+   * checking rows makes a fixed selection; applying without checks keeps the rule). Fixed IDs outside the result stay.
+   * Blocked while the result is stale or loading, so an old result is never selected in bulk.
+   */
+  selectAllResults?: boolean;
   /** In direct mode the results and Apply follow the settled draft without a separate Query action. */
   applyMode?: 'manual' | 'direct';
   /** Open this facet first when present; otherwise expand the facets in the initial value. */
@@ -69,7 +76,7 @@ export function FacetedSetDialog(props: FacetedSetDialogProps) {
   </Dialog>;
 }
 
-function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, allowFixed = true, applyMode = 'manual', initialFacet, resultColumns, valueLabel = identityLabel,
+function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, allowFixed = true, selectAllResults = false, applyMode = 'manual', initialFacet, resultColumns, valueLabel = identityLabel,
   itemKindLabel, formatCount = plainCount, status = 'ready', onRetry, note, errorDetail, save, saveSlot, settingsSlot }: FacetedSetDialogProps & { index: Index }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const { t, lang } = useI18n();
@@ -162,6 +169,21 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
     return { ...previous, fixed: next.size ? [...next] : null };
   });
   const clear = () => { setDraft({ rule: {}, fixed: null }); setSearch(''); };
+  // «Select all found» works on the whole queried result, never on the rows the virtualizer happens to render.
+  const resultIds = useMemo(() => queried.matches.map(position => index.items[position].id), [index, queried.matches]);
+  const selectedInResults = useMemo(() => resultIds.reduce((total, item) => total + (fixed.has(item) ? 1 : 0), 0), [resultIds, fixed]);
+  const bulk = allowFixed && selectAllResults;
+  const bulkBlocked = status !== 'ready' || stale;
+  const resultsChecked = selectedInResults === 0 ? false : selectedInResults === resultIds.length ? true : 'indeterminate';
+  const setResults = (select: 'toggle' | 'clear') => {
+    if (bulkBlocked) return;
+    setDraft(previous => {
+      const next = new Set(previous.fixed ?? []);
+      const add = select === 'toggle' && resultIds.some(item => !next.has(item));
+      for (const item of resultIds) if (add) next.add(item); else next.delete(item);
+      return { ...previous, fixed: next.size ? [...next] : null };
+    });
+  };
   const query = search.trim().toLocaleLowerCase();
   const suggestions = useMemo(() => {
     if (!query || status !== 'ready') return [];
@@ -267,7 +289,8 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
         </div>; })}
       </div>}
       {ready && <>
-        <div className="flex shrink-0 items-center gap-3" role="status"><StatusBadge tone="neutral">{awaitingCount ? m('fsUpdating') : mode}</StatusBadge><span>{m('fsResults', { count: formatCount(queried.matches.length) })}</span>{!direct && <Button variant="secondary" disabled={!stale} onClick={() => { setQueriedDraft(rule); setTargetId(null); virtual.scrollToOffset(0); }}>{m('fsQuery')}</Button>}</div>
+        <div className="flex shrink-0 items-center gap-3" role="status"><StatusBadge tone="neutral">{awaitingCount ? m('fsUpdating') : mode}</StatusBadge><span>{m('fsResults', { count: formatCount(queried.matches.length) })}</span>{bulk && <Button variant="ghost" size="sm" disabled={bulkBlocked || selectedInResults === 0} onClick={() => setResults('clear')}>{m('fsClearResults', { kind: itemKindLabel ?? m('fsItem') })}</Button>}{!direct && <Button variant="secondary" disabled={!stale} onClick={() => { setQueriedDraft(rule); setTargetId(null); virtual.scrollToOffset(0); }}>{m('fsQuery')}</Button>}</div>
+        {bulk && <p className="shrink-0 text-sm text-text-secondary">{m('fsSelectAllHint')}</p>}
         {stale && <p id={`${id}-stale`} aria-live="polite" className="shrink-0 text-sm text-text-secondary">{m(direct ? 'fsUpdating' : 'fsStale')}</p>}
         {allowFixed && outside.length > 0 && <div className="max-h-24 shrink-0 overflow-auto rounded-md border border-border-subtle p-2">
           <p>{m('fsOutside', { count: formatCount(outside.length) })}</p>
@@ -278,7 +301,10 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
       {status === 'error' && <div role="alert" className="flex flex-1 flex-col items-start gap-3"><p>{m('fsError')}</p>{errorDetail && <p className="text-sm text-text-secondary">{errorDetail}</p>}</div>}
       {ready && <div role="table" aria-label={m('fsResultTable')} aria-describedby={stale ? `${id}-stale` : undefined} data-stale={stale} aria-rowcount={queried.matches.length + 1} aria-colcount={columns.length + (allowFixed ? 2 : 1)} className={cn('flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border-subtle', stale && 'text-text-muted')}>
         <div role="row" aria-rowindex={1} className="flex shrink-0 items-center border-b border-border-subtle bg-surface-sunken text-sm font-semibold h-9">
-          {allowFixed && <span role="columnheader" className="w-12 shrink-0 px-3">{m('fsSelect')}</span>}<span role="columnheader" className="min-w-0 flex-1 px-3">{m('fsId')}</span>
+          {allowFixed && <span role="columnheader" className="w-12 shrink-0 px-3">{bulk
+            ? <Checkbox checked={resultsChecked} disabled={bulkBlocked || resultIds.length === 0} onCheckedChange={() => setResults('toggle')}
+              aria-label={m('fsSelectAllResults', { kind: itemKindLabel ?? m('fsItem'), count: formatCount(resultIds.length) })} />
+            : m('fsSelect')}</span>}<span role="columnheader" className="min-w-0 flex-1 px-3">{m('fsId')}</span>
           {columns.map(column => <span key={column.id} role="columnheader" className="min-w-0 flex-1 px-3">{column.label}</span>)}
         </div>
         <div ref={scroll} data-faceted-results className="min-h-0 flex-1 overflow-auto">

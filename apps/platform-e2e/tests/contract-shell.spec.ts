@@ -246,7 +246,8 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
     await expect(editor).toBeVisible();
     await editor.getByRole('button', { name: /^대상 전체$/ }).click();
     const dialog = page.getByRole('dialog', { name: '대상', exact: true });
-    const firstEquipment = dialog.getByRole('checkbox', { name: / 선택$/ }).first();
+    // A row's own checkbox: the header «조회된 설비 N대 전체 선택» (#3199) also ends in «선택».
+    const firstEquipment = dialog.getByRole('cell').getByRole('checkbox', { name: / 선택$/ }).first();
     await expect(firstEquipment).toBeVisible();
     await firstEquipment.check();
     await dialog.getByRole('button', { name: '고정 1대 적용', exact: true }).click();
