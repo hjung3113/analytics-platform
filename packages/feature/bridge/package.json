@@ -30,7 +30,7 @@
     "@ap/ui": "workspace:*",
     "@ap/feature-screens": "workspace:*",
     "@tanstack/react-query": "5.62.7",
-    "lucide-react": "^1.72.0"
+    "lucide-react": "^1.79.0"
   },
   "peerDependencies": {
     "react": "^19.3.1",
@@ -40,9 +40,9 @@
     "@ap/eslint-config": "workspace:*",
     "@ap/tsconfig": "workspace:*",
     "@testing-library/react": "^16.3.3",
-    "@types/react": "^19.3.0",
+    "@types/react": "^19.3.1",
     "@types/react-dom": "^19.3.0",
-    "eslint": "^10.14.0",
+    "eslint": "^10.15.0",
     "jsdom": "^26.1.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
