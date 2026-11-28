@@ -109,7 +109,7 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const notify = (message: string, onUndo?: () => void) => {
     if (!visible) return;
     const id = onUndo
-      ? toast(message, 'info', undefined, { action: { label: text.undo, onAction: onUndo }, durationMs: UNDO_WINDOW_MS })
+      ? toast(message, { action: { label: text.undo, onAction: onUndo }, durationMs: UNDO_WINDOW_MS })
       : toast(message);
     raised.current.add(id);
   };

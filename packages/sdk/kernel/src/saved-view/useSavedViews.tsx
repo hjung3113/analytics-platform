@@ -345,7 +345,7 @@ function useSavedViewController(
       if (!alive.current) return;
       const latest = live.current;
       if (latest.initial !== initial || initialWork.current?.initial !== initial || initialWork.current.phase !== 'settled') return;
-      latest.host.toast(latest.t(latest.host.defaultRangeTo === null ? 'defaultViewTimeoutWithoutPeriod' : 'defaultViewTimeoutWithPeriod'), 'warning');
+      latest.host.toast(latest.t(latest.host.defaultRangeTo === null ? 'defaultViewTimeoutWithoutPeriod' : 'defaultViewTimeoutWithPeriod'), { tone: 'warning' });
     }, AUTO_APPLY_DEFAULT_WAIT_MS);
     deadlineTimer.current = { initial, id: timeout };
     return () => {

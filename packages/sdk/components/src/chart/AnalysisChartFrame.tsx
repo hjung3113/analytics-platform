@@ -365,7 +365,7 @@ function PlatformFrame<P, T>({ platform, ...p }: AnalysisChartFrameProps<P, T> &
   const canAnnotate = !p.zoomOnly && !!features?.annotate && analyticsAllowed;
   const editor = useAnnotationEditor({ chartId: p.chartId, scopeId: global.scopeId, canAnnotate, axisKind: p.xType ?? 'time', ...(p.xType !== 'category' ? { from: global.from, to: global.to } : {}) });
   const host: FrameHost = {
-    inPlatform: true, basisDrill, global, contextKey: JSON.stringify([platform.user?.id, platform.revision, analyticsAllowed, global]), url, status: '', notify: toast,
+    inPlatform: true, basisDrill, global, contextKey: JSON.stringify([platform.user?.id, platform.revision, analyticsAllowed, global]), url, status: '', notify: (text, tone) => { toast(text, { tone }); },
     analyticsAllowed,
     features: { compare: !!features?.compare, annotate: !!features?.annotate, export: !!features?.export },
     applyPeriod: analyticsAllowed ? range => setGlobal({ from: range.from, to: range.to }) : null,

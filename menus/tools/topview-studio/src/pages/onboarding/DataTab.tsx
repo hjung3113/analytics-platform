@@ -35,7 +35,7 @@ export function DataTab({ data }: { data: EquipmentData }) {
     const input = { equipmentId: data.equipment.equipmentId, windowHash: windowHex(ask.row.hash) };
     try {
       const result = ask.kind === 'replace' ? await replace.run(input) : await retire.run(input);
-      if (result.outcome === 'ok') { setAsk(null); toast(ask.kind === 'replace' ? 'Sample Window를 교체했습니다' : 'Sample Window를 퇴역했습니다', 'info'); }
+      if (result.outcome === 'ok') { setAsk(null); toast(ask.kind === 'replace' ? 'Sample Window를 교체했습니다' : 'Sample Window를 퇴역했습니다'); }
       else setError(result.outcome === 'forbidden' ? '권한이 없어 바꾸지 못했습니다.' : '바꾸지 못했습니다.');
     } catch { setError('바꾸지 못했습니다.'); }
   };

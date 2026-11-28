@@ -38,7 +38,7 @@ export function DevTools() {
   const editSim = useEditSimulation();
   const switchRole = (next: RoleId) => {
     setRole(next);
-    toast(m('devToolsRoleSwitchedPermissionsAndScopeReValidated', { roleKo: USERS[next].title.ko, roleEn: USERS[next].title.en }), 'info');
+    toast(m('devToolsRoleSwitchedPermissionsAndScopeReValidated', { roleKo: USERS[next].title.ko, roleEn: USERS[next].title.en }));
   };
 
   return <>

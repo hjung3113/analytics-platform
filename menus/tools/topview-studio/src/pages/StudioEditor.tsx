@@ -226,7 +226,7 @@ export default function StudioEditor({ layoutId, layouts, templatesQuery, import
         const version = result.data.version;
         setConflict(false);
         setSession(s => (s.edit && s.edit.present === document ? { edit: markSaved(s.edit), version, syncedKey: version, imported: false } : { ...s, version, syncedKey: version }));
-        toast('초안을 저장했습니다', 'info');
+        toast('초안을 저장했습니다');
       } else handleFailure(result, '저장', false);
     } catch (error) { if (!aborted(error)) setNotice({ text: '저장하지 못했습니다.' }); }
   };
@@ -237,7 +237,7 @@ export default function StudioEditor({ layoutId, layouts, templatesQuery, import
       const result = await publish.run({ layoutId }, { expectedVersion: session.version ?? '0' });
       if (result.outcome === 'ok' && result.data) {
         setDialog(null);
-        toast(result.data.created ? 'Revision을 게시했습니다' : '같은 내용의 Revision이 이미 있습니다. 새로 만들지 않았습니다', 'info');
+        toast(result.data.created ? 'Revision을 게시했습니다' : '같은 내용의 Revision이 이미 있습니다. 새로 만들지 않았습니다');
       } else handleFailure(result, '게시', true);
     } catch (error) { if (!aborted(error)) setDialogError({ text: '게시하지 못했습니다.', fields: [] }); }
   };
@@ -246,7 +246,7 @@ export default function StudioEditor({ layoutId, layouts, templatesQuery, import
     setDialogError({ text: null, fields: [] });
     try {
       const result = await promote.run({ layoutId, revision: revisionKey, templateId, name });
-      if (result.outcome === 'ok' && result.data) { setDialog(null); toast(`EV Template ${result.data.templateId} 승격 완료 · 삭제 불가`, 'info'); }
+      if (result.outcome === 'ok' && result.data) { setDialog(null); toast(`EV Template ${result.data.templateId} 승격 완료 · 삭제 불가`); }
       else setDialogError({ text: result.outcome === 'invalid' ? null : failureText(result, '승격'), fields: result.fieldErrors });
     } catch (error) { if (!aborted(error)) setDialogError({ text: '승격하지 못했습니다.', fields: [] }); }
   };

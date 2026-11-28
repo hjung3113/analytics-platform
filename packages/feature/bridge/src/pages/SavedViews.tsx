@@ -71,7 +71,7 @@ export default function SavedViews() {
 
   const fail = (error: unknown) => {
     const mapped = mapUnknownError(error);
-    toast(mapped.message, mapped.tone === 'error' ? 'danger' : mapped.tone);
+    toast(mapped.message, { tone: mapped.tone === 'error' ? 'danger' : mapped.tone });
   };
 
   const saving = useMutation({

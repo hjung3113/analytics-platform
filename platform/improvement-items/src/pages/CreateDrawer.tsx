@@ -44,7 +44,7 @@ export function CreateDrawer({ origin: initialOrigin, onClose }: { origin: Origi
   useEffect(() => { if (createdId) openCreated(createdId); }, [createdId]);
   const requestClose = () => { if (!create.pending) { if (dirty) setDiscard(true); else onClose(); } };
   function settle(result: Awaited<ReturnType<typeof create.run>>) {
-    if (result.outcome === 'ok' && result.data) { toast(c.created, 'info'); setCreatedId(result.data.itemId); return; }
+    if (result.outcome === 'ok' && result.data) { toast(c.created); setCreatedId(result.data.itemId); return; }
     if (result.fieldErrors.some(field => field.code === 'too_long' && field.path.length === 2 && field.path[0] === 'origin' && field.path[1] === 'context')) { setServerOriginTooLarge(true); setError(''); setRetry(null); return; }
     setError(result.outcome === 'unknown' ? c.unknown : result.outcome === 'forbidden' ? c.denied : c.failed);
     setRetry(result.retry ? () => () => { void result.retry!().then(settle).catch(() => setError(c.failed)); } : null);

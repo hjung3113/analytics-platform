@@ -824,7 +824,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
             pin: !unpinning,
             targetSlot: panel === 'table' ? undefined : automaticPin?.id ?? id,
           });
-          if (!result.ok) toast(limitReason[lang], 'warning');
+          if (!result.ok) toast(limitReason[lang], { tone: 'warning' });
           // Unpinning still takes effect when there is no room to keep the instance (R C2, C11).
           if (result.ok || unpinning) pins.toggle(panel);
         } } : undefined,
@@ -892,7 +892,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     const pinnedOnly = intent !== undefined && automatic.some(panel => panel.item.id === id);
     const result = savedPanels.add(id, intent, { materialize: pinnedOnly, pin });
     if (!result.ok) {
-      toast(limitReason[lang], 'warning');
+      toast(limitReason[lang], { tone: 'warning' });
       return undefined;
     }
     if (pin) pins.pin(id);
@@ -905,7 +905,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   /** A chart made from settings keeps «추가하면 고정» on its own entry: it is not a catalog panel, so the `pins` key does not hold it. */
   const addChart = (chart: PanelInstance, pin: boolean) => {
     const result = savedPanels.addChart(chart, { pin });
-    if (!result.ok) toast(limitReason[lang], 'warning');
+    if (!result.ok) toast(limitReason[lang], { tone: 'warning' });
     else setReveal(current => ({ panelId: result.slot, seq: (current?.seq ?? 0) + 1 }));
   };
   const toolbarCatalog = catalog.map(item => item.disabledReason || !savedPanels.additionOverflows(item.id)

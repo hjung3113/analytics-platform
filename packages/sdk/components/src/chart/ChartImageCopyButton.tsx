@@ -23,7 +23,7 @@ export function useImageActionGate(standalone: ChartExportActionsPolicy | undefi
   const current = useRef(generation);
   // Layout effect: the new generation is in place in the same synchronous commit, before any async result can land.
   useLayoutEffect(() => { current.current = generation; }, [generation]);
-  if (platform !== null) return { allowed: !!platform.route?.menu.features?.export, say: (text, tone) => { platform.toast(text, tone); }, status: '' };
+  if (platform !== null) return { allowed: !!platform.route?.menu.features?.export, say: (text, tone) => { platform.toast(text, { tone }); }, status: '' };
   const notify = standalone?.notify;
   return { allowed: standalone?.exportAllowed === true, say: notify ?? ((text) => { if (current.current === generation) setStatus({ generation, text }); }), status: status.generation === generation ? status.text : '' };
 }

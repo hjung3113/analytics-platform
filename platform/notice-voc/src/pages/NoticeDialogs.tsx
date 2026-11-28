@@ -109,7 +109,7 @@ export function NoticeFormDialog({ notice, ko, scopes, onDone }: { notice: Notic
     const next = failureOf(res);
     if (concluded(next)) attempt.current = null;
     if (!next) {
-      toast(formatText(NOTICE_VOC_MESSAGES.noticeDialogsNoticeSaved, (ko ? 'ko' : 'en')), 'info');
+      toast(formatText(NOTICE_VOC_MESSAGES.noticeDialogsNoticeSaved, (ko ? 'ko' : 'en')));
       onDone({ kind: 'saved', id: res.data?.id ?? notice?.id ?? '' });
       return;
     }
@@ -190,7 +190,7 @@ export function NoticeDeleteDialog({ notice, ko, onDone, onCloseAutoFocus }: { n
     const next = failureOf(res);
     if (concluded(next)) attempt.current = null;
     if (!next) {
-      toast(formatText(NOTICE_VOC_MESSAGES.noticeDialogsNoticeDeleted, (ko ? 'ko' : 'en')), 'info');
+      toast(formatText(NOTICE_VOC_MESSAGES.noticeDialogsNoticeDeleted, (ko ? 'ko' : 'en')));
       onDone({ kind: 'deleted', id: notice.id });
       return;
     }

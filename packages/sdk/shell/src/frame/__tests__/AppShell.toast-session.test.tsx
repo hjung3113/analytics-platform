@@ -38,9 +38,9 @@ const tree = (adapter: PlatformAdapter) => <I18nProvider><PlatformProvider adapt
 
 const SECRET = '비공개 보기 u1-secret-view 저장됨';
 const raise = () => act(() => {
-  host.toast(SECRET, 'info');
-  host.toast(`${SECRET} 실패`, 'danger');
-  host.toast(SECRET, 'info', undefined, { action: { label: '되돌리기', onAction: () => {} } });
+  host.toast(SECRET);
+  host.toast(`${SECRET} 실패`, { tone: 'danger' });
+  host.toast(SECRET, { action: { label: '되돌리기', onAction: () => {} } });
 });
 const items = () => [...document.querySelectorAll('[data-toast-item]')].map(e => e.textContent ?? '');
 const spoken = () => [...document.querySelectorAll('[data-toast-stack] [aria-live]')].map(e => e.textContent ?? '').join('|');
@@ -108,7 +108,7 @@ describe('shell toasts belong to one session generation (#2075)', () => {
     render(tree(adapter));
     const lateToast = host.toast;
     await change(testSession(['platform:view'], { user: { id: 'u2', name: 'u2' } }));
-    act(() => { lateToast(SECRET, 'info'); lateToast(SECRET, 'danger'); });
+    act(() => { lateToast(SECRET); lateToast(SECRET, { tone: 'danger' }); });
     expectGone();
     // The new generation's own toast still works and is said.
     act(() => { host.toast('새 세대 알림'); });
@@ -120,7 +120,7 @@ describe('shell toasts belong to one session generation (#2075)', () => {
     vi.useFakeTimers();
     const { adapter, change } = sessionAdapter(testSession(['platform:view']));
     render(tree(adapter));
-    act(() => { host.toast(SECRET, 'info', undefined, { durationMs: 1000 }); });
+    act(() => { host.toast(SECRET, { durationMs: 1000 }); });
     await change(testSession(['platform:view'], { user: { id: 'u2', name: 'u2' } }));
     act(() => { host.toast('새 세대 알림'); });
     act(() => { vi.advanceTimersByTime(4900); });

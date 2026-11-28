@@ -118,7 +118,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
       if (controller.signal.aborted) return;
       if (!isAnswered(response.outcome)) {
         const refusalOf = exportRefusal(response.outcome, response, lang);
-        toast(refusalOf.text, 'warning', refusalOf.detail);
+        toast(refusalOf.text, { tone: 'warning', detail: refusalOf.detail });
         return;
       }
       let rows: T[] = response.outcome === 'empty' ? [] : response.data ?? [];
@@ -128,11 +128,11 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
         rows = rows.filter(row => wanted.has(getRowId(row)));
         const missing = scope.ids.length - rows.length;
         if (missing > 0) {
-          toast(selectionShortNote(scope.ids.length, rows.length, lang), 'warning');
+          toast(selectionShortNote(scope.ids.length, rows.length, lang), { tone: 'warning' });
         }
       }
       if (rows.length > EXPORT_ROW_CAP) {
-        toast(exportRowCapNote(lang), 'warning');
+        toast(exportRowCapNote(lang), { tone: 'warning' });
         return;
       }
       // Serializer (#173 review P2-1): outside the server-request try, so a column bug is not reported as a server
@@ -144,7 +144,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
         ({ headers, headerRows, cells } = serialize(rows));
       } catch (error) {
         if (process.env.NODE_ENV !== 'production') console.error(error);
-        toast(EXPORT_REFUSAL.error[lang], 'warning');
+        toast(EXPORT_REFUSAL.error[lang], { tone: 'warning' });
         return;
       }
       const now = new Date();
@@ -188,7 +188,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
       toast(input.menuNote ? `${done}${provisional} · ${input.menuNote}` : done + provisional);
     } catch (error) {
       if (cancelled()) return;
-      toast(EXPORT_REFUSAL.error[lang], 'warning');
+      toast(EXPORT_REFUSAL.error[lang], { tone: 'warning' });
     } finally {
       if (exportAbort.current === controller) { exportAbort.current = null; setExporting(false); setExportNote(null); }
     }
@@ -223,7 +223,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
     if (missing > 0) {
       const note = selectionShortNote(ids.length, rows.length, lang);
       if (rows.length === 0) throw new CopyStop(note);
-      toast(note, 'warning');
+      toast(note, { tone: 'warning' });
     }
     if (rows.length > EXPORT_ROW_CAP) throw new CopyStop(copyRowCapNote(lang));
     return payload(rows);
@@ -252,7 +252,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
       Object.values(blobs).forEach(b => b.catch(() => {})); // nobody consumes them now
       // A browser that refuses promised values still has the gesture: copy the loaded rows synchronously (review P3-2).
       if (error instanceof TypeError) copyLoaded();
-      else toast(clipboardFailure(error, lang), 'warning');
+      else toast(clipboardFailure(error, lang), { tone: 'warning' });
       return;
     }
     copyAbort.current = controller;
@@ -270,10 +270,10 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
         // Only the copy's own controller cancels (#186, like the Kernel #183). The internal throw in
         // `readSelection` uses this same controller's signal, so it still lands here as a cancellation.
         if (controller.signal.aborted) return;
-        if (error instanceof CopyStop) toast(error.message, 'warning', error.detail);
+        if (error instanceof CopyStop) toast(error.message, { tone: 'warning', detail: error.detail });
         // A late TypeError (promised values refused after the gesture): this browser cannot copy here.
-        else if (error instanceof ClipboardRejected) toast(error.cause instanceof TypeError ? copyUnavailable(lang) : clipboardFailure(error.cause, lang), 'warning');
-        else toast(EXPORT_REFUSAL.error[lang], 'warning'); // the row read threw (network…)
+        else if (error instanceof ClipboardRejected) toast(error.cause instanceof TypeError ? copyUnavailable(lang) : clipboardFailure(error.cause, lang), { tone: 'warning' });
+        else toast(EXPORT_REFUSAL.error[lang], { tone: 'warning' }); // the row read threw (network…)
       } finally {
         if (copyAbort.current === controller) { copyAbort.current = null; setCopying(false); setCopyNote(null); }
       }
@@ -283,11 +283,11 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
   function copyLoaded() {
     const loaded = input.loadedRows.filter(row => selection[getRowId(row)]);
     if (loaded.length === 0) {
-      toast(noSelectedOnPage(lang), 'warning');
+      toast(noSelectedOnPage(lang), { tone: 'warning' });
       return;
     }
     let content: CopyPayload;
-    try { content = payload(loaded); } catch (error) { toast((error as Error).message, 'warning'); return; }
+    try { content = payload(loaded); } catch (error) { toast((error as Error).message, { tone: 'warning' }); return; }
     let handled = false;
     const onDocumentCopy = (e: globalThis.ClipboardEvent) => {
       if (!e.clipboardData) return;
@@ -299,9 +299,9 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
     document.addEventListener('copy', onDocumentCopy, true);
     let copied = false;
     try { copied = document.execCommand('copy'); } catch { copied = false; } finally { document.removeEventListener('copy', onDocumentCopy, true); }
-    if (!copied || !handled) { toast(copyUnavailable(lang), 'warning'); return; }
+    if (!copied || !handled) { toast(copyUnavailable(lang), { tone: 'warning' }); return; }
     if (loaded.length < selectedIds.length) {
-      toast(loadedRowsOnlyNote(loaded.length, lang), 'warning');
+      toast(loadedRowsOnlyNote(loaded.length, lang), { tone: 'warning' });
     }
     toast(copiedText(content.count, lang));
   }

@@ -69,7 +69,7 @@ export function ShareControl({ compact = false, align = 'end', overflowRef, rend
     let href = retained;
     if (href === undefined) {
       const built = buildShareLink({ kind, route, global, page, absoluteUrl });
-      if (!built.ok) { setFallback(null); toast(failure(kind, built.reason), 'warning'); return; }
+      if (!built.ok) { setFallback(null); toast(failure(kind, built.reason), { tone: 'warning' }); return; }
       href = built.href;
     }
     pending.current = true; setBusy(true);

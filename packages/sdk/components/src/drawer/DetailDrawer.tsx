@@ -222,7 +222,7 @@ function DetailContent({ identity, focusOnOpen, superseded, id: recordId, title,
     ? m(shared.reason === 'too-long' ? 'drawerShareTooLong' : 'drawerShareInvalid')
     : m('copyLinkFailed');
   const copyAction = shared && platform && <DetailPanelHeaderActions copyUrl={shared.ok ? shared.href : null}
-    notify={{ success: message => platform.toast(message), error: message => platform.toast(message, 'warning') }}
+    notify={{ success: message => platform.toast(message), error: message => platform.toast(message, { tone: 'warning' }) }}
     messages={{ copy: m('drawerCopyLink'), success: m('drawerLinkCopied'), error: copyError }} />;
   return <div ref={panel} role="dialog" tabIndex={-1} aria-modal="false" aria-labelledby={`${id}-t`}
     onFocus={() => { focusInside.current = true; }}

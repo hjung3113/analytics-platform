@@ -62,7 +62,7 @@ function LoginReturnNotice() {
   useEffect(() => {
     if (announced.current) return;
     announced.current = true;
-    toast(loginReturnMessages.restoreFailed, 'warning');
+    toast(loginReturnMessages.restoreFailed, { tone: 'warning' });
   }, [toast]);
   return null;
 }

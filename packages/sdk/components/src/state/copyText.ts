@@ -28,7 +28,7 @@ export function useCopyLink(successText: string, options: CopyLinkOptions = {}):
     const copied = await copyText(link);
     if (copied) toast(successText);
     else {
-      toast(options.failureText ?? m('copyLinkFailed'), 'warning');
+      toast(options.failureText ?? m('copyLinkFailed'), { tone: 'warning' });
       options.onFailure?.(link);
     }
     return copied;

@@ -140,7 +140,7 @@ function ImportWindowDialog({ equipmentId, windows, onImported, onClose }: { equ
       setUploading(false);
       const result = await run.run({ equipmentId, uploadId: uploaded.data.id });
       if (result.outcome === 'ok') {
-        toast(result.data?.state === 'staged' ? 'Sample Window를 교체 대기로 가져왔습니다' : 'Sample Window를 가져왔습니다', 'info');
+        toast(result.data?.state === 'staged' ? 'Sample Window를 교체 대기로 가져왔습니다' : 'Sample Window를 가져왔습니다');
         onImported();
         onClose();
         return;

@@ -135,7 +135,7 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
       },
       config: key => entry.moduleConfig?.[key] ?? null,
       lang: () => lang,
-      notify: (text, tone) => p.toast(text, tone === 'info' ? undefined : tone),
+      notify: (text, tone) => p.toast(text, { tone }),
       status: next => portsRef.current.status(next),
       reportError: error => p.reportError(error),
       focusTarget: el => portsRef.current.focusTarget(el),

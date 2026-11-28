@@ -174,7 +174,7 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
       setBoard(next);
       setSavedState(outcome.error ? null : next);
       setSaveError(outcome.error === CONFLICT_TEXT ? null : outcome.error ?? null);
-      if (!outcome.error) toast('alias 규칙을 저장했습니다', 'info');
+      if (!outcome.error) toast('alias 규칙을 저장했습니다');
     } finally {
       // Same task as the settle above, so React commits the Board, its versions and the end of the flight together.
       onSaving(false);

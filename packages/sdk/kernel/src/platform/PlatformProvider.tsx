@@ -236,7 +236,8 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   }, [gen]);
   const isCurrentGeneration = useCallback(() => revisions.state === 'active' && revisions.get() === revision
     && !retiredGens.current.has(gen) && adapter.session() === session, [revisions, revision, gen, adapter, session]);
-  const toast = useCallback((text: string, tone: Toast['tone'] = 'info', detail?: string, options?: ToastOptions) => {
+  const toast = useCallback((text: string, options: ToastOptions = {}) => {
+    const { tone = 'info', detail, action, durationMs } = options;
     // A call from an older generation (a callback that resolved after a session change notice or an adapter swap) shows nothing: the
     // counter moves at the notice itself, before any re-render, so even a call in the same task as the notice is refused. The id is never live.
     // A suspended adapter (StrictMode replay) still takes calls of its current generation; inside the swap commit, before the Provider's
@@ -251,10 +252,10 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
       durations.current.delete(old);
       toastOwners.current.delete(old);
     }
-    const entry: Toast = { id, text, tone, ...(detail === undefined ? {} : { detail }), ...(options?.action ? { action: options.action } : {}) };
+    const entry: Toast = { id, text, tone, ...(detail === undefined ? {} : { detail }), ...(action ? { action } : {}) };
     setToastList(held => held.gen === gen ? { gen, list: [...held.list.slice(-3), entry] } : held);
     // An action toast stays by default: the user has to reach and read it first (06 Toast paragraph).
-    durations.current.set(id, options?.durationMs ?? (options?.action ? Infinity : 5000));
+    durations.current.set(id, durationMs ?? (action ? Infinity : 5000));
     armToast(id);
     return id;
   }, [armToast, revisions, revision, gen]);
@@ -273,11 +274,11 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   // A failed read / import / write keeps the local data and the pending intent; the person is told once per failure.
   const failure = preferenceState.failure;
   useEffect(() => {
-    if (failure !== null && preferences) toast(textFor('preferencesUnsaved', preferences.get('lang') === 'en' ? 'en' : 'ko'), 'warning');
+    if (failure !== null && preferences) toast(textFor('preferencesUnsaved', preferences.get('lang') === 'en' ? 'en' : 'ko'), { tone: 'warning' });
   }, [failure, preferences, toast]);
   const partialImport = preferenceState.partialImport;
   useEffect(() => {
-    if (partialImport && preferences) toast(textFor('preferencesPartialImport', preferences.get('lang') === 'en' ? 'en' : 'ko'), 'warning');
+    if (partialImport && preferences) toast(textFor('preferencesPartialImport', preferences.get('lang') === 'en' ? 'en' : 'ko'), { tone: 'warning' });
   }, [partialImport, preferences, toast]);
   // A bounded recovery trigger: the browser coming back online retries the failed step once per event (no timer, no loop). A permanent too-large import is not retried.
   useEffect(() => {

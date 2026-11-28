@@ -658,7 +658,7 @@ describe('toast detail', () => {
   it('renders the toast detail as a note named 서버 세부, beneath the body text', () => {
     function DetailToastProbe() {
       const { toast } = useHostPlatform();
-      return <button type="button" onClick={() => toast('내보내기를 수행하지 못했습니다. 다시 시도하고, 반복되면 관리자에게 문의하세요.', 'warning', '시간 도메인이 다른 실행을 함께 내보낼 수 없습니다 (correlationId: corr-7)')}>fire toast</button>;
+      return <button type="button" onClick={() => toast('내보내기를 수행하지 못했습니다. 다시 시도하고, 반복되면 관리자에게 문의하세요.', { tone: 'warning', detail: '시간 도메인이 다른 실행을 함께 내보낼 수 없습니다 (correlationId: corr-7)' })}>fire toast</button>;
     }
     render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={registry}>
       <AppShell><DetailToastProbe /></AppShell>
@@ -678,7 +678,7 @@ describe('toast action and caller-driven dismiss (#761 k2)', () => {
     const { toast, dismissToast } = useHostPlatform();
     const [id, setId] = useState(0);
     return <>
-      <button type="button" onClick={() => { const n = toast('분류했습니다.', 'info', undefined, { action: { label: '되돌리기', onAction }, ...(durationMs === undefined ? {} : { durationMs }) }); setId(n); onId?.(n); }}>fire</button>
+      <button type="button" onClick={() => { const n = toast('분류했습니다.', { action: { label: '되돌리기', onAction }, ...(durationMs === undefined ? {} : { durationMs }) }); setId(n); onId?.(n); }}>fire</button>
       <button type="button" onClick={() => dismissToast(id)}>dismiss by id</button>
     </>;
   }
@@ -1169,8 +1169,8 @@ describe('toast stack placement and live regions (#886)', () => {
     const { toast } = useHostPlatform();
     const { setLang } = useI18n();
     return <>
-      <button type="button" onClick={() => toast('안내', 'info')}>fire info</button>
-      <button type="button" onClick={() => toast('실패', 'danger')}>fire danger</button>
+      <button type="button" onClick={() => toast('안내')}>fire info</button>
+      <button type="button" onClick={() => toast('실패', { tone: 'danger' })}>fire danger</button>
       <button type="button" onClick={() => setLang('en')}>to english</button>
     </>;
   }
