@@ -181,6 +181,8 @@ jobs:
           bash .github/scripts/e2e-verdict.sh --self-test
           bash .github/scripts/require-success.sh --self-test
           node --test apps/platform-e2e/tests-kit/*.test.mjs
+          # #2181: the quality report's finders (unit test only; the report itself, jscpd included, stays out of PR CI).
+          node --test tooling/scripts/quality-report.test.mjs
       - run: pnpm lint
         if: ${{ env.DOCS_ONLY != 'true' }}
       - name: Additional feature static gates
