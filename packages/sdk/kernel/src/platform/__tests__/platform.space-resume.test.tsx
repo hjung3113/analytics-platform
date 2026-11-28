@@ -90,7 +90,10 @@ describe('spaceResume (06 §9.1)', () => {
     expect(screen.getByTestId('path').textContent).toBe('/operations/admin-roles');
     const both = JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null') as Record<string, string>;
     expect(both.mars).toBe('/mars/equipment?v=1&scopeId=MEM&page=2');
-    expect(both.operations.startsWith('/operations/admin-roles?')).toBe(true);
+    expect(both).toHaveProperty('operations');
+    const operations = both.operations;
+    if (operations === undefined) throw new Error('missing item operations');
+    expect(operations.startsWith('/operations/admin-roles?')).toBe(true);
     act(() => screen.getByTestId('to-notices').click());
     const after = JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null') as Record<string, string>;
     expect(Object.keys(after).sort()).toEqual(['mars', 'operations']);

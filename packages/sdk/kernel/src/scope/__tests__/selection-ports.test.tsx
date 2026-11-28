@@ -5,6 +5,7 @@ import { I18nProvider } from '../../i18n';
 import { PlatformProvider, usePlatform } from '../../platform/platform';
 import { createRegistry } from '../../registry/registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { at } from '../../test-support';
 import { useAxisOptions, useEquipmentFacts, useEquipmentSearch, useResolvedSelection } from '../selection-ports';
 import { groupId, spaceId, type PlatformAdapter } from '@ap/contracts';
 
@@ -30,13 +31,13 @@ it('aborts changed inputs, drops late replies, pages single-flight, and caches s
   tree.rerender(<I18nProvider><PlatformProvider equipmentAxes={axes} adapter={adapter} registry={registry}><Probe query="new" /></PlatformProvider></I18nProvider>);
   expect(result!.items).toEqual([]);
   await waitFor(() => expect(calls).toHaveLength(2));
-  expect(calls[0].signal?.aborted).toBe(true);
-  await act(async () => { calls[0].resolve({ items: [{ id: 'stale', label: 'stale' }], nextCursor: null }); calls[1].resolve({ items: [{ id: '1', label: 'one' }], nextCursor: 'next' }); });
+  expect(at(calls, 0).signal?.aborted).toBe(true);
+  await act(async () => { at(calls, 0).resolve({ items: [{ id: 'stale', label: 'stale' }], nextCursor: null }); at(calls, 1).resolve({ items: [{ id: '1', label: 'one' }], nextCursor: 'next' }); });
   expect(result!.items.map(i => i.id)).toEqual(['1']);
   act(() => { result!.loadMore(); result!.loadMore(); });
   await waitFor(() => expect(calls).toHaveLength(3));
-  expect(calls[2].cursor).toBe('next');
-  await act(async () => calls[2].resolve({ items: [{ id: '1', label: 'one' }, { id: '2', label: 'two' }], nextCursor: null }));
+  expect(at(calls, 2).cursor).toBe('next');
+  await act(async () => at(calls, 2).resolve({ items: [{ id: '1', label: 'one' }, { id: '2', label: 'two' }], nextCursor: null }));
   expect(result!.items.map(i => i.id)).toEqual(['1', '2']);
   tree.rerender(<I18nProvider><PlatformProvider equipmentAxes={axes} adapter={adapter} registry={registry}><Probe query="old" /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(calls).toHaveLength(4));
@@ -89,14 +90,14 @@ it('keeps prior pages on failure, retries the failed cursor, and restarts invali
   expect(result!.items.map(v => v.equipmentId)).toEqual(['1']);
   act(() => result!.retry());
   await waitFor(() => expect(result!.items).toHaveLength(2));
-  expect(send.mock.calls[1][0].cursor).toBe('second');
-  expect(send.mock.calls[2][0].cursor).toBe('second');
+  expect(at(send.mock.calls, 1)[0].cursor).toBe('second');
+  expect(at(send.mock.calls, 2)[0].cursor).toBe('second');
   act(() => result!.loadMore());
   await waitFor(() => expect(result!.loadMoreError?.code).toBe('invalid_cursor'));
   act(() => result!.retry());
   expect(result!.items).toEqual([]);
   await waitFor(() => expect(result!.items.map(v => v.equipmentId)).toEqual(['5']));
-  expect(send.mock.calls[4][0].cursor).toBe(null);
+  expect(at(send.mock.calls, 4)[0].cursor).toBe(null);
 });
 
 it('validates complete override Scope/context and uses preserved global values with explicit empty sets', async () => {
@@ -111,7 +112,7 @@ it('validates complete override Scope/context and uses preserved global values w
   tree.rerender(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Probe scopeId="S" /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(result!.status).toBe('ready'));
   expect(send.mock.calls[0]).toBeDefined();
-  expect((send.mock.calls as unknown[][])[0][0]).toMatchObject({ scopeId: 'S', lineNames: [], roomNames: null, limit: 50 });
+  expect(at(at(send.mock.calls as unknown[][], 0), 0)).toMatchObject({ scopeId: 'S', lineNames: [], roomNames: null, limit: 50 });
 });
 
 it('resolution ignores condition/period changes, drops late replies, and keeps requested IDs outside search pages', async () => {
@@ -129,7 +130,7 @@ it('resolution ignores condition/period changes, drops late replies, and keeps r
   expect([...result!.byId]).toEqual([['b', 'forbidden'], ['c', 'not_found']]);
   expect(result!.summaries.size).toBe(0);
   tree.unmount();
-  expect(send.mock.calls[0][1]?.aborted).toBe(true);
+  expect(at(send.mock.calls, 0)[1]?.aborted).toBe(true);
 });
 
 it('invalidates for same-user session, server revision and adapter replacement, and hides stale results immediately', async () => {
@@ -142,20 +143,20 @@ it('invalidates for same-user session, server revision and adapter replacement, 
   function Probe() { result = useEquipmentSearch(); return null; }
   const tree = mount(adapter, <Probe />);
   await waitFor(() => expect(calls).toHaveLength(1));
-  await act(async () => calls[0].finish({ items: [{ equipmentId: 'old', room: 'R', axes: {} }], nextCursor: null }));
+  await act(async () => at(calls, 0).finish({ items: [{ equipmentId: 'old', room: 'R', axes: {} }], nextCursor: null }));
   act(() => listeners.forEach(l => l()));
   expect(result!.items).toEqual([]);
   await waitFor(() => expect(calls).toHaveLength(2));
   act(() => { session = { ...session }; listeners.forEach(l => l()); });
   expect(result!.items).toEqual([]);
   await waitFor(() => expect(calls).toHaveLength(3));
-  expect(calls[1].signal?.aborted).toBe(true);
+  expect(at(calls, 1).signal?.aborted).toBe(true);
   const replacement = fixture({ searchEquipment: send });
   tree.rerender(<I18nProvider><PlatformProvider adapter={replacement} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(calls).toHaveLength(4));
-  expect(calls[2].signal?.aborted).toBe(true);
+  expect(at(calls, 2).signal?.aborted).toBe(true);
   tree.unmount();
-  expect(calls[3].signal?.aborted).toBe(true);
+  expect(at(calls, 3).signal?.aborted).toBe(true);
 });
 
 it('does not send disabled, contract-invalid, or period-less asOf requests and normalizes equal set inputs', async () => {
@@ -298,8 +299,8 @@ it('gates facts by validated Scope, aborts changed Scopes and discards late answ
   act(() => platform!.setGlobal({ scopeId: 'T' }));
   expect(result!.data).toBeNull();
   await waitFor(() => expect(calls).toHaveLength(2));
-  expect(calls[0].signal?.aborted).toBe(true);
-  await act(async () => { calls[1].finish({ items: [], version: 'new' }); calls[0].finish({ items: [], version: 'late' }); });
+  expect(at(calls, 0).signal?.aborted).toBe(true);
+  await act(async () => { at(calls, 1).finish({ items: [], version: 'new' }); at(calls, 0).finish({ items: [], version: 'late' }); });
   await waitFor(() => expect(result!.data?.version).toBe('new'));
 });
 

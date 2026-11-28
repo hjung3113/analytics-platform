@@ -11,6 +11,7 @@ import { createBasePathLocation } from '../../context/location';
 import { NAVIGATION_URL_MAX_LENGTH } from '../../context/shareLink';
 import { writeSpaceLast } from '../preferences';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { at } from '../../test-support';
 import { carrySetId, groupId, spaceId, type Permission, menuPermission, type Session, type SpaceDef } from '@ap/contracts';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
@@ -226,7 +227,7 @@ describe('cross-menu analysis selection carry (#2735)', () => {
       act(() => { host.navigate('/mars/inbound?v=1&returnTo=' + encodeURIComponent(source) + '&received=E%26A&received=E2'); });
     } else {
       const link = kind === 'object' || kind === 'changed object'
-        ? host.objectSelectionLinks({ kind: 'equipment', id: 'E1' }, options)[0]
+        ? at(host.objectSelectionLinks({ kind: 'equipment', id: 'E1' }, options), 0)
         : host.resolveSelectionLink('inbound', kind === 'explicit' ? { page: { returnTo: source, received: ['E&A', 'E2'] } } : options);
       if (link.kind !== 'link') throw new Error('expected a selection link');
       act(() => { host.navigate(link.href, { carryProof: link.proof }); });
@@ -446,7 +447,7 @@ describe('cross-menu analysis selection carry (#2735)', () => {
 
   it('keeps the object selector separate from the carried selection', () => {
     const { objectSelectionLinks } = mount();
-    const [link] = objectSelectionLinks({ kind: 'equipment', id: 'object-id' });
+    const link = at(objectSelectionLinks({ kind: 'equipment', id: 'object-id' }), 0);
     expect(query(link.href).get('object')).toBe('object-id');
     expect(query(link.href).getAll('received')).toEqual(['E&A', 'E2']);
     expect(objectSelectionLinks({ kind: 'equipment', id: 'x'.repeat(NAVIGATION_URL_MAX_LENGTH) })[0]?.kind).toBe('tooLong');
@@ -461,7 +462,7 @@ describe('cross-menu analysis selection carry (#2735)', () => {
     const objectRegistry = createRegistry({ permissions: [menuPermission('analytics:view')], spaces, groups: carryRegistry.groups,
       menus: carryRegistry.menus.map(menu => menu.id === objectTarget.id ? objectTarget : menu) });
     const { objectSelectionLinks } = mount(`/mars/selection-source?v=1&${picked}&other=E1`, objectRegistry);
-    const [link] = objectSelectionLinks({ kind: 'equipment', id: 'E1' }, { objectOutput: 'picked' });
+    const link = at(objectSelectionLinks({ kind: 'equipment', id: 'E1' }, { objectOutput: 'picked' }), 0);
     expect(query(link.href).get('object')).toBe('E1');
     expect(link.droppedSelections).toEqual(Array.from({ length: missing }, () => ({ dimension: 'equipment', reason: 'noInbound' })));
   });

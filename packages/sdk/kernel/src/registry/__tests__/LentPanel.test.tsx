@@ -8,6 +8,7 @@ import { PlatformProvider, usePlatform } from '../../platform/platform';
 import { useQueryDraft } from '../../query/query-draft';
 import { useMenuFetch, useMenuQuery, type MenuFetch } from '../../query/query';
 import { settleQueries, testAdapter, testMenu, testSession, testSpace } from '../../testing';
+import { at } from '../../test-support';
 import { LentPanel, useLentPanel, registerLentPanel, type LentPanelProps } from '../LentPanel';
 import { createRegistry } from '../registry';
 
@@ -206,7 +207,7 @@ describe('LentPanel', () => {
   });
 
   it('keeps the missing Selection key available to code and out of both messages', () => {
-    const [binding] = registry.lentPanels(receiver.id);
+    const binding = at(registry.lentPanels(receiver.id), 0);
     const verdict = binding.verdict(testSession(binding.permissions), {
       context: { ...emptyGlobal, ...queryContext, selection: ['EQ01'] }, values,
     });
@@ -426,7 +427,9 @@ describe('LentPanel', () => {
   it.each(['accepts', 'source component'] as const)('preserves the receiver and request when the %s tries to change Room', async (mutator) => {
     const roomSpec = { ...spec, context: { ...spec.context, roomNames: 'apply' as const } };
     const roomContext = contextCapabilities(roomSpec.context);
-    const [binding] = receiver.lentPanels!;
+    const lentPanels = receiver.lentPanels;
+    if (lentPanels === undefined) throw new Error('missing lent panels');
+    const binding = at(lentPanels, 0);
     const roomRegistry = createRegistry({
       spaces: registry.spaces, groups: registry.groups, permissions: [receiving, owning, reading],
       menus: [home, {
@@ -544,7 +547,7 @@ describe('LentPanel', () => {
   });
 
   it('leaves endpoint Context keys outside the binding absent', () => {
-    const [binding] = registry.lentPanels(receiver.id);
+    const binding = at(registry.lentPanels(receiver.id), 0);
     const session = testSession([receiving, owning, reading]);
     const result = binding.resolve(session, {
       context: { ...emptyGlobal, ...queryContext, metricId: 'held-metric' }, values,

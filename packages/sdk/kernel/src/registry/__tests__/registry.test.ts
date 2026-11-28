@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider } from '../../platform/platform';
 import { testAdapter, testSession } from '../../testing';
+import { at } from '../../test-support';
 import { createRegistry as create, routeParamNames, RegistryError, type GroupDef, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from '../registry';
 import * as shapes from '../shapes';
 import { menuAnalysisSelections } from '../analysis-selections';
@@ -125,7 +126,7 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
     expect(() => createRegistry({ spaces, groups, menus: [{ ...catalog, query: { mode: 'apply' } }] })).toThrow(/apply.*time/);
   });
   it('passes the optional single-menu sidebar label declaration through unchanged (type + pass-through; no runtime rule)', () => {
-    const group: GroupDef = { ...groups[0], hideLabelWhenSingle: true };
+    const group: GroupDef = { ...at(groups, 0), hideLabelWhenSingle: true };
     const registry = createRegistry({ spaces, groups: [group], menus: [catalog] });
 
     expect(registry.groupById(groupId('metrics')).hideLabelWhenSingle).toBe(true);
@@ -360,7 +361,7 @@ describe('spaces (06 §9.1)', () => {
   });
 
   it('rejects groups whose space is not declared', () => {
-    expect(() => createRegistry({ spaces: [analyticsSpace], groups: [...groups, { ...adminGroups[0], space: spaceId('bravo') }], menus: [roles] })).toThrow(/Group "admin" uses undeclared space "bravo"/);
+    expect(() => createRegistry({ spaces: [analyticsSpace], groups: [...groups, { ...at(adminGroups, 0), space: spaceId('bravo') }], menus: [roles] })).toThrow(/Group "admin" uses undeclared space "bravo"/);
   });
 
   it('rejects an unknown home menu id', () => {
@@ -724,7 +725,7 @@ describe('menu conditionPresets (06 §6.4, ADR-0083)', () => {
     afterEach(cleanup);
     const axes = [{ id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false }];
     it('refuses the reserved customGroup axis before accepting app-injected axes', () => {
-      expect(() => mountWith([{ ...axes[0], id: 'customGroup' }], '/a')).toThrow(/customGroup.*reserved/);
+      expect(() => mountWith([{ ...at(axes, 0), id: 'customGroup' }], '/a')).toThrow(/customGroup.*reserved/);
     });
     const mountWith = (equipmentAxes: typeof axes, url: string) => {
       window.history.replaceState(null, '', url);
@@ -1015,7 +1016,7 @@ describe('panel registration (#2433)', () => {
   it('rejects duplicate ids', () => expect(() => build([panel, panel])).toThrow(/duplicate.*summary/));
   it('indexes readers and writers with menu identity, permissions and derived reason', () => {
     const registry = build();
-    const [registered] = registry.panels('catalog');
+    const registered = at(registry.panels('catalog'), 0);
     expect(registered).toMatchObject({ id: 'summary', menuId: 'catalog', permissions: [menuPermission('metrics:view'), menuPermission('data:read')] });
     expect(registered.disabledReason({})).toEqual({ ko: '단계', en: 'Level' });
     expect(registered.disabledReason({ level: 'a' })).toBeUndefined();
@@ -1026,12 +1027,12 @@ describe('panel registration (#2433)', () => {
   });
   it('derives query labels and falls back to key names', () => {
     const registry = createRegistry({ spaces, groups, menus: [{ ...catalog, pageKeys: ['focus', 'other'], context: { ...none, time: 'apply' }, query: { mode: 'apply', required: { page: [{ key: 'focus', label: { ko: '초점', en: 'Focus' } }] } }, panels: [{ ...panel, queryInputs: { page: [{ key: 'focus', required: true }, { key: 'other', required: true }] }, displayInputs: {}, outputs: [] }] }] });
-    expect(registry.panels('catalog')[0].disabledReason({})).toEqual({ ko: '초점, other', en: 'Focus, other' });
+    expect(at(registry.panels('catalog'), 0).disabledReason({})).toEqual({ ko: '초점, other', en: 'Focus, other' });
   });
   it('never reads inherited properties for page keys named like object members', () => {
     const odd = { ...panel, queryInputs: { page: [{ key: 'constructor', required: true }] }, displayInputs: {}, outputs: [] };
     const registry = createRegistry({ spaces, groups, menus: [{ ...catalog, pageKeys: ['constructor'], panels: [odd] }] });
-    expect(registry.panels('catalog')[0].disabledReason({})).toEqual({ ko: 'constructor', en: 'constructor' });
+    expect(at(registry.panels('catalog'), 0).disabledReason({})).toEqual({ ko: 'constructor', en: 'constructor' });
     expect(disabledReason(odd, {}, {})).toEqual({ ko: 'constructor', en: 'constructor' });
     expect(projectQueryInputs(odd, {})).toEqual({});
     expect(projectQueryInputs(odd, { constructor: 'a' })).toEqual({ constructor: 'a' });
@@ -1039,9 +1040,9 @@ describe('panel registration (#2433)', () => {
   it('allows capability names, derived override keys and opaque S2 metadata; deduplicates permissions', () => {
     const registry = build([{ ...panel, queryInputs: { context: ['scopeId', 'time'] }, endpoints: [{ ...panel.endpoints[0], permission: catalog.permission }], availability: { requires: [{ anyOf: ['step4'] }], disabledReason: { ko: '4단계', en: 'Step 4' } }, pieces: ['opaque'], version: { future: true } }]);
     expect(registry.panelsReading('time')).toHaveLength(1);
-    expect(registry.panels('catalog')[0].permissions).toEqual([catalog.permission]);
-    expect(registry.panels('catalog')[0].disabledReason({})).toEqual({ ko: '4단계', en: 'Step 4' });
-    expect(registry.panels('catalog')[0].disabledReason({ step4: true })).toBeUndefined();
+    expect(at(registry.panels('catalog'), 0).permissions).toEqual([catalog.permission]);
+    expect(at(registry.panels('catalog'), 0).disabledReason({})).toEqual({ ko: '4단계', en: 'Step 4' });
+    expect(at(registry.panels('catalog'), 0).disabledReason({ step4: true })).toBeUndefined();
   });
 });
 
@@ -1147,7 +1148,7 @@ describe('inbound analysis selection registration (#2735)', () => {
   const writer = { ...panel, outputs: [{ key: inbound.key, action: 'brush', selection: inbound }] };
   const target = { ...catalog, pageKeys: [inbound.key], contextResetKeys: [inbound.key], analysisSelectionInbound: [inbound] };
   const build = (entry: MenuEntry = target) => createRegistry({
-    spaces, groups: entry.module ? [{ ...groups[0], id: 'fixture:main', module: 'fixture' }] : groups, menus: [entry],
+    spaces, groups: entry.module ? [{ ...at(groups, 0), id: 'fixture:main', module: 'fixture' }] : groups, menus: [entry],
   });
 
   it('indexes an inbound-only channel and accepts a panel that reads it', () => {
@@ -1173,8 +1174,8 @@ describe('inbound analysis selection registration (#2735)', () => {
     ['an object selector', { opensObject: { equipment: { pageKey: inbound.key } } }, /opensObject pageKey/],
     ['an output used as an object selector', { analysisSelectionInbound: undefined, panels: [writer], opensObject: { equipment: { pageKey: inbound.key } } }, /opensObject pageKey/],
     ['a duplicate dimension', { pageKeys: [inbound.key, 'other'], contextResetKeys: [inbound.key, 'other'], analysisSelectionInbound: [inbound, { ...inbound, key: 'other' }] }, /duplicate inbound dimension/],
-    ['a different writer dimension', { panels: [{ ...writer, outputs: [{ ...writer.outputs[0], selection: { ...inbound, dimension: 'equipment' } }] }] }, /agree on shape and dimension/],
-    ['a different writer label', { panels: [{ ...writer, outputs: [{ ...writer.outputs[0], selection: { ...inbound, label: undefined } }] }] }, /agree on label/],
+    ['a different writer dimension', { panels: [{ ...writer, outputs: [{ ...at(writer.outputs, 0), selection: { ...inbound, dimension: 'equipment' } }] }] }, /agree on shape and dimension/],
+    ['a different writer label', { panels: [{ ...writer, outputs: [{ ...at(writer.outputs, 0), selection: { ...inbound, label: undefined } }] }] }, /agree on label/],
     ['an empty label', { analysisSelectionInbound: [{ ...inbound, label: { ko: ' ', en: 'Time' } }] }, /non-empty ko\/en/],
     ['an invalid dimension', { analysisSelectionInbound: [{ ...inbound, dimension: 'Time-window' }] }, /dimension must match/],
     ['an invalid shape', { analysisSelectionInbound: [{ ...inbound, shape: 'rows' as never }] }, /shape must be set or range/],
@@ -1214,22 +1215,22 @@ describe('lent panel registration (#2490)', () => {
 
   it('indexes the registered source and deduplicates a grant shared by the two menus', () => {
     const registry = build();
-    const [lent] = registry.lentPanels('catalog');
-    expect(lent.source).toBe(registry.panels('source')[0]);
+    const lent = at(registry.lentPanels('catalog'), 0);
+    expect(lent.source).toBe(at(registry.panels('source'), 0));
     expect(lent.permissions).toEqual([receiving, shared, owner, endpointPermission]);
     expect(lent.verdict(testSession(lent.permissions), inputs)).toEqual({ allowed: true, reason: null });
     expect(registry.lentPanels('source')).toEqual([]);
   });
 
   it.each([receiving, owner, endpointPermission])('denies when the session lacks %s', absent => {
-    const [lent] = build().lentPanels('catalog');
+    const lent = at(build().lentPanels('catalog'), 0);
     const session = testSession([receiving, owner, endpointPermission, shared].filter(permission => permission !== absent));
     expect(lent.verdict(session, inputs)).toMatchObject({ allowed: false, reason: { kind: 'permission', text: { ko: expect.any(String), en: expect.any(String) } } });
   });
 
   it('names the lending menu and its declared panel title in the permission reason', () => {
     const registry = build();
-    const [lent] = registry.lentPanels('catalog');
+    const lent = at(registry.lentPanels('catalog'), 0);
     expect(lent.verdict(testSession([receiving]), inputs)).toEqual({ allowed: false, reason: { kind: 'permission', text: {
       ko: `원본 메뉴의 ${panel.title.ko} 패널을 볼 권한이 없습니다.`,
       en: `You don’t have permission to view the ${panel.title.en} panel of Source menu.`,
@@ -1237,7 +1238,7 @@ describe('lent panel registration (#2490)', () => {
   });
 
   it('reports a missing required value separately from permission', () => {
-    const [lent] = build().lentPanels('catalog');
+    const lent = at(build().lentPanels('catalog'), 0);
     expect(lent.verdict(testSession(lent.permissions), { ...inputs, page: [] })).toMatchObject({
       allowed: false, reason: { kind: 'missing-input', text: { ko: expect.any(String), en: expect.any(String) } },
     });
@@ -1248,7 +1249,7 @@ describe('lent panel registration (#2490)', () => {
     [{ ko: '모듈', en: 'Module' }, { ko: '패널에 필요한 입력을 확인하세요 (모듈).', en: 'Check the panel’s required input (Module).' }],
   ])('reports a missing page input using its optional label %j', (label, text) => {
     const declaration = { ...panel, queryInputs: { ...panel.queryInputs, page: [{ key: 'level', required: true, label }] } };
-    const [lent] = build([binding], true, declaration).lentPanels('catalog');
+    const lent = at(build([binding], true, declaration).lentPanels('catalog'), 0);
     expect(lent.verdict(testSession(lent.permissions), { ...inputs, page: [] })).toEqual({
       allowed: false, reason: { kind: 'missing-input', key: 'level', text },
     });
@@ -1287,7 +1288,7 @@ describe('lent panel registration (#2490)', () => {
 
   it('opens without an optional display binding even if an older declaration marks it required', () => {
     const declaration = { ...panel, display: [{ key: 'label', required: true }] };
-    const [lent] = build([binding], true, declaration).lentPanels('catalog');
+    const lent = at(build([binding], true, declaration).lentPanels('catalog'), 0);
     expect(lent.resolve(testSession(lent.permissions), inputs)).toMatchObject({ allowed: true, inputs: { display: {} } });
   });
 

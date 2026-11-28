@@ -9,6 +9,7 @@ import { useModuleHost, type ModuleShellPorts } from '../module-host';
 import { PlatformProvider, useHostPlatform, useToastList } from '../../platform/platform';
 import { createRegistry } from '../registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { at } from '../../test-support';
 
 type Data = { from: string | null; roomNames: unknown };
 const spec: EndpointSpec<{ page: number }, Data> = defineEndpoint<{ page: number }, Data>({
@@ -305,7 +306,7 @@ describe('useModuleHost: query', () => {
     const s = setup();
     const pending = settle(s.seen.host.query!(spec, { page: 1 }));
     expect(s.calls).toHaveLength(1);
-    await act(async () => s.calls[0].resolve(ok(s.calls[0].request)));
+    await act(async () => at(s.calls, 0).resolve(ok(at(s.calls, 0).request)));
     expect(await pending).toMatchObject({ value: { outcome: 'ok', data: { from: '2026-09-25T09:00:00' } } });
   });
 
@@ -315,7 +316,7 @@ describe('useModuleHost: query', () => {
     const pending = settle(s.seen.host.query!(spec, { page: 1 }, controller.signal));
     controller.abort();
     expect(isAbort(await pending)).toBe(true);
-    expect(s.calls[0].signal?.aborted).toBe(true);
+    expect(at(s.calls, 0).signal?.aborted).toBe(true);
     expect(isAbort(await settle(s.seen.host.query!(spec, { page: 1 }, controller.signal)))).toBe(true);
     expect(s.calls).toHaveLength(1);
   });
@@ -326,7 +327,7 @@ describe('useModuleHost: query', () => {
     const pending = settle(s.seen.host.query!(spec, { page: 1 }));
     await s.switchUser();
     expect(isAbort(await pending)).toBe(true);
-    await act(async () => s.calls[0].resolve(ok(s.calls[0].request)));
+    await act(async () => at(s.calls, 0).resolve(ok(at(s.calls, 0).request)));
   });
 
   it('rejects at once for a never-settling adapter that ignores cancellation when the screen is released', async () => {
@@ -344,11 +345,11 @@ describe('useModuleHost: query', () => {
     s.setGlobal({ from: '2026-09-24T09:00:00' });
     // A is rejected at the Context change itself (the commit-time invalidation), before the adapter has answered anything.
     expect(isAbort(await a)).toBe(true);
-    expect(s.calls[0].signal?.aborted).toBe(true);
+    expect(at(s.calls, 0).signal?.aborted).toBe(true);
     const b = settle(s.seen.host.query!(spec, { page: 1 }));
     expect(s.calls).toHaveLength(2);
     // The adapter ignores the AbortSignal and answers B, then the stale A.
-    await act(async () => { s.calls[1].resolve(ok(s.calls[1].request)); s.calls[0].resolve(ok(s.calls[0].request)); });
+    await act(async () => { at(s.calls, 1).resolve(ok(at(s.calls, 1).request)); at(s.calls, 0).resolve(ok(at(s.calls, 0).request)); });
     expect(await b).toMatchObject({ value: { data: { from: '2026-09-24T09:00:00' } } });
   });
 
@@ -357,7 +358,7 @@ describe('useModuleHost: query', () => {
     const first = settle(s.seen.host.query!(spec, { page: 1 }));
     const second = settle(s.seen.host.query!(spec, { page: 2 }));
     s.setGlobal({ roomNames: ['ETCH'] });
-    await act(async () => { s.calls[1].resolve(ok(s.calls[1].request)); s.calls[0].resolve(ok(s.calls[0].request)); });
+    await act(async () => { at(s.calls, 1).resolve(ok(at(s.calls, 1).request)); at(s.calls, 0).resolve(ok(at(s.calls, 0).request)); });
     expect(await first).toMatchObject({ value: { outcome: 'ok' } });
     expect(await second).toMatchObject({ value: { outcome: 'ok' } });
   });
@@ -507,29 +508,29 @@ describe('useModuleHost: write', () => {
     act(() => { first = h.seen.host.act!(save, { text: 'a' }); second = h.seen.host.act!(save, { text: 'b' }); });
     expect(first).toBe(second);
     expect(h.sent).toHaveLength(1);
-    expect(h.sent[0].args).toEqual([]);
-    expect(h.sent[0].request).toEqual({ action: 'fx.save', context: {}, input: { text: 'a' }, idempotencyKey: expect.any(String) });
+    expect(at(h.sent, 0).args).toEqual([]);
+    expect(at(h.sent, 0).request).toEqual({ action: 'fx.save', context: {}, input: { text: 'a' }, idempotencyKey: expect.any(String) });
     expect(() => h.seen.host.act!(saveV, { text: 'a' })).toThrow(RangeError);
     act(() => { void h.seen.host.act!(saveV, { text: 'a' }, { expectedVersion: 'v1' }); });
-    expect(h.sent[1].request.expectedVersion).toBe('v1');
-    await act(async () => { h.sent[0].resolve(answer('ok')); await first; });
+    expect(at(h.sent, 1).request.expectedVersion).toBe('v1');
+    await act(async () => { at(h.sent, 0).resolve(answer('ok')); await first; });
   });
 
   it('retries A with its original key after an in-flight B settles (#2066 KER-25)', async () => {
     const h = harness();
     let first!: Promise<ActionResult<Saved>>;
     act(() => { first = h.seen.host.act!(save, { text: 'a' }); });
-    await act(async () => { h.sent[0].resolve(answer('unknown')); await first; });
+    await act(async () => { at(h.sent, 0).resolve(answer('unknown')); await first; });
     const { retry } = await first;
     let other!: Promise<ActionResult<Saved>>;
     let again!: Promise<ActionResult<Saved>>;
     act(() => { other = h.seen.host.act!(save, { text: 'b' }); again = retry!(); });
     expect(again).not.toBe(other);
     expect(h.sent).toHaveLength(2);
-    await act(async () => { h.sent[1].resolve({ ...answer('ok'), data: { id: 'b' } }); await other; });
+    await act(async () => { at(h.sent, 1).resolve({ ...answer('ok'), data: { id: 'b' } }); await other; });
     expect(h.sent).toHaveLength(3);
-    expect(h.sent[2].request).toBe(h.sent[0].request);
-    await act(async () => { h.sent[2].resolve({ ...answer('ok'), data: { id: 'a' } }); await again; });
+    expect(at(h.sent, 2).request).toBe(at(h.sent, 0).request);
+    await act(async () => { at(h.sent, 2).resolve({ ...answer('ok'), data: { id: 'a' } }); await again; });
     expect(await again).toMatchObject({ outcome: 'ok', data: { id: 'a' } });
   });
 
@@ -538,7 +539,7 @@ describe('useModuleHost: write', () => {
     const { host } = h.seen;
     let first!: Promise<ActionResult<Saved>>;
     act(() => { first = host.act!(save, { text: 'a' }); });
-    await act(async () => { h.sent[0].resolve(answer('error')); await first; });
+    await act(async () => { at(h.sent, 0).resolve(answer('error')); await first; });
     const { retry } = await first;
     h.unmount();
     await act(async () => {});
@@ -557,7 +558,7 @@ describe('useModuleHost: write', () => {
     expect(isAbort(await outcome)).toBe(true);
     // The first host was released by the generation change in a keyed shell; here it is the same instance, so listen on the new host.
     h.seen.host.subscribe(onChange);
-    await act(async () => { h.sent[0].resolve(answer('ok')); });
+    await act(async () => { at(h.sent, 0).resolve(answer('ok')); });
     expect(h.adapter.menuAction).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledTimes(1);
   });
@@ -566,7 +567,7 @@ describe('useModuleHost: write', () => {
     const h = harness();
     let first!: Promise<ActionResult<Saved>>;
     act(() => { first = h.seen.host.act!(save, { text: 'a' }); });
-    await act(async () => { h.sent[0].resolve(answer('error')); await first; });
+    await act(async () => { at(h.sent, 0).resolve(answer('error')); await first; });
     const { retry } = await first;
     await h.switchUser();
     let second!: Promise<ActionResult<Saved>>;
@@ -574,7 +575,7 @@ describe('useModuleHost: write', () => {
     expect(h.sent).toHaveLength(2);
     expect(isAbort(await settle(retry!()))).toBe(true);
     expect(h.sent).toHaveLength(2);
-    await act(async () => { h.sent[1].resolve(answer('ok')); });
+    await act(async () => { at(h.sent, 1).resolve(answer('ok')); });
     expect(await second).toMatchObject({ outcome: 'ok' });
   });
 
@@ -593,7 +594,7 @@ describe('useModuleHost: write', () => {
     const h = harness({ consumer: host => <Consumer host={host} /> });
     let first!: Promise<ActionResult<Saved>>;
     act(() => { first = h.seen.host.act!(save, { text: 'a' }); });
-    await act(async () => { h.sent[0].resolve(answer('error')); await first; });
+    await act(async () => { at(h.sent, 0).resolve(answer('error')); await first; });
     retained = (await first).retry;
     h.unmount();
     await act(async () => {});
@@ -626,8 +627,8 @@ describe('useModuleHost: write', () => {
     }
     const h = harness({ strict: true, consumer: host => <Consumer host={host} /> });
     expect(h.sent).toHaveLength(1);
-    expect(h.sent[0].request.input).toEqual({ text: 'replay' });
-    await act(async () => { h.sent[0].resolve(answer('ok')); });
+    expect(at(h.sent, 0).request.input).toEqual({ text: 'replay' });
+    await act(async () => { at(h.sent, 0).resolve(answer('ok')); });
     expect(await results.at(-1)).toMatchObject({ value: { outcome: 'ok' } });
     expect(h.sent).toHaveLength(1);
   });
@@ -664,7 +665,7 @@ it('inherits optional apply metadata through mountModule and gates host.query wi
   act(() => seen.platform.queryDraft.apply());
   const response = seen.host.query!(spec, { page: 0 });
   expect(calls).toHaveLength(1);
-  await act(async () => { calls[0].resolve(ok(calls[0].request)); await response; });
+  await act(async () => { at(calls, 0).resolve(ok(at(calls, 0).request)); await response; });
 });
 
 it('history initialization leaves module snapshots, links and query gate applied-only', async () => {
