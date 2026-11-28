@@ -101,7 +101,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     if (result.ok) toast(done); else toast(result.code === 'blocked' ? blockedMessage : fail(result.reason), { tone: 'warning' });
     return result.ok;
   };
-  const pickFailed = useSavedViewPickWarning();
+  const pickFailed = useSavedViewPickWarning(toast);
 
   // Focus goes back to the selector after a surface that has no trigger of its own; deferred so it lands after the dialog's own cleanup.
   const [returnFocus, setReturnFocus] = useState(0);

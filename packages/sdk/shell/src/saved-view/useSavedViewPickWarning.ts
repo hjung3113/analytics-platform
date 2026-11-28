@@ -1,10 +1,9 @@
 import { useMessages } from '@ap/kernel';
-import { useHostPlatform, type SelectOutcome } from '@ap/kernel/host';
+import type { useHostPlatform, SelectOutcome } from '@ap/kernel/host';
 import { SHELL_MESSAGES } from '../messages';
 
-export function useSavedViewPickWarning() {
+export function useSavedViewPickWarning(toast: (...args: Parameters<ReturnType<typeof useHostPlatform>['toast']>) => void) {
   const m = useMessages(SHELL_MESSAGES);
-  const { toast } = useHostPlatform();
   return (outcome: SelectOutcome) => {
     if (outcome.ok || outcome.reason === 'held' || outcome.reason === 'cancelled') return;
     const keys = {

@@ -11,12 +11,12 @@ import { SIDEBAR_GROUP_TITLE } from './SidebarHierarchy';
 type Item = { view: MenuView; owner?: string };
 
 export function MyMenusSection() {
-  const { savedViewStore: store, session, revision, user, scope, adapter, canOpen, route, registry, resolveLink, reportShellError } = useHostPlatform();
+  const { savedViewStore: store, session, revision, user, scope, adapter, canOpen, route, registry, resolveLink, reportShellError, toast } = useHostPlatform();
   const { revision: writes, open } = useMyMenus();
   const owner = useMemo(() => ({ store, session, revision, userId: user.id, scopeId: scope.scopeId, adapter, canOpen }), [store, session, revision, user.id, scope.scopeId, adapter, canOpen]);
   const reporter = useRef(reportShellError);
   useLayoutEffect(() => { reporter.current = reportShellError; }, [reportShellError]);
-  const pickFailed = useSavedViewPickWarning();
+  const pickFailed = useSavedViewPickWarning(toast);
   const [result, setResult] = useState<{ owner: typeof owner; items: Item[] }>();
   useEffect(() => {
     const { store, userId, adapter, canOpen } = owner;
@@ -79,7 +79,13 @@ export function MyMenusSection() {
         if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
         const row = event.currentTarget;
-        open?.(view.menuId, view.id, href, { focusOrigin: () => row.focus(), onOutcome: pickFailed });
+        open?.(view.menuId, view.id, href, {
+          focusOrigin: () => {
+            const { activeElement, body } = row.ownerDocument;
+            if (row.isConnected && (activeElement === row || activeElement === body)) row.focus();
+          },
+          onOutcome: pickFailed,
+        });
       }}>
       <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
       <span className="min-w-0 flex-1"><span className="block truncate">{view.name}</span>

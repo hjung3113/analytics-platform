@@ -1338,6 +1338,63 @@ describe('My Menus sidebar', () => {
     await waitFor(() => expect(second).toHaveFocus());
   });
 
+  it('keeps focus on another control when a clean sidebar pick waits for the view list', async () => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([mine, shared], { 'u1:home': mine.id });
+    const pending = deferred<void>();
+    const list = store.list;
+    const read = vi.spyOn(store, 'list').mockImplementation(async key => {
+      await pending.promise;
+      return list(key);
+    });
+    mountMyMenus(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`);
+    const link = within(await screen.findByRole('region', { name: '내 메뉴' })).getByRole('link', { name: /공유 뷰.*home/ });
+    await waitFor(() => expect(read).toHaveBeenCalled());
+    // The sidebar list has its own read, so the row is usable while the picker loads.
+    await user.click(link);
+    await user.tab({ shift: true });
+    const nextFocus = within(section()).getByRole('button', { name: '공유받음 1' });
+    expect(nextFocus).toHaveFocus();
+    await act(async () => pending.resolve(undefined));
+    await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 공유 뷰'));
+    expect(nextFocus).toHaveFocus();
+  });
+
+  it.each(['picker', 'sidebar'] as const)('retires a pending %s save-and-switch on navigation', async source => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([mine, shared]);
+    const pending = deferred<void>();
+    const update = store.update;
+    const write = vi.spyOn(store, 'update').mockImplementation(async (...args) => {
+      await pending.promise;
+      return update(...args);
+    });
+    mountMyMenus(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`);
+    await user.click(await screen.findByRole('link', { name: /포토 뷰.*home/ }));
+    await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰'));
+    act(() => platform.setGlobal({ roomNames: ['ETCH'] }));
+    const origin = within(section()).getByRole('link', { name: /공유 뷰.*home/ });
+    if (source === 'sidebar') await user.click(origin);
+    else {
+      await user.click(selector());
+      await user.click(await screen.findByRole('button', row(shared.name)));
+    }
+    await user.click(await screen.findByRole('button', { name: '저장하고 이동' }));
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await act(async () => { platform.navigate(`/live?scopeId=MEM&${period}`); });
+    expect(platform.route?.menu.id).toBe('live');
+    expect(origin).toBeInTheDocument();
+    // Model arrival without a page title in this harness. Body focus alone cannot
+    // authorize a retired pick to move focus to the persistent sidebar.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    expect(document.body).toHaveFocus();
+    await act(async () => pending.resolve(undefined));
+    expect(store.rows.get(mine.id)?.version).toBe(mine.version + 1);
+    if (source === 'picker') expect(toasts()).not.toContain('뷰를 불러오지 못했습니다.');
+    else expect(document.body).toHaveFocus();
+  });
+
   it('keeps a collapsed group mounted during refresh and hides it if the read fails', async () => {
     const user = userEvent.setup();
     const store = createFakeViewStore([mine, shared]);

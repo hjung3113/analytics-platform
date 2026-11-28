@@ -92,7 +92,7 @@ export function ViewSelector(props: ViewSelectorProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const deleteReturn = useRef<{ id: string; index: number } | null>(null);
   const [pending, setPending] = useState<{ id: string; request?: ViewSelectorProps['selectionRequest'] } | null>(null);
-  const pendingFocus = useRef<(() => void) | undefined>(undefined);
+  const afterPendingClose = useRef<(() => void) | undefined>(undefined);
   const localTrigger = useRef<HTMLButtonElement>(null);
   const trigger = props.picker?.anchorRef ?? localTrigger;
   const interactedOutside = useRef(false);
@@ -140,7 +140,7 @@ export function ViewSelector(props: ViewSelectorProps) {
     close();
     if (id === currentId) { focus(); return; }
     if (discards) {
-      pendingFocus.current = request?.focusOrigin;
+      afterPendingClose.current = request?.focusOrigin;
       setPending({ id, request });
     } else { (request?.onSelect ?? props.onSelect)(id); focus(); }
   };
@@ -149,17 +149,27 @@ export function ViewSelector(props: ViewSelectorProps) {
     const id = props.selectionRequest?.take();
     if (id != null) choose(id, props.selectionRequest);
   });
+  const cancelPending = () => {
+    setPending(null);
+    if (!pending?.request?.focusOrigin) focusTrigger();
+  };
   const settlePending = async (save: boolean) => {
     if (save && saveBlock) return;
     if (!pending) return;
     const { id, request } = pending;
     const focus = request?.focusOrigin ?? focusTrigger;
+    const select = request?.onSelect ?? props.onSelect;
     setPending(null);
+    if (!save && request?.focusOrigin) {
+      // The dialog releases focus on close. Restore it before selection can retire the request.
+      afterPendingClose.current = () => { focus(); select(id); };
+      return;
+    }
     if (save) {
       const result = await (pendingSave === 'current' ? props.onSave?.() : props.onSaveAs?.());
       if (result === false) { focus(); return; }
     }
-    (request?.onSelect ?? props.onSelect)(id);
+    select(id);
     focus();
   };
 
@@ -313,12 +323,12 @@ export function ViewSelector(props: ViewSelectorProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={pending !== null} onOpenChange={next => { if (!next) { setPending(null); (pendingFocus.current ?? focusTrigger)(); } }}>
+      <Dialog open={pending !== null} onOpenChange={next => { if (!next) cancelPending(); }}>
         <DialogContent closeLabel={t('close')} onCloseAutoFocus={event => {
           event.preventDefault();
-          const focus = pendingFocus.current ?? focusTrigger;
-          pendingFocus.current = undefined;
-          focus();
+          const afterClose = afterPendingClose.current ?? focusTrigger;
+          afterPendingClose.current = undefined;
+          afterClose();
         }}>
           <DialogHeader>
             <DialogTitle>{m('svDiscardTitle')}</DialogTitle>
@@ -326,7 +336,7 @@ export function ViewSelector(props: ViewSelectorProps) {
           </DialogHeader>
           {pendingSave && saveBlock && <SaveBlockNotice id={pendingBlockId} block={saveBlock} />}
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => { setPending(null); (pendingFocus.current ?? focusTrigger)(); }}>{t('cancel')}</Button>
+            <Button type="button" variant="ghost" onClick={cancelPending}>{t('cancel')}</Button>
             <Button type="button" variant="secondary" disabled={selectionDisabled} onClick={() => { void settlePending(false); }}>{m('svDiscardDrop')}</Button>
             {pendingSave && <Button
               type="button" disabled={!saveBlock && selectionDisabled} aria-disabled={saveBlock ? true : undefined} aria-describedby={saveBlock ? pendingBlockId : undefined}
