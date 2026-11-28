@@ -47,7 +47,7 @@
 | 이 ADR의 결정 | Decided |
 | `@ap/contract-schemas`의 명령·응답 스키마 | 구현(이번 단계) |
 | 서버 모듈·Drizzle·ACL·감사 | 구현(#1105a, `apps/platform-api/src/modules/platform-saved-views`, 마이그레이션 0078) |
-| HTTP 저장소(`@ap/http-adapter`)·브라우저 이전·사람 이름 표시 | 코드 구현(#1105b, §7). 호스트 검사 완료(root 4종·SDK API 20 스냅샷·실서버 명령 5·mock UI E2E 5·UX PASS), 실서버 rendered UI는 미검증 |
+| HTTP 저장소(`@ap/http-adapter`)·브라우저 이전·사람 이름 표시 | 구현(#1105b, §7) |
 | 조직 팀 공유 | **구현 안 함**(위 이유·재개 조건) |
 
 ### 6. 서버 구현에서 정한 세부 (#1105a, 되돌릴 수 있음)

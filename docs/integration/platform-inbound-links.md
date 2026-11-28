@@ -37,7 +37,7 @@ https://platform.example/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09
 - 파스는 **등록된 전역 키 전체**를 `context`(`GlobalContext`)로 반환한다(06 §6.4 보존) — `roomNames`·`lineNames`·`prcGroups`·`membershipBasis`·`condition`·`lotIds`·`ppid`·`recipeIds`·`metricId`/`metricVersion`도 버려지지 않는다. 생성기도 같은 전역 Context를 받으므로 파스→빌드 라운드트립이 모든 등록 키를 보존한다.
 - 미등록 키(`managedSystem`, `vocId`, `fo` 등)는 `parseQuery`의 `extras`로 보존한다. 전역 Context로 올리지 않고 조회에 쓰지 않는다. 현재 URL에는 kernel이 보존한다(06 §6.4).
 - Scope는 URL이 증명이 아니다. 화면은 기존처럼 `validateScope`을 하고, 설비 상세는 `useEntityQuery` → `getEntity({ type, id, scopeId })`로 확인한다. id로 Site를 채우지 않는다. 이 codec은 그 호출을 하지 않는다.
-- 플랫폼 `/voc`는 기능 VOC가 아니다. VOC id의 플랫폼 목적지를 만들지 않는다(#60).
+- 이 codec은 VOC id 목적지를 만들지 않는다(`voc-detail` 메뉴는 `opensObject`를 선언하지 않는다, #60). 플랫폼 `/voc`·`/voc/:vocId`는 `소통`의 신고자 VOC 화면이고, 경로는 [VOC 화면 명세 §2](../../packages/feature/screens/docs/specs/voc.md#2-route-matrix)의 `R-VOC-MY`가 정한다.
 
 ## 3. Ownership
 

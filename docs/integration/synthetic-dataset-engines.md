@@ -42,7 +42,7 @@ SYNTHETIC_DATASETS_PG_URL=postgres://… pnpm --filter @ap/platform-api exec vit
 
 - [#1704](https://github.com/hjung3113/analytics-platform/issues/1704)(Dataset·Field·Metric 의미 계약)의 수용 기준 «합성 dataset 2종의 metric·grain·unit·time·join 호환/비호환을 서버 계약으로 판정»의 입력이 이 두 데이터셋이다. 계약 초안이 정해지면, 공개 PG 기반 최소 계약 시험은 §2의 loader로 같은 행을 싣고 그 계약이 거절하거나 표시해야 할 경우(비율 평균, join 부풀음, 단위 차이, 짝 없는 관계)를 위 표의 SQL 모양으로 확인한다.
 - 기대값은 생성기 행에서 계산하거나 server-conformance의 독립 oracle(`packages/host/server-conformance/src/__tests__/datasets/oracle.test-support.ts`)과 같은 규칙을 쓴다. loader나 엔진의 출력을 기대값으로 삼지 않는다.
-- 이 PR은 계약을 만들지 않는다. 계약 타입과 서버 판정은 #1704의 몫이고, 그쪽 착수 조건(#531·#540 경계 ADR)을 따른다.
+- 계약 타입, 서버 판정 및 착수 조건(#531·#540 경계 ADR)은 [#1704](https://github.com/hjung3113/analytics-platform/issues/1704)에서 추적한다.
 
 ## 4. #2918이 쓰는 법
 
