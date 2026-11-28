@@ -12,6 +12,7 @@ const menuDraft = { schemaVersion: 1, kind: 'menu-view', name: 'v', menuId: 'hom
 const view = { id: 'v1', kind: 'menu-view', schemaVersion: 1, name: 'v', ownerId: 'u1', version: 1, updatedAt: 1, visibility: { kind: 'private' }, approval: 'none', context: {}, menuId: 'home', menuSchemaVersion: 1, page: [], chartOptions: {}, layout: null, panels: null };
 const caps = { canView: true, canCopy: true, canEdit: true, canShare: true, canApprove: false, canRevoke: false };
 const entry = { view, capabilities: caps };
+const myMenuEntry = { ...entry, view: { ...view, myMenu: true } };
 const group = { group: { id: 'g1', kind: 'custom', name: 'g', memberCount: 1 }, members: [{ userId: 'u1', displayName: 'U', affiliation: '' }], capabilities: { canView: true, canEditMembers: true, canRename: true, canDelete: true } };
 const ok = (value: unknown) => ({ ok: true, value });
 const key = { userId: 'u1', menuId: 'home' };
@@ -52,6 +53,7 @@ describe('strict table state across contract, schemas and HTTP guards (#2492)', 
 
 type Case = { op: string; run: (s: Awaited<ReturnType<typeof open>>['store']) => Promise<unknown>; body: Record<string, unknown>; reply: unknown };
 const cases: Case[] = [
+  { op: 'listMyMenus', run: async (s) => s.listMyMenus?.('u1'), body: {}, reply: [myMenuEntry] },
   { op: 'list', run: (s) => s.list(key), body: { key: { menuId: 'home' } }, reply: [entry, { id: 'd', denied: true, reason: 'r' }] },
   { op: 'get', run: (s) => s.get('v1'), body: { id: 'v1' }, reply: null },
   { op: 'save', run: (s) => s.save(menuDraft as never), body: { draft: menuDraft }, reply: ok(entry) },
@@ -107,6 +109,12 @@ describe('HTTP saved-view store (#1105)', () => {
     expect(JSON.stringify(call.body)).not.toMatch(/userId"?:"u1"|ownerId/);
     expect(savedViewCommandSchema.safeParse(call.body).success).toBe(true);
     expect(savedViewResponseSchemas[op as keyof typeof savedViewResponseSchemas].safeParse(reply).success).toBe(true);
+  });
+
+  it('does not send a My Menus request for another actor', async () => {
+    const { store, sent } = await open(() => json([myMenuEntry]));
+    expect(await store.listMyMenus?.('u2')).toEqual([]);
+    expect(sent()).toEqual([]);
   });
 
   it('importLocal sends the strict body and returns the per-row outcome', async () => {
@@ -285,6 +293,8 @@ describe('guards equal the wire schemas', () => {
   });
 
   const replies: [keyof typeof responseGuards, string, unknown][] = [
+    ['listMyMenus', 'denied entry', [{ id: 'v1', denied: true, reason: 'no-access' }]],
+    ['listMyMenus', 'stored false', [{ ...myMenuEntry, view: { ...myMenuEntry.view, myMenu: false } }]],
     ['list', 'valid', [entry]],
     ['list', 'unreadable panels flag', [{ ...entry, view: { ...view, panelsUnreadable: true } }]],
     ['list', 'false panels flag', [{ ...entry, view: { ...view, panelsUnreadable: false } }]],

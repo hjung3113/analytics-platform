@@ -4,7 +4,7 @@ import { validateSavedView } from '@ap/contracts';
 
 /** Capabilities the fake grants an object unless `caps` says otherwise: view, copy, edit and share; no approve or revoke. */
 export const testViewCapabilities: ViewCapabilities = { canView: true, canCopy: true, canEdit: true, canShare: true, canApprove: false, canRevoke: false };
-/** `calls` records writes only; `reads` records `list` and `get`. */
+/** `calls` records writes only; `reads` records `list`, `listMyMenus` and `get`. */
 export type FakeSavedViewStore = SavedViewStore & {
   rows: Map<string, SavedView>; defaults: Map<string, string>; groups: ViewGroupEntry[]; caps: Map<string, ViewCapabilities>; requests: ApprovalRequestInfo[];
   calls: string[]; reads: string[];
@@ -33,6 +33,24 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
       await fake.listHold;
       return [...rows.values()].filter(v => key.menuId === null ? v.kind === (key.kind ?? 'condition-set') : !key.kind && v.kind === 'menu-view' && v.menuId === key.menuId).map((view): SavedViewListItem => entry(view));
     },
+    async listMyMenus(userId) {
+      fake.reads.push('listMyMenus');
+      await fake.listHold;
+      return [...rows.values()].flatMap(view => {
+        if (view.kind !== 'menu-view' || view.myMenu !== true || fake.denied.has(view.id)) return [];
+        const { visibility } = view;
+        const owned = view.ownerId === userId;
+        const named = visibility.kind === 'people' && visibility.userIds.includes(userId);
+        const groups = visibility.kind === 'groups' ? fake.groups.filter(({ group }) => visibility.groupIds.includes(group.id)) : [];
+        const manager = groups.some(({ group }) => group.managerIds?.includes(userId));
+        const member = groups.some(({ members }) => members.some(person => person.userId === userId));
+        const capabilities = fake.caps.get(view.id);
+        if ((!owned && !named && !manager && !member) || capabilities?.canView === false) return [];
+        const canEdit = (owned || manager) && !(visibility.kind === 'official' && view.approval === 'approved');
+        return [{ view, capabilities: { ...testViewCapabilities, canEdit, canShare: canEdit, ...capabilities } }];
+      }).sort((left, right) => Number(right.view.ownerId === userId) - Number(left.view.ownerId === userId)
+        || right.view.updatedAt - left.view.updatedAt || left.view.id.localeCompare(right.view.id));
+    },
     async get(id) {
       fake.reads.push('get');
       await fake.getHold.get(id);
@@ -45,6 +63,7 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
       fake.calls.push('save');
       await fake.saveHold;
       if (fake.failSave) return { ok: false, reason: 'unavailable' };
+      if ('myMenu' in input && (input.kind !== 'menu-view' || input.myMenu !== true)) return { ok: false, reason: 'invalid' };
       if (input.kind === 'custom-group') { const checked = validateSavedView(input); if (!checked.ok) return checked; }
       const view = { ...input, id: `v${rows.size + 1}`, ownerId: 'u1', version: 1, updatedAt: 1, visibility: { kind: 'private' }, approval: 'none' } as SavedView;
       rows.set(view.id, view);
@@ -54,8 +73,17 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
       fake.calls.push('update');
       const old = rows.get(id);
       if (!old) return { ok: false, reason: 'unavailable' };
+      const { myMenu, ...content } = patch;
+      if (myMenu !== undefined) {
+        if (fake.denied.has(id) || !entry(old).capabilities.canEdit || (old.visibility.kind === 'official' && old.approval === 'approved')) return { ok: false, reason: 'forbidden' };
+        if (old.kind !== 'menu-view' || typeof myMenu !== 'boolean') return { ok: false, reason: 'invalid' };
+      }
       if (old.version !== opts.expectedVersion) return { ok: false, reason: 'conflict' };
-      const view = { ...old, ...patch, version: old.version + 1 } as SavedView;
+      const view = { ...old, ...content, version: old.version + 1 } as SavedView;
+      if (view.kind === 'menu-view' && myMenu !== undefined) {
+        if (myMenu) view.myMenu = true;
+        else delete view.myMenu;
+      }
       // `savedScopeId: null` clears the recorded Scope, as a real store does (#2175).
       if (patch.savedScopeId === null) delete (view as { savedScopeId?: string }).savedScopeId;
       if (old.kind === 'custom-group' || patch.target !== undefined) { const checked = validateSavedView(view); if (!checked.ok) return checked; }
@@ -109,7 +137,7 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
     async listGroups() { return fake.groups; },
     async createGroup(input) {
       fake.calls.push('createGroup');
-      const made: ViewGroupEntry = { group: { id: `g${fake.groups.length + 1}`, kind: 'custom', name: input.name, memberCount: input.memberIds.length }, members: [], capabilities: { canView: true, canEditMembers: true, canRename: true, canDelete: true } };
+      const made: ViewGroupEntry = { group: { id: `g${fake.groups.length + 1}`, kind: 'custom', name: input.name, memberCount: input.memberIds.length }, members: input.memberIds.map(userId => ({ userId, displayName: userId, affiliation: '' })), capabilities: { canView: true, canEditMembers: true, canRename: true, canDelete: true } };
       fake.groups = [...fake.groups, made];
       return { ok: true, value: made };
     },

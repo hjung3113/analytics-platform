@@ -36,7 +36,7 @@ export function createHttpSavedViews(context: CallContext): { store: SavedViewSt
   }
 
   /** Reads reject a sanitized TransportError; a request for another actor's key never leaves the browser. */
-  async function read<T>(key: SavedViewKey | null, op: SavedViewOp, fields: Record<string, unknown>, empty: T, signal?: AbortSignal): Promise<T> {
+  async function read<T>(key: Pick<SavedViewKey, 'userId'> | null, op: SavedViewOp, fields: Record<string, unknown>, empty: T, signal?: AbortSignal): Promise<T> {
     const who = actor();
     if (key && key.userId !== who) return empty;
     const value = (await post(op, fields, signal)) as T;
@@ -62,6 +62,7 @@ export function createHttpSavedViews(context: CallContext): { store: SavedViewSt
 
   const store: SavedViewStore = {
     list: (key) => read(key, 'list', { key: wireKey(key) }, []),
+    listMyMenus: (userId) => read({ userId }, 'listMyMenus', {}, []),
     get: async (id) => read(null, 'get', { id }, null),
     save: (draft) => write('save', { draft }),
     update: (id, patch, opts) => write('update', { id, patch, expectedVersion: opts.expectedVersion }),

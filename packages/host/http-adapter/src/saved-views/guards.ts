@@ -103,13 +103,13 @@ const target: Guard = anyOf(
 const draftShape: Guard = anyOf(
   strict({ schemaVersion: lit(1), kind: lit('custom-group'), name, savedScopeId, target }),
   strict({ schemaVersion: lit(1), kind: lit('condition-set'), name, context }, { savedScopeId }),
-  strict({ schemaVersion: lit(1), kind: lit('menu-view'), name, menuId, menuSchemaVersion: int, context, page, chartOptions, layout, panels }, { savedScopeId, tables: isTableViewStates }),
+  strict({ schemaVersion: lit(1), kind: lit('menu-view'), name, menuId, menuSchemaVersion: int, context, page, chartOptions, layout, panels }, { savedScopeId, tables: isTableViewStates, myMenu: lit(true) }),
 );
 
 /** The exact draft shape, and every string value and key (panels, tables included) is well-formed text: the server's row rule (#2991). */
 export const isSavedViewDraft: Guard = (v) => draftShape(v) && malformedTextPath(v) === null;
 
-const patchShape = strict({}, { target, savedScopeId: v => v === null || savedScopeId(v), name: text, menuSchemaVersion: int, context, page, chartOptions, layout, panels, tables: isTableViewStates });
+const patchShape = strict({}, { target, savedScopeId: v => v === null || savedScopeId(v), name: text, menuSchemaVersion: int, context, page, chartOptions, layout, panels, tables: isTableViewStates, myMenu: bool });
 const patch: Guard = (v) => patchShape(v) && malformedTextPath(v) === null;
 const visibility: Guard = (v) =>
   isRecord(v) &&
@@ -156,6 +156,7 @@ const importLocal: Guard = (v) => {
 };
 const commandGuards: Guard[] = [
   cmd('list', { key }),
+  cmd('listMyMenus', {}),
   cmd('get', { id: cmdId }),
   cmd('save', { draft: isSavedViewDraft }),
   cmd('update', { id: cmdId, patch, ...expected }),
@@ -186,7 +187,7 @@ void _context;
 const savedView: Guard = anyOf(
   strict({ ...groupRecord, kind: lit('custom-group'), savedScopeId, target, approval: lit('none'), visibility: anyOf(strict({ kind: lit('private') }), strict({ kind: lit('groups'), groupIds: textList })) }, approvalNote),
   strict({ ...record, kind: lit('condition-set') }, { ...approvalNote, savedScopeId }),
-  strict({ ...record, kind: lit('menu-view'), menuId: id, menuSchemaVersion: int, page, chartOptions, layout, panels: responsePanels }, { ...approvalNote, savedScopeId, panelsUnreadable: lit(true), tables: isTableViewStates }),
+  strict({ ...record, kind: lit('menu-view'), menuId: id, menuSchemaVersion: int, page, chartOptions, layout, panels: responsePanels }, { ...approvalNote, savedScopeId, panelsUnreadable: lit(true), tables: isTableViewStates, myMenu: lit(true) }),
 );
 const entry = strict({ view: savedView, capabilities }, { denied: lit(false) });
 const denied = strict({ id, denied: lit(true), reason: str });
@@ -212,6 +213,7 @@ const importOutcome = strict({
 
 export const responseGuards = {
   list: arrayOf(listItem),
+  listMyMenus: arrayOf(entry),
   get: nullable(listItem),
   save: result(entry),
   update: result(entry),

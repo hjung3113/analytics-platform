@@ -53,10 +53,10 @@ function rowMatches(row: unknown, actorId: string, menuId: string | null): row i
 const readablePanels = (panels: unknown): unknown => (readMenuViewPanels(panels).status === 'legacy' ? null : panels);
 
 /** The owner-visible content (pending proposal before the published copy) as exactly the strict wire draft fields. */
-function project(content: Record<string, unknown>): unknown {
+function project(content: Record<string, unknown>, ownerView: Record<string, unknown>): unknown {
   const common = { schemaVersion: content['schemaVersion'], kind: content['kind'], name: content['name'], context: content['context'] };
   if (content['kind'] === 'condition-set') return common;
-  return { ...common, menuId: content['menuId'], menuSchemaVersion: content['menuSchemaVersion'], page: content['page'], chartOptions: content['chartOptions'], layout: content['layout'], panels: readablePanels(content['panels']), ...(content['tables'] === undefined ? {} : { tables: content['tables'] }) };
+  return { ...common, menuId: content['menuId'], menuSchemaVersion: content['menuSchemaVersion'], page: content['page'], chartOptions: content['chartOptions'], layout: content['layout'], panels: readablePanels(content['panels']), ...(content['tables'] === undefined ? {} : { tables: content['tables'] }), ...(ownerView['myMenu'] === true ? { myMenu: true } : {}) };
 }
 
 /** A row the server would refuse (a malformed `legacyKey` or draft) stays in the browser and never joins a request, so it cannot invalidate its neighbours (#2991). */
@@ -77,7 +77,7 @@ function readBucket(storage: StoragePort, name: string, actorId: string): { menu
     if (!rowMatches(row, actorId, menuId)) continue;
     const pending = row['pending'];
     if (pending !== undefined && !(rowMatches(pending, actorId, menuId) && pending['id'] === row['id'])) continue;
-    const draft = project(pending !== undefined ? (pending as Record<string, unknown>) : row);
+    const draft = project(pending !== undefined ? (pending as Record<string, unknown>) : row, row);
     const legacyKey = row['id'] as string;
     if (!importable(legacyKey, draft)) continue;
     rows.push({ legacyKey, draft: draft as SavedViewDraft });

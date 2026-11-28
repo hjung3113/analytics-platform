@@ -12,6 +12,7 @@ interface ViewRow extends Record<string, unknown> {
   owner_id: string;
   kind: ViewRecord['kind'];
   menu_id: string | null;
+  my_menu: boolean;
   name: string;
   content: ViewBody;
   version: number;
@@ -24,7 +25,7 @@ interface ViewRow extends Record<string, unknown> {
   group_ids: string[];
 }
 
-const VIEW_COLUMNS = sql`v.id, v.owner_id, v.kind, v.menu_id, v.name, v.content, v.version,
+const VIEW_COLUMNS = sql`v.id, v.owner_id, v.kind, v.menu_id, v.my_menu, v.name, v.content, v.version,
   v.updated_at_ms::double precision as updated_at, v.visibility_kind, v.approval, v.approval_note, v.pending,
   coalesce((select array_agg(p.actor_id::text order by p.actor_id) from platform.saved_view_people p where p.view_id = v.id), '{}') as people,
   coalesce((select array_agg(s.group_id::text order by s.group_id) from platform.saved_view_group_shares s where s.view_id = v.id), '{}') as group_ids`;
@@ -34,6 +35,7 @@ const toRecord = (r: ViewRow): ViewRecord => ({
   ownerId: r.owner_id,
   kind: r.kind,
   menuId: r.menu_id,
+  ...(r.my_menu ? { myMenu: true } : {}),
   name: r.name,
   content: r.content,
   version: r.version,
@@ -77,6 +79,11 @@ export async function viewById(
   return rows[0] ? toRecord(rows[0]) : null;
 }
 
+const sharedCandidate = (actor: ActorContext) => sql`
+  exists (select 1 from platform.saved_view_people p where p.view_id = v.id and p.actor_id = ${actor.id})
+  or exists (select 1 from platform.saved_view_group_shares s join platform.saved_view_group_members m on m.group_id = s.group_id
+             where s.view_id = v.id and m.actor_id = ${actor.id})`;
+
 /** Views of one menu (`null` = condition sets) the actor might reach; `isReachable` stays the judge. */
 export async function viewsOfMenu(
   tx: Tx,
@@ -89,11 +96,18 @@ export async function viewsOfMenu(
     where v.workspace_id = ${actor.workspaceId}
       and ${menuId === null ? sql`v.kind = ${kind ?? 'condition-set'}` : sql`v.menu_id = ${menuId} and ${kind === undefined}`}
       and (v.owner_id = ${actor.id} or v.visibility_kind = 'official'
-        or exists (select 1 from platform.saved_view_people p where p.view_id = v.id and p.actor_id = ${actor.id})
-        or exists (select 1 from platform.saved_view_group_shares s join platform.saved_view_group_members m on m.group_id = s.group_id
-                   where s.view_id = v.id and m.actor_id = ${actor.id})
+        or ${sharedCandidate(actor)}
         or (${actor.approver} and (v.approval = 'pending' or v.pending ->> 'approval' = 'pending')))
     order by v.updated_at_ms desc, v.id`);
+  return rows.map(toRecord);
+}
+
+export async function myMenuCandidates(tx: Tx, actor: ActorContext): Promise<ViewRecord[]> {
+  const { rows } = await tx.execute<ViewRow>(sql`
+    select ${VIEW_COLUMNS} from platform.saved_views v
+    where v.workspace_id = ${actor.workspaceId} and v.kind = 'menu-view' and v.my_menu
+      and (v.owner_id = ${actor.id} or (v.visibility_kind in ('people', 'groups') and (${sharedCandidate(actor)})))
+    order by (v.owner_id = ${actor.id}) desc, v.updated_at_ms desc, v.id`);
   return rows.map(toRecord);
 }
 
@@ -104,14 +118,15 @@ export async function insertView(
     ownerId: string;
     kind: ViewRecord['kind'];
     menuId: string | null;
+    myMenu: boolean;
     name: string;
     content: ViewBody;
     now: number;
   },
 ): Promise<string> {
   const { rows } = await tx.execute<{ id: string }>(sql`
-    insert into platform.saved_views (workspace_id, owner_id, kind, menu_id, name, content, version, updated_at_ms)
-    values (${input.workspaceId}, ${input.ownerId}, ${input.kind}, ${input.menuId}, ${input.name}, ${JSON.stringify(input.content)}::jsonb, 1, ${input.now})
+    insert into platform.saved_views (workspace_id, owner_id, kind, menu_id, my_menu, name, content, version, updated_at_ms)
+    values (${input.workspaceId}, ${input.ownerId}, ${input.kind}, ${input.menuId}, ${input.myMenu}, ${input.name}, ${JSON.stringify(input.content)}::jsonb, 1, ${input.now})
     returning id`);
   return (rows[0] as { id: string }).id;
 }
@@ -126,7 +141,7 @@ export async function writeView(
   await tx.execute(sql`
     update platform.saved_views set
       name = ${next.name}, content = ${JSON.stringify(next.content)}::jsonb, version = version + 1, updated_at_ms = ${now},
-      visibility_kind = ${next.visibilityKind}, approval = ${next.approval}, approval_note = ${next.approvalNote},
+      my_menu = ${next.myMenu === true}, visibility_kind = ${next.visibilityKind}, approval = ${next.approval}, approval_note = ${next.approvalNote},
       pending = ${next.pending === null ? null : JSON.stringify(next.pending)}::jsonb
     where workspace_id = ${workspaceId} and id = ${next.id}`);
   const written = await viewById(tx, workspaceId, next.id);

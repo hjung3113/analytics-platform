@@ -153,6 +153,50 @@ describe.skipIf(!runIntegration)('platform saved views (#1105a, ADR-0099)', () =
     workspaceIds.push(foreignWorkspaceId);
   });
 
+  it('round-trips myMenu through save, patch and clear with versioned writes', async () => {
+    const view = await save(alice, menuDraft('My menu', { myMenu: true }));
+    expect(view.myMenu).toBe(true);
+    const clear = await call(alice, 'update', { id: view.id, patch: { myMenu: false }, expectedVersion: view.version });
+    expect(clear).toMatchObject({ ok: true });
+    expect(clear.value.view).not.toHaveProperty('myMenu');
+    expect((await call(alice, 'get', { id: view.id })).view).not.toHaveProperty('myMenu');
+    const set = await call(alice, 'update', { id: view.id, patch: { myMenu: true }, expectedVersion: clear.value.view.version });
+    expect(set).toMatchObject({ ok: true, value: { view: { myMenu: true } } });
+    expect(set.value.view.version).toBe(view.version + 2);
+
+    const condition = await save(alice, condDraft('My menu condition'));
+    const rejected = await send(alice, URL, { version: 1, op: 'save', draft: { ...condDraft('Invalid'), myMenu: true } });
+    expect(rejected.statusCode).toBe(422);
+    expect(await call(alice, 'update', { id: condition.id, patch: { myMenu: false }, expectedVersion: condition.version }))
+      .toMatchObject({ ok: false, reason: 'invalid' });
+  });
+
+  it('lists own and current shares, omits pending and official-only views and drops revoked shares', async () => {
+    const group = (await call(alice, 'createGroup', { name: 'My menu audience', memberIds: [bob.id] })).value.group;
+    const grouped = await save(alice, menuDraft('Grouped', { myMenu: true }));
+    const named = await save(alice, menuDraft('Named', { myMenu: true }));
+    const official = await save(alice, menuDraft('Official', { myMenu: true }));
+    const own = await save(bob, menuDraft('Owned', { myMenu: true }));
+    await save(alice, menuDraft('Unmarked'));
+    await save(alice, menuDraft('Private', { myMenu: true }));
+    await call(alice, 'setVisibility', { id: grouped.id, visibility: { kind: 'groups', groupIds: [group.id] }, expectedVersion: grouped.version });
+    const shared = await call(alice, 'setVisibility', { id: named.id, visibility: { kind: 'people', userIds: [bob.id] }, expectedVersion: named.version });
+    const pending = await call(alice, 'requestOfficial', { id: official.id, expectedVersion: official.version });
+    const ids = async (actor: Acct) => (await call(actor, 'listMyMenus')).map((entry: Any) => entry.view.id);
+    expect(await ids(admin)).not.toContain(official.id);
+    const published = await call(admin, 'decide', { id: official.id, decision: 'approve', expectedVersion: pending.value.view.version });
+    expect(published).toMatchObject({ ok: true });
+    expect(await ids(bob)).toEqual([own.id, ...[shared.value.view, (await call(bob, 'get', { id: grouped.id })).view]
+      .sort((a, b) => b.updatedAt - a.updatedAt || a.id.localeCompare(b.id)).map(view => view.id)]);
+    expect(await call(bob, 'update', { id: named.id, patch: { myMenu: false }, expectedVersion: shared.value.view.version }))
+      .toMatchObject({ ok: false, reason: 'forbidden' });
+
+    await call(alice, 'updateGroup', { id: group.id, patch: { removeMembers: [bob.id] } });
+    expect(await ids(bob)).toEqual([own.id, named.id]);
+    await call(alice, 'setVisibility', { id: named.id, visibility: { kind: 'private' }, expectedVersion: shared.value.view.version });
+    expect(await ids(bob)).toEqual([own.id]);
+  });
+
   it('persists custom groups with isolated listing, owner-only writes and live shared-group ACL', async () => {
     const group = await save(alice, { schemaVersion: 1, kind: 'custom-group', name: `${PREFIX}-targets`, savedScopeId: 'S', target: { fixed: ['e1', 'e2'] } });
     const cond = await save(alice, condDraft(`${PREFIX}-cond`));

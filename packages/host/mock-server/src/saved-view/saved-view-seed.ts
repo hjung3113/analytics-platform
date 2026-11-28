@@ -74,6 +74,8 @@ export type SavedViewSeed = {
   directory: readonly DirectoryPerson[];
   groups: () => GroupRecord[];
   views: (ownerId: string, menuId: string | null) => SavedView[];
+  /** Menus whose seed buckets contain views marked for My Menus. */
+  myMenuSeedIds?: readonly string[];
 };
 
 export const defaultSavedViewSeed: SavedViewSeed = { actors: ACTORS, directory: DIRECTORY, groups: seedGroups, views: seedViews };

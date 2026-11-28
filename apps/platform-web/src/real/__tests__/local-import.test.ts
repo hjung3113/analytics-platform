@@ -44,6 +44,11 @@ const snapshot = (storage: ReturnType<typeof memory>) => [...storage.data].filte
 afterEach(() => vi.useRealTimers());
 
 describe('reading the legacy buckets (#1105)', () => {
+  it('imports My Menus membership from the view alongside the proposed content', () => {
+    const storage = memory({ [rowsKey(ACTOR, 'home')]: bucket(view(1, { myMenu: true, pending: view(1, { name: 'Proposal' }) })) });
+    expect(readLegacyRows(storage, ACTOR).rows[0]?.draft).toMatchObject({ name: 'Proposal', myMenu: true });
+  });
+
   it('preserves table state while projecting a legacy menu view into an import draft (#2492)', () => {
     const tables = { draftList: { groups: { basis: '[]', items: [{ id: 'u:g', label: 'G', members: ['a'] }] } }, declared: {} };
     const storage = memory({ [rowsKey(ACTOR, 'home')]: bucket(view(1, { tables })) });

@@ -264,6 +264,7 @@ describe('table view state (#2492)', () => {
 const view = { id: 'v1', schemaVersion: 1, kind: 'condition-set', name: 'Set', ownerId: 'u1', version: 3, updatedAt: 1, visibility: { kind: 'private' }, approval: 'none', context: {} };
 const caps = { canView: true, canCopy: true, canEdit: true, canShare: true, canApprove: false, canRevoke: false };
 const entry = { view, capabilities: caps };
+const myMenuEntry = { ...entry, view: { ...view, ...menuDraft, myMenu: true } };
 const group = { group: { id: 'g1', kind: 'custom', name: 'G', memberCount: 1, managerIds: ['u1'] }, members: [{ userId: 'u1', displayName: 'U', affiliation: '' }], capabilities: { canView: true, canEditMembers: true, canRename: true, canDelete: true } };
 const person = { userId: 'u1', displayName: 'U', affiliation: '' };
 const approval = { viewId: 'v1', requestedBy: 'u1', requestedAt: 1, targetVersion: 2, changes: ['x'] };
@@ -271,6 +272,7 @@ const denied = { id: 'v2', denied: true, reason: 'no access' };
 const importCommand = { ...V, op: 'importLocal', importToken: 't1', rows: [{ legacyKey: 'k1', draft: condDraft }], defaults: [{ key: { menuId: null }, legacyKey: 'k1' }] };
 
 const commands: Record<string, unknown> = {
+  listMyMenus: { ...V, op: 'listMyMenus' },
   list: { ...V, op: 'list', key }, get: { ...V, op: 'get', id: 'v1' }, save: { ...V, op: 'save', draft: menuDraft },
   update: { ...V, op: 'update', id: 'v1', patch: { name: 'n', panels: null }, expectedVersion: 3 }, remove: { ...V, op: 'remove', id: 'v1' },
   setDefault: { ...V, op: 'setDefault', key: { menuId: null }, id: null }, getDefaultId: { ...V, op: 'getDefaultId', key },
@@ -283,6 +285,7 @@ const commands: Record<string, unknown> = {
 const ok = <T>(value: T) => ({ ok: true, value });
 const fail = (reason: string) => ({ ok: false, reason, detail: 'd' });
 const responses: Record<SavedViewOp, [unknown, unknown]> = {
+  listMyMenus: [[myMenuEntry], [denied]],
   list: [[entry, denied], [{ id: 'v2', denied: true, reason: 'r', name: 'leak' }]], get: [null, { ...entry, view: { ...view, ownerId: 1 } }],
   save: [ok(entry), fail('nope')], update: [fail('conflict'), ok(null)], remove: [ok(null), ok(entry)], setDefault: [ok(null), { ok: true }],
   getDefaultId: [null, 5], setVisibility: [ok(entry), { ok: true, value: entry, extra: 1 }], requestOfficial: [ok(entry), ok({})], decide: [fail('forbidden'), fail('x')],
@@ -292,9 +295,10 @@ const responses: Record<SavedViewOp, [unknown, unknown]> = {
 };
 
 // Compile-time: every parsed response is assignable to the port's resolved type (type-only imports).
-type Resolved<K extends keyof SavedViewStore> = Awaited<ReturnType<SavedViewStore[K]>>;
+type Resolved<K extends keyof SavedViewStore> = Awaited<ReturnType<NonNullable<SavedViewStore[K]>>>;
 type Parsed<K extends SavedViewOp> = z.infer<(typeof savedViewResponseSchemas)[K]>;
 export const _assignable = (a: {
+  listMyMenus: Parsed<'listMyMenus'>;
   list: Parsed<'list'>; get: Parsed<'get'>; save: Parsed<'save'>; update: Parsed<'update'>; remove: Parsed<'remove'>; setDefault: Parsed<'setDefault'>; getDefaultId: Parsed<'getDefaultId'>;
   setVisibility: Parsed<'setVisibility'>; requestOfficial: Parsed<'requestOfficial'>; decide: Parsed<'decide'>; revoke: Parsed<'revoke'>; listApprovalRequests: Parsed<'listApprovalRequests'>;
   listGroups: Parsed<'listGroups'>; createGroup: Parsed<'createGroup'>; updateGroup: Parsed<'updateGroup'>; searchPeople: Parsed<'searchPeople'>;
@@ -306,9 +310,22 @@ const withDraft = (draft: unknown) => ({ ...V, op: 'save', draft });
 const deep = (n: number): unknown => (n === 0 ? 1 : { a: deep(n - 1) });
 
 describe('saved-view commands', () => {
+  it('accepts myMenu only on menu-view records and accepts false only in a patch', () => {
+    const draft = { ...menuDraft, myMenu: true };
+    expect(savedViewDraftSchema.parse(draft)).toEqual(draft);
+    expect(validateSavedView(draft)).toEqual({ ok: true, value: draft });
+    expect(savedViewDraftSchema.safeParse({ ...draft, myMenu: false }).success).toBe(false);
+    expect(validateSavedView({ ...draft, myMenu: false }).ok).toBe(false);
+    expect(savedViewDraftSchema.safeParse({ ...condDraft, myMenu: true }).success).toBe(false);
+    expect(validateSavedView({ ...condDraft, myMenu: true }).ok).toBe(false);
+    expect(savedViewPatchSchema.parse({ myMenu: false })).toEqual({ myMenu: false });
+    expect(savedViewResponseSchemas.listMyMenus.safeParse([{ ...myMenuEntry, view: { ...myMenuEntry.view, myMenu: false } }]).success).toBe(false);
+    expect(parse({ ...V, op: 'listMyMenus', userId: 'u9' }).success).toBe(false);
+  });
+
   it('ops are exactly the store methods plus importLocal', () => {
     expect(Object.keys(commands).sort()).toEqual([...Object.keys(savedViewResponseSchemas)].sort());
-    const storeMethods = ['list', 'get', 'save', 'update', 'remove', 'setDefault', 'getDefaultId', 'setVisibility', 'requestOfficial', 'decide', 'revoke', 'listApprovalRequests', 'listGroups', 'createGroup', 'updateGroup', 'searchPeople'];
+    const storeMethods = ['listMyMenus', 'list', 'get', 'save', 'update', 'remove', 'setDefault', 'getDefaultId', 'setVisibility', 'requestOfficial', 'decide', 'revoke', 'listApprovalRequests', 'listGroups', 'createGroup', 'updateGroup', 'searchPeople'];
     expect(Object.keys(savedViewResponseSchemas).filter((op) => op !== 'importLocal').sort()).toEqual([...storeMethods].sort());
   });
 

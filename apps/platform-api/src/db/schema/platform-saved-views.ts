@@ -32,6 +32,7 @@ export const platformSavedViews = platformSchema.table(
     kind: text('kind').notNull(),
     // null for a condition set or custom group
     menuId: text('menu_id'),
+    myMenu: boolean('my_menu').notNull().default(false),
     name: text('name').notNull(),
     content: jsonb('content').notNull(),
     version: integer('version').notNull().default(1),

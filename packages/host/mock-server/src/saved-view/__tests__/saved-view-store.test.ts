@@ -35,6 +35,53 @@ const visible = (items: readonly SavedViewListItem[]): SavedViewEntry[] => items
 const byName = (items: readonly SavedViewListItem[], name: string) => visible(items).find(i => i.view.name === name)!;
 const ok = <T,>(r: { ok: true; value: T } | { ok: false; reason: string }): T => { if (!r.ok) throw new Error(r.reason); return r.value; };
 
+it('saves, sets and clears myMenu and refuses it for other view kinds', async () => {
+  const s = store();
+  const { view } = ok(await s.save({ ...draft(), myMenu: true } as SavedViewDraft));
+  expect(await s.get(view.id)).toMatchObject({ view: { myMenu: true } });
+  const cleared = ok(await s.update(view.id, { myMenu: false }, { expectedVersion: view.version }));
+  expect(cleared.view).not.toHaveProperty('myMenu');
+  expect(await s.get(view.id)).not.toHaveProperty('view.myMenu');
+  expect(ok(await s.update(view.id, { myMenu: true }, { expectedVersion: cleared.view.version })).view).toHaveProperty('myMenu', true);
+  const condition = { schemaVersion: 1, kind: 'condition-set', name: 'C', context: {} } as const;
+  expect(await s.save({ ...condition, myMenu: true } as SavedViewDraft)).toMatchObject({ ok: false, reason: 'invalid' });
+  const custom = { schemaVersion: 1, kind: 'custom-group', name: 'Custom', savedScopeId: 'S', target: { fixed: ['a'] } } as const;
+  expect(await s.save({ ...custom, myMenu: true } as SavedViewDraft)).toMatchObject({ ok: false, reason: 'invalid' });
+  for (const input of [condition, custom]) {
+    const { view: other } = ok(await s.save(input));
+    expect(await s.update(other.id, { myMenu: false }, { expectedVersion: other.version })).toMatchObject({ ok: false, reason: 'invalid' });
+  }
+});
+
+it('lists current people and group shares with owned views first', async () => {
+  const s = store();
+  const { group } = ok(await s.createGroup({ name: 'Audience', memberIds: [ADMIN] }));
+  const { view: grouped } = ok(await s.save({ ...draft('Grouped'), myMenu: true } as SavedViewDraft));
+  const { view: named } = ok(await s.save({ ...draft('Named'), myMenu: true } as SavedViewDraft));
+  const { view: pending } = ok(await s.save({ ...draft('Pending'), myMenu: true } as SavedViewDraft));
+  const { view: hidden } = ok(await s.save({ ...draft('Hidden'), myMenu: true } as SavedViewDraft));
+  const { view: unmarked } = ok(await s.save(draft('Unmarked')));
+  ok(await s.setVisibility(grouped.id, { kind: 'groups', groupIds: [group.id] }, { expectedVersion: grouped.version }));
+  const { view: namedShared } = ok(await s.setVisibility(named.id, { kind: 'people', userIds: [ADMIN] }, { expectedVersion: named.version }));
+  ok(await s.requestOfficial(pending.id, { expectedVersion: pending.version }));
+  const ids = async (actor: string) => (await s.listMyMenus?.(actor))?.map(({ view }) => view.id);
+  expect(await ids(ENG)).toEqual([grouped.id, named.id, pending.id, hidden.id].sort());
+  as('admin');
+  const { view: own } = ok(await s.save({ ...draft('Own'), myMenu: true } as SavedViewDraft));
+  expect(await ids(ADMIN)).toEqual([own.id, ...[grouped.id, named.id].sort()]);
+  expect(await ids(ENG)).toEqual([]);
+  expect(await s.update(named.id, { myMenu: false }, { expectedVersion: namedShared.version })).toMatchObject({ ok: false, reason: 'forbidden' });
+  expect(await ids(ADMIN)).not.toContain(unmarked.id);
+  as('engineer');
+  ok(await s.updateGroup(group.id, { removeMembers: [ADMIN] }));
+  as('admin');
+  expect(await ids(ADMIN)).toEqual([own.id, named.id]);
+  as('engineer');
+  ok(await s.setVisibility(named.id, { kind: 'private' }, { expectedVersion: namedShared.version }));
+  as('admin');
+  expect(await ids(ADMIN)).toEqual([own.id]);
+});
+
 it.each(storedPanelCases)('projects $label panels and preserves the stored value on rename', async ({ stored, read, rename }) => {
   const s = store();
   const { view } = ok(await s.save(draft()));

@@ -1,0 +1,1 @@
+ALTER TABLE "platform"."saved_views" ADD COLUMN "my_menu" boolean DEFAULT false NOT NULL;

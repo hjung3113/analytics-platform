@@ -1,4 +1,4 @@
-import type { Result, SavedViewDraft, SavedViewListItem, SavedViewStore } from '@ap/contracts';
+import type { MenuViewDraft, Result, SavedViewDraft, SavedViewListItem, SavedViewStore } from '@ap/contracts';
 import type { ConformanceCheck, SavedViewPortMethod, ServerConformanceHarness } from '../../types';
 import { sameJson } from './shared';
 
@@ -19,7 +19,7 @@ export type SavedViewPortSamples = {
 
 /** Every `SavedViewStore` member: `uses` names these, and the sample's presence — not `implemented` — gates them. */
 export const SAVED_VIEW_PORT_METHODS: readonly SavedViewPortMethod[] = [
-  'list', 'get', 'save', 'update', 'remove', 'setDefault', 'getDefaultId', 'setVisibility', 'requestOfficial',
+  'list', 'listMyMenus', 'get', 'save', 'update', 'remove', 'setDefault', 'getDefaultId', 'setVisibility', 'requestOfficial',
   'decide', 'revoke', 'listApprovalRequests', 'listGroups', 'createGroup', 'updateGroup', 'searchPeople',
 ];
 
@@ -38,7 +38,7 @@ export function planSavedViewChecks(harness: ServerConformanceHarness): Conforma
   }
   const checks: ConformanceCheck[] = [];
   let n = 0;
-  const draft = (): SavedViewDraft => ({
+  const draft = (): MenuViewDraft => ({
     schemaVersion: 1,
     kind: 'menu-view',
     name: `적합성 ${++n}`,
@@ -396,6 +396,42 @@ export function planSavedViewChecks(harness: ServerConformanceHarness): Conforma
         if (bad) return bad;
       }
       return null;
+    },
+  });
+  checks.push({
+    id: 'port · savedViews: My Menus lists owned views and current shares (#2764)',
+    uses: ['listMyMenus', 'save', 'createGroup', 'setVisibility', 'updateGroup', 'requestOfficial', 'decide'],
+    mode: 'sequential', nonEnvelope: true,
+    run: async () => {
+      const { user, admin } = sample;
+      if (!user.listMyMenus || !admin.listMyMenus) return { skipped: 'listMyMenus is optional' };
+      const who = await actors(user, admin);
+      if (typeof who === 'string') return who;
+      const [shared, privateView, official, unmarked] = [
+        okOf(await user.save({ ...draft(), myMenu: true }), 'save group view'),
+        okOf(await user.save({ ...draft(), myMenu: true }), 'save private view'),
+        okOf(await user.save({ ...draft(), myMenu: true }), 'save official candidate'),
+        okOf(await user.save(draft()), 'save unmarked view'),
+      ];
+      if (typeof shared === 'string') return shared;
+      if (typeof privateView === 'string') return privateView;
+      if (typeof official === 'string') return official;
+      if (typeof unmarked === 'string') return unmarked;
+      const group = okOf(await user.createGroup({ name: 'My Menus audience', memberIds: [who.admin] }), 'create group');
+      if (typeof group === 'string') return group;
+      const applied = okOf(await user.setVisibility(shared.view.id, { kind: 'groups', groupIds: [group.group.id] }, { expectedVersion: shared.view.version }), 'share');
+      if (typeof applied === 'string') return applied;
+      const requested = okOf(await user.requestOfficial(official.view.id, { expectedVersion: official.view.version }), 'request official');
+      if (typeof requested === 'string') return requested;
+      const published = okOf(await admin.decide(official.view.id, 'approve', undefined, { expectedVersion: requested.view.version }), 'approve');
+      if (typeof published === 'string') return published;
+      const owned = await user.listMyMenus(who.user);
+      if (!owned.some(({ view }) => view.id === privateView.view.id) || owned.some(({ view }) => view.id === unmarked.view.id)) return 'expected the marked owned view and no unmarked view';
+      const visible = (await admin.listMyMenus(who.admin)).map(({ view }) => view.id);
+      if (!visible.includes(shared.view.id) || visible.includes(privateView.view.id) || visible.includes(official.view.id)) return 'expected the current group share and neither private nor official-only views';
+      const removed = okOf(await user.updateGroup(group.group.id, { removeMembers: [who.admin] }), 'remove member');
+      if (typeof removed === 'string') return removed;
+      return (await admin.listMyMenus(who.admin)).some(({ view }) => view.id === shared.view.id) ? 'the removed member still sees the shared view' : null;
     },
   });
   return checks;
