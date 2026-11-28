@@ -27,4 +27,4 @@ export { useSavedViewTableState } from './saved-view/useSavedViewTableState';
 export { useHoldsPanels } from './saved-view/useSavedViewPanels';
 export { registerLentPanel } from './registry/LentPanel';
 export { useOptionalAnalysisSelectionOutput, useAnalysisSelectionChannelName, useAnalysisSelectionLabels, useAnalysisSelectionHoverTarget, useAnalysisSelectionSourceHighlighted, useChartInstanceSelectionOutput } from './context/analysisSelection';
-export { prepareSavedViewPreview, SavedViewPreview, useReadOnlyPreviewTabs } from './saved-view/SavedViewPreview';
+export { prepareSavedViewPreview, SavedViewPreview, useReadOnlyPreviewDisclosureDismissal, useReadOnlyPreviewGestures, useReadOnlyPreviewTabs } from './saved-view/SavedViewPreview';

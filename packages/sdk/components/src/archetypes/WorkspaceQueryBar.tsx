@@ -2,11 +2,13 @@ import { createContext, useCallback, useContext, useId, useLayoutEffect, useRef,
 import { createPortal } from 'react-dom';
 import { Info, Pin, PinOff } from 'lucide-react';
 import { useI18n, useMessages } from '@ap/kernel';
+import { useReadOnlyPreviewDisclosureDismissal, useReadOnlyPreviewGestures } from '@ap/kernel/host';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { Button, cn, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, TransientOverlayScope } from '@ap/ui';
 import type { PageFilterSummaryItem } from '../filters/PageFilterBar';
 import { PageFilterExpandedContext } from '../filters/pageFilterPresentation';
 import { useCompactPageDensity } from '../pageDensity';
+import { focusPageFallback } from '../state/pageFocus';
 
 type PublishSummary = (summary: readonly PageFilterSummaryItem[]) => () => void;
 /** Only the page editor publishes its filter summaries; panel-local filters never reach this line. */
@@ -142,6 +144,7 @@ function ContextLine(props: LineProps & {
   const { query, page, actions, chip, selection, pinnedTarget, liveEditor, status, setParameterTarget, setToolbarTarget } = props;
   const m = useMessages(MESSAGES);
   const { t } = useI18n();
+  const previewGestures = useReadOnlyPreviewGestures();
   const compact = useCompactPageDensity();
   const pageEditor = useLineEditor();
   const live = useLineEditor();
@@ -149,6 +152,7 @@ function ContextLine(props: LineProps & {
   const queryExpanded = props.liveEditor ? live.shown : props.queryOpen;
   const queryId = props.liveEditor ? live.id : props.queryEditorId;
   const moreTrigger = useRef<HTMLButtonElement>(null);
+  const previewMoreTrigger = useRef<HTMLSpanElement>(null);
   const moreContent = useRef<HTMLDivElement>(null);
   const visibleChips = useRef<HTMLDivElement>(null);
   const pendingFocus = useRef<{ from: HTMLElement; kind: 'chip' | 'overflow'; index: number; expectedFit: number } | null>(null);
@@ -160,7 +164,7 @@ function ContextLine(props: LineProps & {
     pendingFocus.current = null;
     const active = document.activeElement;
     if (expectedFit === null || !(active instanceof HTMLElement)) return;
-    if (active === moreTrigger.current || moreContent.current?.contains(active)) {
+    if (active === moreTrigger.current || active === previewMoreTrigger.current || moreContent.current?.contains(active)) {
       pendingFocus.current = { from: active, kind: 'overflow', index: (visibleChips.current?.children.length ?? 1) - 1, expectedFit };
     } else if (active.hasAttribute('data-context-chip') && visibleChips.current?.contains(active)) {
       pendingFocus.current = { from: active, kind: 'chip', index: 0, expectedFit };
@@ -174,6 +178,10 @@ function ContextLine(props: LineProps & {
     if (!previous || previous.expectedFit !== measuredFit) return;
     pendingFocus.current = null;
     if (previous.from.isConnected || document.activeElement !== document.body) return;
+    if (previewGestures) {
+      focusPageFallback(lane.current);
+      return;
+    }
     const exposed = visibleChips.current?.children[previous.index];
     const next = previous.kind === 'overflow' && exposed instanceof HTMLButtonElement ? exposed : moreTrigger.current;
     const fallback = pageTrigger.current ?? lane.current?.parentElement?.querySelector('button');
@@ -187,6 +195,10 @@ function ContextLine(props: LineProps & {
   const pageState = [page.pending, page.issues].filter(Boolean).join(' · ');
   const [overflowOpen, setOverflowOpen] = useState(false);
   const overflowHandedOffFocus = useRef(false);
+  const dismissPreviewDisclosure = useCallback((target: Node) => {
+    if (!previewMoreTrigger.current?.contains(target) && !moreContent.current?.contains(target)) setOverflowOpen(false);
+  }, []);
+  useReadOnlyPreviewDisclosureDismissal(overflowOpen ? dismissPreviewDisclosure : null);
   useLayoutEffect(() => {
     if (remaining > 0) return;
     setOverflowOpen(false);
@@ -197,6 +209,51 @@ function ContextLine(props: LineProps & {
     setOverflowOpen(false);
   };
   const pageName = pageState ? `${pageLabel} · ${pageState}` : pageLabel;
+  const controlledOverflow = Boolean(liveEditor || previewGestures);
+  const overflowLabel = m(remaining === 1 ? 'moreOne' : 'moreCount', { count: remaining });
+  const overflow = remaining > 0 && <Popover open={controlledOverflow ? overflowOpen : undefined} onOpenChange={controlledOverflow ? setOverflowOpen : undefined}>
+    <PopoverTrigger asChild>{previewGestures
+      // The fieldset disables native buttons, and its capture handler dispatches only registered display gestures.
+      ? <span role="button" tabIndex={0} className={cn(overflowClass, 'cursor-pointer')} aria-label={overflowLabel} ref={node => {
+          previewMoreTrigger.current = node;
+          if (node) previewGestures.set(node, (_target, key) => {
+            if (key !== undefined && key !== 'Enter' && key !== ' ') return false;
+            setOverflowOpen(open => !open);
+            return true;
+          });
+        }}>+{remaining}</span>
+      : <button ref={moreTrigger} type="button" className={overflowClass} title={m('more')}
+          aria-label={liveEditor ? overflowLabel : undefined}>+{remaining}</button>}
+    </PopoverTrigger>
+    <PopoverContent ref={moreContent} align="start" aria-label={m('more')} onKeyDownCapture={event => {
+      const trigger = previewMoreTrigger.current;
+      if (!trigger || event.key !== 'Tab' || event.altKey || event.ctrlKey || event.metaKey) return;
+      // Bypass the popover's focus loop and let Tab advance from the trigger in either direction.
+      event.stopPropagation();
+      overflowHandedOffFocus.current = true;
+      trigger.focus({ preventScroll: true });
+      setOverflowOpen(false);
+    }} onCloseAutoFocus={event => {
+      const trigger = previewMoreTrigger.current ?? moreTrigger.current;
+      if (!trigger?.isConnected || overflowHandedOffFocus.current) event.preventDefault();
+      overflowHandedOffFocus.current = false;
+    }} className="max-h-[var(--radix-popover-content-available-height)] max-w-[var(--radix-popover-content-available-width)] overflow-y-auto">
+      <ul className="grid gap-1">
+        {chips.slice(fit).map(item => {
+          const editor = item.tone === 'query' ? live : pageEditor;
+          const label = `${item.label} ${item.value}`;
+          const className = cn(chip[item.tone], 'h-auto min-h-8 whitespace-normal [overflow-wrap:anywhere] py-1');
+          const text = <><span className="text-text-secondary">{item.label}</span><span className="min-w-0 font-medium text-text-primary">{item.value}</span></>;
+          return <li key={chipKey(item)}>
+            {!previewGestures && liveEditor && (item.tone === 'query' || hasPageEditor)
+              ? <button type="button" title={label} aria-label={label} aria-haspopup="dialog" aria-expanded={editor.shown} aria-controls={editor.id}
+                  className={className} onClick={() => openFromOverflow(editor)}>{text}</button>
+              : <span role="group" aria-label={label} className={className}>{text}</span>}
+          </li>;
+        })}
+      </ul>
+    </PopoverContent>
+  </Popover>;
   return <>
     <div data-workspace-query-row className={cn('flex h-10 min-w-0 items-center gap-2 overflow-x-auto border-b border-border-chrome', compact ? 'px-4' : 'px-3')}>
       {liveEditor ? <LineEditor editor={live} label={liveEditor.label} handle={live.shown ? liveEditor.handle.collapse : liveEditor.handle.expand}
@@ -229,29 +286,7 @@ function ContextLine(props: LineProps & {
                 else props.onQueryChip(event);
               }}><ChipText item={item} /></button>;
           })}
-          {remaining > 0 && <Popover open={liveEditor ? overflowOpen : undefined} onOpenChange={liveEditor ? setOverflowOpen : undefined}>
-            <PopoverTrigger asChild><button ref={moreTrigger} type="button" className={overflowClass} title={m('more')}
-              aria-label={liveEditor ? m(remaining === 1 ? 'moreOne' : 'moreCount', { count: remaining }) : undefined}>+{remaining}</button></PopoverTrigger>
-            <PopoverContent ref={moreContent} align="start" aria-label={m('more')} onCloseAutoFocus={event => {
-              if (!moreTrigger.current?.isConnected || overflowHandedOffFocus.current) event.preventDefault();
-              overflowHandedOffFocus.current = false;
-            }} className="max-h-[var(--radix-popover-content-available-height)] max-w-[var(--radix-popover-content-available-width)] overflow-y-auto">
-              <ul className="grid gap-1">
-                {chips.slice(fit).map(item => {
-                  const editor = item.tone === 'query' ? live : pageEditor;
-                  const label = `${item.label} ${item.value}`;
-                  const className = cn(chip[item.tone], 'h-auto min-h-8 whitespace-normal [overflow-wrap:anywhere] py-1');
-                  const text = <><span className="text-text-secondary">{item.label}</span><span className="min-w-0 font-medium text-text-primary">{item.value}</span></>;
-                  return <li key={chipKey(item)}>
-                    {liveEditor && (item.tone === 'query' || hasPageEditor)
-                      ? <button type="button" title={label} aria-label={label} aria-haspopup="dialog" aria-expanded={editor.shown} aria-controls={editor.id}
-                          className={className} onClick={() => openFromOverflow(editor)}>{text}</button>
-                      : <span role="group" aria-label={label} className={className}>{text}</span>}
-                  </li>;
-                })}
-              </ul>
-            </PopoverContent>
-          </Popover>}
+          {previewGestures ? <TransientOverlayScope active detached>{overflow}</TransientOverlayScope> : overflow}
         </div>
       </div>
       {hasPageEditor && <LineEditor editor={pageEditor} label={pageLabel} handle={pageName} className={chip.page}
