@@ -62,6 +62,7 @@ const cases: Case[] = [
   { op: 'setDefault', run: (s) => s.setDefault(key, 'v1'), body: { key: { menuId: 'home' }, id: 'v1' }, reply: ok(null) },
   { op: 'getDefaultId', run: (s) => s.getDefaultId(key), body: { key: { menuId: 'home' } }, reply: 'v1' },
   { op: 'setVisibility', run: (s) => s.setVisibility('v1', { kind: 'people', userIds: ['u2'] }, v1), body: { id: 'v1', visibility: { kind: 'people', userIds: ['u2'] }, expectedVersion: 1 }, reply: ok(entry) },
+  { op: 'withdraw', run: async (s) => s.withdraw?.('v1', v1), body: { id: 'v1', expectedVersion: 1 }, reply: ok({ ...entry, capabilities: { ...caps, canWithdraw: false } }) },
   { op: 'requestOfficial', run: (s) => s.requestOfficial('v1', v1), body: { id: 'v1', expectedVersion: 1 }, reply: ok(entry) },
   { op: 'decide', run: (s) => s.decide('v1', 'approve', 'ok', v1), body: { id: 'v1', decision: 'approve', note: 'ok', expectedVersion: 1 }, reply: ok(entry) },
   { op: 'revoke', run: (s) => s.revoke('v1', v1), body: { id: 'v1', expectedVersion: 1 }, reply: ok(entry) },

@@ -763,6 +763,76 @@ describe.skipIf(!runIntegration)('platform saved views (#1105a, ADR-0099)', () =
   });
 
   describe('official approval', () => {
+    it('refuses a reachable non-owner before checking custom-group kind or version', async () => {
+      const view = await save(alice, { schemaVersion: 1, kind: 'custom-group', name: 'Withdrawal targets', savedScopeId: 'S', target: { fixed: ['e1'] } });
+      const audience = await call(alice, 'createGroup', { name: 'Withdrawal readers', memberIds: [bob.id] });
+      const shared = await call(alice, 'setVisibility', { id: view.id, visibility: { kind: 'groups', groupIds: [audience.value.group.id] }, expectedVersion: view.version });
+      expect(shared.ok).toBe(true);
+      expect(await call(bob, 'get', { id: view.id })).toMatchObject({ view: { id: view.id, kind: 'custom-group' } });
+      for (const expectedVersion of [shared.value.view.version, view.version]) {
+        expect(await call(bob, 'withdraw', { id: view.id, expectedVersion })).toMatchObject({ ok: false, reason: 'forbidden' });
+      }
+      expect(await call(alice, 'withdraw', { id: view.id, expectedVersion: shared.value.view.version }))
+        .toEqual({ ok: false, reason: 'invalid', detail: 'custom-group-approval' });
+    });
+
+    it('only the owner requests or withdraws a shared view, at the pending version', async () => {
+      const v = await save(alice);
+      const visibility = { kind: 'people', userIds: [bob.id] };
+      const share = await call(alice, 'setVisibility', { id: v.id, expectedVersion: v.version, visibility });
+      const expectedVersion = share.value.view.version;
+      expect(await call(bob, 'requestOfficial', { id: v.id, expectedVersion })).toMatchObject({ ok: false, reason: 'forbidden' });
+      const pending = await call(alice, 'requestOfficial', { id: v.id, expectedVersion });
+      const at = { id: v.id, expectedVersion: pending.value.view.version };
+      expect(pending.value.capabilities.canWithdraw).toBe(true);
+      for (const actor of [bob, admin]) {
+        expect((await call(actor, 'get', { id: v.id })).capabilities.canWithdraw).toBe(false);
+        expect(await call(actor, 'withdraw', at)).toMatchObject({ ok: false, reason: 'forbidden' });
+      }
+      expect(await call(dev, 'withdraw', at)).toMatchObject({ ok: false, reason: 'forbidden' });
+      expect(await call(dev, 'withdraw', { ...at, id: '00000000-0000-4000-8000-000000000000' }))
+        .toEqual(await call(dev, 'withdraw', at));
+      expect(await call(alice, 'withdraw', { ...at, expectedVersion })).toMatchObject({ ok: false, reason: 'conflict' });
+      const withdrawn = await call(alice, 'withdraw', at);
+      expect(withdrawn).toMatchObject({ ok: true, value: { view: { approval: 'none', visibility, version: at.expectedVersion + 1 }, capabilities: { canWithdraw: false } } });
+      expect((await call(bob, 'get', { id: v.id })).view.approval).toBe('none');
+      expect(await call(alice, 'withdraw', { ...at, expectedVersion: withdrawn.value.view.version })).toMatchObject({ ok: false, reason: 'invalid', detail: 'approval-state' });
+      const events = (await audits(['saved_view_official_withdrawn'])).filter((r) => r.subject_id === v.id);
+      expect(events.map((r) => r.detail)).toEqual([{ view_id: v.id, version: withdrawn.value.view.version }]);
+    });
+
+    it('withdrawing an official edit restores the approved copy and removes the request', async () => {
+      const v = await save(alice, menuDraft('published source'));
+      const pending = await call(alice, 'requestOfficial', { id: v.id, expectedVersion: v.version });
+      const approved = await call(admin, 'decide', { id: v.id, expectedVersion: pending.value.view.version, decision: 'approve', note: 'approved copy' });
+      const proposal = await call(alice, 'update', { id: v.id, expectedVersion: approved.value.view.version, patch: { name: 'unapproved edit' } });
+      expect((await call(alice, 'get', { id: v.id })).view.name).toBe('unapproved edit');
+      const withdrawn = await call(alice, 'withdraw', { id: v.id, expectedVersion: proposal.value.view.version });
+      expect(withdrawn).toMatchObject({ ok: true, value: { view: { name: v.name, approval: 'approved', approvalNote: 'approved copy', visibility: { kind: 'official' } } } });
+      expect((await call(admin, 'listApprovalRequests', { key: KEY })).find((r: Any) => r.viewId === v.id)).toBeUndefined();
+      expect((await call(bob, 'get', { id: v.id })).view.name).toBe(v.name);
+    });
+
+    it.each([undefined, '', ' \t '])('refuses a blank reject reason (%j) without a write or audit', async (note) => {
+      const v = await save(alice);
+      const pending = await call(alice, 'requestOfficial', { id: v.id, expectedVersion: v.version });
+      const fields = { id: v.id, decision: 'reject', note, expectedVersion: pending.value.view.version };
+      expect(await call(alice, 'decide', { ...fields, note: 'reason' })).toMatchObject({ ok: false, reason: 'forbidden' });
+      expect(await call(admin, 'decide', fields)).toMatchObject({ ok: false, reason: 'invalid', detail: 'note' });
+      expect(await call(alice, 'get', { id: v.id })).toEqual(pending.value);
+      expect((await audits(['saved_view_official_rejected'])).filter((r) => r.subject_id === v.id)).toHaveLength(0);
+    });
+
+    it('saving the contents of an official view as a copy starts private and unofficial', async () => {
+      const v = await save(alice, menuDraft('copy source'));
+      const pending = await call(alice, 'requestOfficial', { id: v.id, expectedVersion: v.version });
+      await call(admin, 'decide', { id: v.id, expectedVersion: pending.value.view.version, decision: 'approve' });
+      const source = (await call(bob, 'get', { id: v.id })).view;
+      const copy = await save(bob, menuDraft('private copy', { context: source.context }));
+      expect(copy).toMatchObject({ ownerId: bob.id, approval: 'none', visibility: { kind: 'private' }, context: source.context });
+      expect(copy.id).not.toBe(source.id);
+    });
+
     it('request → pending (visibility unchanged) → approve publishes; developer role alone and the plain owner cannot approve', async () => {
       const v = await save(alice, menuDraft('to publish'));
       const req = await call(alice, 'requestOfficial', { id: v.id, expectedVersion: v.version });

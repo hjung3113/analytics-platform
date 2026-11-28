@@ -3,6 +3,7 @@ import { replaceEqualDeep } from '@tanstack/react-query';
 import { heldSelectionProblem, missingRequiredContext, type GlobalContext, type PanelBinding } from '@ap/contracts';
 import { useHeldAnalysisSelection } from '../context/analysisSelection';
 import { messageText } from '../i18n';
+import { jsonEqual } from '../json-equal';
 import { AppContext, LentPanelOutputsContext, LentPanelPlatformContext } from '../platform/contexts';
 import { lentPanelOutputs, lentPanelPlatform } from '../platform/lent-panel-platform';
 import { useHostPlatform } from '../platform/platform';
@@ -82,16 +83,6 @@ function sourceCopy(inputs: Inputs): Inputs | { missing: string } {
   // Binding resolution already validated, detached and froze the entire display tree.
   if (inputs.display !== undefined) copied.display = inputs.display;
   return Object.freeze(copied);
-}
-
-/** Display trees are validated JSON (acyclic, depth 8), so they compare by own keys; a data field named `constructor` is plain data. */
-function jsonEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null || Array.isArray(a) !== Array.isArray(b)) return false;
-  const left = a as Record<string, unknown>;
-  const right = b as Record<string, unknown>;
-  const keys = Object.keys(left);
-  return keys.length === Object.keys(right).length && keys.every(key => Object.hasOwn(right, key) && jsonEqual(left[key], right[key]));
 }
 
 function sameInputs(held: Inputs, next: Inputs): boolean {

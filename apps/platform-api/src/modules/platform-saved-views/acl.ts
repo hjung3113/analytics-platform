@@ -80,6 +80,7 @@ export interface ViewCapabilitiesOut {
   canShare: boolean;
   canApprove: boolean;
   canRevoke: boolean;
+  canWithdraw: boolean;
   reason?: string;
 }
 
@@ -147,6 +148,7 @@ export function capabilitiesOf(
     canEdit,
     canShare: (owner || manager) && !official,
     canApprove: view.kind !== 'custom-group' && actor.approver && canTransition(shown.approval, 'approve'),
+    canWithdraw: view.kind !== 'custom-group' && owner && shown.approval === 'pending',
     canRevoke: view.kind !== 'custom-group' && actor.approver && official && canTransition(view.approval, 'revoke'),
     ...(canEdit
       ? {}

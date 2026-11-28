@@ -158,6 +158,7 @@ function evaluate(stored: Stored, a: Actor, groups: readonly GroupRecord[], perm
     canView: true, canCopy: true, canEdit,
     canShare: (owner || manager) && !isOfficial(shown),
     canApprove: v.kind !== 'custom-group' && a.admin && canTransition(shown.approval, 'approve'),
+    canWithdraw: v.kind !== 'custom-group' && owner && shown.approval === 'pending',
     canRevoke: v.kind !== 'custom-group' && a.admin && isOfficial(v) && canTransition(v.approval, 'revoke'),
     ...(canEdit ? {} : { reason: published ? '공식 등록본은 직접 편집할 수 없습니다. 변경하면 재승인을 요청합니다.' : '다른 사람의 뷰입니다. 복제해서 편집하세요.' }),
   };
@@ -264,8 +265,11 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
     const views = c.bucket(next.ownerId, viewMenuId(next)); if (!views) return fail('unavailable');
     const version = next.version + 1; const updatedAt = now();
     const stamped: Stored = { ...next, version, updatedAt, ...(next.pending ? { pending: { ...next.pending, version, updatedAt } } : {}) };
+    const item = ev(stamped, a, groups, true);
+    if (!item) return fail('invalid', 'not-found');
+    if (item.denied) return fail('forbidden', item.reason);
     views[views.findIndex(v => v.id === next.id)] = stamped;
-    return { ok: true, value: ev(stamped, a, groups, true) as SavedViewEntry };
+    return { ok: true, value: item };
   };
   /** Missing/unreachable → invalid; denied or lacking the capability → forbidden; stale version → conflict, nothing written. */
   const target = (c: { storage: StoragePort; actor: Actor; groups: GroupRecord[]; bucket: (o: string, m: string | null) => Stored[] | null }, id: string, expectedVersion: number, allowed: (e: SavedViewEntry) => boolean): Result<Stored> => {
@@ -403,6 +407,15 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       if (t.value.pending) return commit(c, { ...t.value, pending: { ...t.value.pending, approval: 'pending', approvalNote: undefined } }, c.actor, c.groups);
       return commit(c, { ...t.value, approval: 'pending', approvalNote: undefined }, c.actor, c.groups);
     }),
+    withdraw: (id, { expectedVersion }) => run(c => {
+      const t = target(c, id, expectedVersion, e => e.view.ownerId === c.actor.userId);
+      if (!t.ok) return t.detail === 'not-found' ? fail('forbidden') : t;
+      if (t.value.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
+      const { pending, ...published } = t.value;
+      if ((pending ?? published).approval !== 'pending') return fail('invalid', 'approval-state');
+      const next: Stored = pending ? published : { ...published, approval: 'none', approvalNote: undefined };
+      return commit(c, next, c.actor, c.groups);
+    }),
     decide: (id, decision, note, { expectedVersion }) => run(c => {
       // The approval right gates the call (ADR-0099 §2); the pending state is checked after it, as the server does.
       const t = target(c, id, expectedVersion, () => c.actor.admin); if (!t.ok) return t;
@@ -411,6 +424,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       const stored = t.value; const shown = shownTo(stored, c.actor, false);
       if (!canTransition(shown.approval, action)) return fail('invalid', 'approval-state');
       const note1 = note?.trim() || undefined;
+      if (decision === 'reject' && note1 === undefined) return fail('invalid', 'note');
       const { pending, ...published } = stored;
       if (decision === 'approve') return commit(c, { ...shown, approval: 'approved', visibility: { kind: 'official' }, approvalNote: note1 }, c.actor, c.groups);
       // A rejected change never reaches readers: the approved copy stays and only the proposal carries the rejection.

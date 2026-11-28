@@ -110,6 +110,7 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
   'saved_view_official_approved',
   'saved_view_official_rejected',
   'saved_view_official_revoked',
+  'saved_view_official_withdrawn',
   'saved_view_visibility_changed',
   'saved_view_deleted',
   'saved_view_group_created',
@@ -235,7 +236,7 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
 describe('audit event registry', () => {
   it('locks event-type order, uniqueness, and detail-map key coverage', () => {
     expect([...AUDIT_EVENT_TYPES]).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
-    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(215);
+    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(216);
     expect(Object.keys(AUDIT_EVENT_DETAIL_SCHEMAS)).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
   });
 });

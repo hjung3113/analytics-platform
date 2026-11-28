@@ -2299,7 +2299,7 @@ describe('savedViews denied-entry shape (ADR-0099 §1)', () => {
       updateGroup: unimplemented,
       searchPeople: unimplemented,
     });
-    return { user: storeOf('fixture-user'), admin: storeOf('fixture-admin'), menuId: 'fixture-menu' };
+    return { user: storeOf('fixture-user'), admin: storeOf('fixture-admin'), menuId: 'fixture-menu', views };
   };
   it.each(['harness', 'adapter', 'store', 'all'] as const)('plans and runs with frozen %s', async frozen => {
     const h = harness();
@@ -2317,6 +2317,46 @@ describe('savedViews denied-entry shape (ADR-0099 §1)', () => {
     expect(results.find(r => r.id === 'port · getEntity(sample) → ok with the row')?.status).toBe('passed');
     expect(results.find(r => r.id === invisibility.id)?.status).toBe('passed');
     expect(getUser).toHaveBeenCalled();
+  });
+  it('reports the withdrawal check as skipped for a legacy store', async () => {
+    const h = { ...harness(), ports: { ...PORTS, savedViews: sampleOf(false) } };
+    const results = await runServerConformance(h);
+    expect(results.find(r => r.id.includes('a pending official request can be withdrawn')))
+      .toMatchObject({ status: 'skipped', reason: 'withdraw is optional' });
+  });
+  const legacyApprovalSample = () => {
+    const sample = sampleOf(false);
+    sample.user.requestOfficial = async id => {
+      const saved = await sample.user.get(id);
+      if (!saved || saved.denied) throw new Error('fixture view missing');
+      const view = { ...saved.view, approval: 'pending' as const, version: 2 };
+      sample.views.set(id, view);
+      return { ok: true, value: { ...saved, view } };
+    };
+    return sample;
+  };
+  it.each(['passed', 'failed'] as const)('reports the blank-reject check as %s for a legacy store', async status => {
+    const sample = legacyApprovalSample();
+    const decide = vi.fn<SavedViewStore['decide']>(async id => status === 'passed'
+      ? { ok: false, reason: 'invalid', detail: 'note' }
+      : sample.user.requestOfficial(id, { expectedVersion: 1 }));
+    sample.admin.decide = decide;
+    const h = { ...harness(), ports: { ...PORTS, savedViews: sample } };
+    const results = await runServerConformance(h);
+    expect(results.find(r => r.id.includes('rejecting an official request requires a reason'))).toMatchObject({ status });
+    expect(decide).toHaveBeenCalledWith(expect.any(String), 'reject', '  ', { expectedVersion: 2 });
+  });
+  it('fails the blank-reject check when a legacy store increments the pending version despite refusing', async () => {
+    const sample = legacyApprovalSample();
+    sample.admin.decide = async id => {
+      const pending = sample.views.get(id);
+      if (!pending || pending.approval !== 'pending') throw new Error('fixture request missing');
+      pending.version += 1;
+      return { ok: false, reason: 'invalid', detail: 'note' };
+    };
+    const h = { ...harness(), ports: { ...PORTS, savedViews: sample } };
+    const results = await runServerConformance(h);
+    expect(results.find(r => r.id.includes('rejecting an official request requires a reason'))).toMatchObject({ status: 'failed' });
   });
   const runInvisibility = async (leak: boolean) => {
     const check = planServerConformance({ ...harness(), ports: { ...PORTS, savedViews: sampleOf(leak) } })

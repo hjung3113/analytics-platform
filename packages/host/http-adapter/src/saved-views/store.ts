@@ -71,6 +71,7 @@ export function createHttpSavedViews(context: CallContext): { store: SavedViewSt
     getDefaultId: (key) => read(key, 'getDefaultId', { key: wireKey(key) }, null),
     setVisibility: (id, visibility, opts) => write('setVisibility', { id, visibility, expectedVersion: opts.expectedVersion }),
     requestOfficial: (id, opts) => write('requestOfficial', { id, expectedVersion: opts.expectedVersion }),
+    withdraw: (id, opts) => write('withdraw', { id, expectedVersion: opts.expectedVersion }),
     decide: (id, decision, note, opts) => write('decide', { id, decision, ...(note === undefined ? {} : { note }), expectedVersion: opts.expectedVersion }),
     revoke: (id, opts) => write('revoke', { id, expectedVersion: opts.expectedVersion }),
     listApprovalRequests: (key) => read(key, 'listApprovalRequests', { key: wireKey(key) }, []),

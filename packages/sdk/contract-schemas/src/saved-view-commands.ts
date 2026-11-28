@@ -330,6 +330,7 @@ const commandUnion = z.union([
   command('getDefaultId', { key }),
   command('setVisibility', { id, visibility: viewVisibilitySchema, ...expected }),
   command('requestOfficial', { id, ...expected }),
+  command('withdraw', { id, ...expected }),
   command('decide', { id, decision: z.enum(['approve', 'reject']), note: z.string().optional(), ...expected }),
   command('revoke', { id, ...expected }),
   command('listApprovalRequests', { key }),
@@ -374,7 +375,7 @@ export const savedViewSchema = z.discriminatedUnion('kind', [
   z.strictObject({ ...record, kind: z.literal('condition-set') }),
   menuViewRecord,
 ]);
-const capabilities = z.strictObject({ canView: z.boolean(), canCopy: z.boolean(), canEdit: z.boolean(), canShare: z.boolean(), canApprove: z.boolean(), canRevoke: z.boolean(), reason: z.string().optional() });
+const capabilities = z.strictObject({ canView: z.boolean(), canCopy: z.boolean(), canEdit: z.boolean(), canShare: z.boolean(), canApprove: z.boolean(), canRevoke: z.boolean(), canWithdraw: z.boolean().optional(), reason: z.string().optional() });
 export const savedViewEntrySchema = z.strictObject({ denied: z.literal(false).optional(), view: savedViewSchema, capabilities });
 const myMenuEntrySchema = savedViewEntrySchema.extend({
   view: menuViewRecord.required({ myMenu: true }),
@@ -419,6 +420,7 @@ export const savedViewResponseSchemas = {
   getDefaultId: z.string().nullable(),
   setVisibility: entryResult,
   requestOfficial: entryResult,
+  withdraw: entryResult,
   decide: entryResult,
   revoke: entryResult,
   listApprovalRequests: z.array(approvalRequest),

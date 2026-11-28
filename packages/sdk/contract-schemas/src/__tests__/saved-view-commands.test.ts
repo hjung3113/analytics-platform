@@ -278,6 +278,7 @@ const commands: Record<string, unknown> = {
   setDefault: { ...V, op: 'setDefault', key: { menuId: null }, id: null }, getDefaultId: { ...V, op: 'getDefaultId', key },
   setVisibility: { ...V, op: 'setVisibility', id: 'v1', visibility: { kind: 'groups', groupIds: ['g1'] }, expectedVersion: 1 },
   requestOfficial: { ...V, op: 'requestOfficial', id: 'v1', expectedVersion: 1 }, decide: { ...V, op: 'decide', id: 'v1', decision: 'reject', note: 'why', expectedVersion: 1 },
+  withdraw: { ...V, op: 'withdraw', id: 'v1', expectedVersion: 1 },
   revoke: { ...V, op: 'revoke', id: 'v1', expectedVersion: 1 }, listApprovalRequests: { ...V, op: 'listApprovalRequests', key }, listGroups: { ...V, op: 'listGroups' },
   createGroup: { ...V, op: 'createGroup', name: 'G', memberIds: ['u1'] }, updateGroup: { ...V, op: 'updateGroup', id: 'g1', patch: { addMembers: ['u2'] } },
   searchPeople: { ...V, op: 'searchPeople', query: 'ki' }, importLocal: importCommand,
@@ -289,6 +290,7 @@ const responses: Record<SavedViewOp, [unknown, unknown]> = {
   list: [[entry, denied], [{ id: 'v2', denied: true, reason: 'r', name: 'leak' }]], get: [null, { ...entry, view: { ...view, ownerId: 1 } }],
   save: [ok(entry), fail('nope')], update: [fail('conflict'), ok(null)], remove: [ok(null), ok(entry)], setDefault: [ok(null), { ok: true }],
   getDefaultId: [null, 5], setVisibility: [ok(entry), { ok: true, value: entry, extra: 1 }], requestOfficial: [ok(entry), ok({})], decide: [fail('forbidden'), fail('x')],
+  withdraw: [ok(entry), ok(null)],
   revoke: [ok(entry), ok(undefined)], listApprovalRequests: [[approval], [{ ...approval, requestedBy: undefined }]], listGroups: [[group], [{ ...group, members: [{ userId: 'u' }] }]],
   createGroup: [ok(group), ok(entry)], updateGroup: [fail('invalid'), ok(group.members)], searchPeople: [[person], [{ ...person, role: 'admin' }]],
   importLocal: [ok({ results: [{ legacyKey: 'k1', status: 'imported', id: 's1' }, { legacyKey: 'k2', status: 'rejected', reason: 'invalid' }], defaults: [{ key: { menuId: null }, legacyKey: 'k1', id: 's1' }] }), ok({ results: [{ legacyKey: 'k1', status: 'imported' }], defaults: [] })],
@@ -300,6 +302,7 @@ type Parsed<K extends SavedViewOp> = z.infer<(typeof savedViewResponseSchemas)[K
 export const _assignable = (a: {
   listMyMenus: Parsed<'listMyMenus'>;
   list: Parsed<'list'>; get: Parsed<'get'>; save: Parsed<'save'>; update: Parsed<'update'>; remove: Parsed<'remove'>; setDefault: Parsed<'setDefault'>; getDefaultId: Parsed<'getDefaultId'>;
+  withdraw: Parsed<'withdraw'>;
   setVisibility: Parsed<'setVisibility'>; requestOfficial: Parsed<'requestOfficial'>; decide: Parsed<'decide'>; revoke: Parsed<'revoke'>; listApprovalRequests: Parsed<'listApprovalRequests'>;
   listGroups: Parsed<'listGroups'>; createGroup: Parsed<'createGroup'>; updateGroup: Parsed<'updateGroup'>; searchPeople: Parsed<'searchPeople'>;
 }): { [K in keyof typeof a]: Resolved<K> } => a;
@@ -323,9 +326,20 @@ describe('saved-view commands', () => {
     expect(parse({ ...V, op: 'listMyMenus', userId: 'u9' }).success).toBe(false);
   });
 
+  it('validates the withdraw body and optional capability', () => {
+    const command = { ...V, op: 'withdraw', id: 'v1', expectedVersion: 1 };
+    expect(parse(command).success).toBe(true);
+    expect(parse({ ...command, expectedVersion: undefined }).success).toBe(false);
+    expect(parse({ ...command, userId: 'u1' }).success).toBe(false);
+    for (const canWithdraw of [true, false, undefined, 'yes']) {
+      const result = savedViewResponseSchemas.get.safeParse({ ...entry, capabilities: { ...caps, canWithdraw } });
+      expect(result.success).toBe(canWithdraw !== 'yes');
+    }
+  });
+
   it('ops are exactly the store methods plus importLocal', () => {
     expect(Object.keys(commands).sort()).toEqual([...Object.keys(savedViewResponseSchemas)].sort());
-    const storeMethods = ['listMyMenus', 'list', 'get', 'save', 'update', 'remove', 'setDefault', 'getDefaultId', 'setVisibility', 'requestOfficial', 'decide', 'revoke', 'listApprovalRequests', 'listGroups', 'createGroup', 'updateGroup', 'searchPeople'];
+    const storeMethods = ['listMyMenus', 'list', 'get', 'save', 'update', 'remove', 'setDefault', 'getDefaultId', 'setVisibility', 'requestOfficial', 'withdraw', 'decide', 'revoke', 'listApprovalRequests', 'listGroups', 'createGroup', 'updateGroup', 'searchPeople'];
     expect(Object.keys(savedViewResponseSchemas).filter((op) => op !== 'importLocal').sort()).toEqual([...storeMethods].sort());
   });
 

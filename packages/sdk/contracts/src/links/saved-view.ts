@@ -70,7 +70,7 @@ export type ViewGroup = { id: string; kind: 'org-team' | 'custom'; name: string;
 export type GroupMember = { userId: string; displayName: string; affiliation: string };
 
 /** Per-object actions the store computes; the UI is built from these, never from a single role. */
-export type ViewCapabilities = { canView: boolean; canCopy: boolean; canEdit: boolean; canShare: boolean; canApprove: boolean; canRevoke: boolean; reason?: string };
+export type ViewCapabilities = { canView: boolean; canCopy: boolean; canEdit: boolean; canShare: boolean; canApprove: boolean; canRevoke: boolean; canWithdraw?: boolean; reason?: string };
 /** An org team has `canEditMembers: false`. */
 export type GroupCapabilities = { canView: boolean; canEditMembers: boolean; canRename: boolean; canDelete: boolean };
 
@@ -113,6 +113,8 @@ export type SavedViewStore = {
   setVisibility(id: string, visibility: ViewVisibility, opts: ExpectedVersion): Promise<Result<SavedViewEntry>>;
   /** Takes no visibility: asking for approval never changes who can see the view. */
   requestOfficial(id: string, opts: ExpectedVersion): Promise<Result<SavedViewEntry>>;
+  /** Withdraws the owner's pending official request. Absent on stores without withdrawal support. */
+  withdraw?(id: string, opts: ExpectedVersion): Promise<Result<SavedViewEntry>>;
   decide(id: string, decision: 'approve' | 'reject', note: string | undefined, opts: ExpectedVersion): Promise<Result<SavedViewEntry>>;
   revoke(id: string, opts: ExpectedVersion): Promise<Result<SavedViewEntry>>;
   /** Applications of this key's views, only for their requester or someone who can approve or revoke them. */
@@ -139,7 +141,10 @@ export type SavedViewSupport = {
 };
 
 export type ApprovalAction = 'request' | 'approve' | 'reject' | 'revoke';
-/** Allowed transitions: none→pending, pending→approved|rejected, approved→none, rejected→pending (re-application is also `request`). */
+/**
+ * Allowed transitions: none→pending, pending→approved|rejected, approved→none, rejected→pending (re-application is also `request`).
+ * Withdrawal: pending → none for a first request, or pending → approved for an edit with an approved copy.
+ */
 export const APPROVAL_TRANSITIONS: Readonly<Record<ApprovalAction, { from: readonly ViewApproval[]; to: ViewApproval }>> = {
   request: { from: ['none', 'rejected'], to: 'pending' },
   approve: { from: ['pending'], to: 'approved' },

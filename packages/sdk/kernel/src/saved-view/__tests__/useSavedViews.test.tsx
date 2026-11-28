@@ -1053,11 +1053,12 @@ it('without a server anchor a relative view is unavailable and writes nothing; a
   expect(window.location.search).toBe(query(['L2']));
 });
 
-// Shell writes (#1105): the seven store writes the shell used to call directly go through the hook.
+// Approval, sharing and group writes go through the hook.
 const writes = {
   update: ['l1', { name: 'renamed' }, { expectedVersion: 1 }],
   setVisibility: ['l1', { kind: 'people', userIds: ['u2'] }, { expectedVersion: 1 }],
   requestOfficial: ['l1', { expectedVersion: 1 }],
+  withdraw: ['l1', { expectedVersion: 1 }],
   decide: ['l1', 'approve', 'ok', { expectedVersion: 1 }],
   revoke: ['l1', { expectedVersion: 1 }],
   createGroup: [{ name: 'g', memberIds: ['u2'] }],
@@ -1065,9 +1066,21 @@ const writes = {
 } as const;
 type WriteName = keyof typeof writes;
 const writeNames = Object.keys(writes) as WriteName[];
-const entryWriteNames: WriteName[] = ['update', 'setVisibility', 'requestOfficial', 'decide', 'revoke'];
+const entryWriteNames: WriteName[] = ['update', 'setVisibility', 'requestOfficial', 'withdraw', 'decide', 'revoke'];
 const call = (name: WriteName) => (views[name] as (...args: unknown[]) => Promise<unknown>)(...writes[name]);
 const stub = (store: FakeStore, name: WriteName, impl: (...args: unknown[]) => Promise<unknown>) => { const spy = vi.fn(impl); (store as unknown as Record<string, unknown>)[name] = spy; return spy; };
+it('reports unavailable when the store does not implement withdrawal', async () => {
+  const store = createFakeStore([L1]);
+  delete store.withdraw;
+  mount(store, `/${query(['L1'])}`);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  const before = store.reads.length;
+  let result: unknown;
+  await act(async () => { result = await views.withdraw('l1', { expectedVersion: 1 }); });
+  expect(result).toEqual({ ok: false, reason: 'unavailable' });
+  expect(store.reads).toHaveLength(before);
+});
+
 const listCount = (store: FakeStore) => store.reads.filter(read => read === 'list').length;
 const entryAt = (version: number, id = 'l1') => ({ ok: true as const, value: { view: { ...L1, id, version }, capabilities: testViewCapabilities } });
 
