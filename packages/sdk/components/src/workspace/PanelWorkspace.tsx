@@ -3,6 +3,7 @@ import { ToolbarAnalysisPanelAdd } from '../chart/NextAnalysisItems';
 import { useCompactPageDensity } from '../pageDensity';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useI18n, useMessages, usePlatformOptional, type AnalysisSelectionChip, type Text } from '@ap/kernel';
+import { useReadOnlyPreviewTabs } from '@ap/kernel/host';
 import { cn } from '@ap/ui';
 import type { LucideIcon } from 'lucide-react';
 import { activatePanel, groupOf, movePanel, panelOrder } from '../dock/commands';
@@ -261,6 +262,7 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
 }
 
 function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, analysisPanelAddition, panelMenuItems, panelAddDrag, panelRecipe, edges = DEFAULT_EDGES, persistenceScope, storageKey, storage, dragScope, canHoldSelection }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined; dragScope: object; canHoldSelection: boolean }) {
+  const readOnly = useReadOnlyPreviewTabs() !== null;
   const densePage = useCompactPageDensity();
   const { tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -559,7 +561,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   }, [storageKey]);
   const flush = useCallback(() => { flushTo(storageRef.current); }, [flushTo]);
   useEffect(() => {
-    if (!storageKey) return;
+    if (!storageKey || readOnly) return;
     clearTimeout(timer.current);
     // Back to what is already stored (a change undone within the delay): nothing to write.
     const declaredIds = persistenceScope === undefined ? undefined : new Set(seenPanels.ids);
@@ -568,7 +570,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     if (baseline && sameWorkspaceState(preference, workspacePreference(baseline, declaredIds))) { pending.current = null; return; }
     pending.current = preference;
     timer.current = setTimeout(flush, WORKSPACE_WRITE_DELAY_MS);
-  }, [automaticRows, initial.state, stored, storageKey, flush, seenPanels.ids, persistenceScope]);
+  }, [automaticRows, initial.state, stored, storageKey, flush, seenPanels.ids, persistenceScope, readOnly]);
   useEffect(() => {
     window.addEventListener('pagehide', flush);
     return () => { window.removeEventListener('pagehide', flush); flush(); };

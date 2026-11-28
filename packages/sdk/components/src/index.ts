@@ -119,3 +119,4 @@ export type { PageConditionLayerOptions } from './filters/DeclaredPageConditions
 
 export { FacetedSetDialog, type FacetedSetDialogProps } from './filters/FacetedSetDialog';
 export type { FacetedSetFacet, FacetedSetItem, FacetedSetValue } from './filters/facetedSet';
+export { ApprovalReviewPanel, type ApprovalReviewPanelProps } from './saved-view/ApprovalReviewPanel';

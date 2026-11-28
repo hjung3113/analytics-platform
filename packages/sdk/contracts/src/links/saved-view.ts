@@ -94,6 +94,8 @@ export type ApprovalRequestInfo = {
   changes: readonly string[];
   /** Registry Space of the approval stage, when the menu belongs to one. */
   approverSpace?: string;
+  /** Previous approved menu copy, only when the store authorizes reading it independently. */
+  approvedCopy?: Extract<SavedView, { kind: 'menu-view' }>;
   rejectReason?: string;
 };
 

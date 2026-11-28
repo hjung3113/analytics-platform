@@ -1,9 +1,9 @@
 import { AlertTriangle, Info, X, XCircle } from 'lucide-react';
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { formatText, useEquipmentAxes, useI18n, useMessages, type Text, type Toast } from '@ap/kernel';
-import { useHostPlatform, useToastList } from '@ap/kernel/host';
-import { LoadingBlock, PlatformPageTitleLead, useCollapsePreference } from '@ap/components';
-import { cn, DetailPanelFullscreenContext, DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
+import { SavedViewPreview, useHostPlatform, useToastList } from '@ap/kernel/host';
+import { ApprovalReviewPanel, LoadingBlock, PlatformPageTitleLead, useCollapsePreference } from '@ap/components';
+import { cn, DetailPanelFullscreenContext, DetailPanelSlotProvider, TransientOverlayScope, useDetailPanelSlotHost } from '@ap/ui';
 import { CommandPalette } from '../routing/CommandPalette';
 import { LeaveConfirmDialog } from '../routing/LeaveConfirmDialog';
 import { AppSidebar, PageScopeChip, SIDEBAR_ID } from './AppSidebar';
@@ -17,6 +17,9 @@ import { useDocumentTitle } from './useDocumentTitle';
 import { expandedDetailClass } from './expandedDetailClass';
 import { useSessionKey } from './sessionKey';
 import { SHELL_MESSAGES } from '../messages';
+import { ApprovalReviewFrame } from '../saved-view/ApprovalReviewFrame';
+import { ScreenOutlet } from '../routing/RouteOutlet';
+import { OpenApprovalReview, type ApprovalReview } from '../saved-view/approvalReview';
 import type { ToastBottom } from '../board/windowLayout';
 
 const TOAST_TONE_TEXT: Record<Toast['tone'], Text> = {
@@ -42,9 +45,24 @@ export function AppShell({ children, productName }: { children: ReactNode; /** P
 function ShellLayout({ children, productName }: { children: ReactNode; productName: string | undefined }) {
   useDocumentTitle(productName);
   const detail = useDetailPanelSlotHost();
-  const { lang, t } = useI18n();
+  const { lang, t, tx } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
-  const { route, registry, sidebarSpace, platformScreen, slots, global, page, absoluteUrl, session } = useHostPlatform();
+  const { route, registry, sidebarSpace, platformScreen, slots, global, page, absoluteUrl, appliedUrl, isCurrentGeneration, scope, session } = useHostPlatform();
+  const [active, setActive] = useState<{ review: ApprovalReview; entry: string; generation: typeof isCurrentGeneration; approved: boolean } | null>(null);
+  const openReview = useCallback((review: ApprovalReview) => {
+    if (isCurrentGeneration()) setActive({ review, entry: appliedUrl, generation: isCurrentGeneration, approved: false });
+  }, [appliedUrl, isCurrentGeneration]);
+  const review = active && active.entry === appliedUrl && active.generation === isCurrentGeneration && (!route?.menu.requiresScope || scope.status === 'valid') ? active.review : null;
+  if (active && !review) setActive(null);
+  const copy = active?.approved ? review?.approved : review?.proposal;
+  const closeReview = () => {
+    setActive(current => current?.review === review ? null : current);
+    requestAnimationFrame(() => document.getElementById('platform-main')?.focus({ preventScroll: true }));
+  };
+  const approverSpaceId = review?.request?.approverSpace;
+  const approverSpace = registry.spaces.find(space => space.id === approverSpaceId);
+  const metric = review?.proposal.view.chartOptions.metricVersion;
+
   // The board is a platform screen like the home and global utilities: no business-system sidebar (docs/16 §4).
   const globalScreen = platformScreen === 'board' || (route !== null && registry.spaceOf(route.menu) === null);
   const showSidebar = sidebarSpace !== null && !globalScreen;
@@ -54,19 +72,19 @@ function ShellLayout({ children, productName }: { children: ReactNode; productNa
   // The VOC drawer and the detail aside share one right position; a newly visible detail (activation) takes it from the drawer (06 §13).
   const axes = useEquipmentAxes();
   const voc = useVocDrawer(slots.vocCompose, () => ({ route, platformScreen, global, page, absoluteUrl, registry, lang, axes, asOf: t('membershipAsOf') }), detail.activation, session);
-  const detailShown = detail.open && !voc?.visible;
-  const surfaceOpen = detailShown || voc?.visible === true;
+  const detailShown = !review && detail.open && !voc?.visible;
+  const surfaceOpen = detailShown || (!review && voc?.visible === true);
   const expanded = surfaceOpen && detail.expanded;
   const fullscreen = useMemo(() => ({ expanded, toggle: detail.toggle }), [expanded, detail.toggle]);
   const { expanded: slotExpanded, toggle: toggleExpanded, setSurfaceVisible } = detail;
   // The VOC drawer registers no detail, so the slot learns its visibility here (in-memory expansion on the board).
-  const vocVisible = voc?.visible === true;
+  const vocVisible = !review && voc?.visible === true;
   useLayoutEffect(() => { setSurfaceVisible(vocVisible); }, [setSurfaceVisible, vocVisible]);
   const wasOpen = useRef(false);
   useLayoutEffect(() => {
-    if (wasOpen.current && !surfaceOpen && slotExpanded) toggleExpanded();
+    if (!review && wasOpen.current && !surfaceOpen && slotExpanded) toggleExpanded();
     wasOpen.current = surfaceOpen;
-  }, [surfaceOpen, slotExpanded, toggleExpanded]);
+  }, [review, surfaceOpen, slotExpanded, toggleExpanded]);
   const mainArea = useRef<HTMLDivElement>(null);
   const expandedStyle = useExpandedDetailArea(mainArea, expanded);
   const board = useBoardPresentation();
@@ -101,11 +119,23 @@ function ShellLayout({ children, productName }: { children: ReactNode; productNa
     {showSidebar && !collapsed && <AppSidebar onToggle={toggle} />}
     {showPlatformSidebar && !collapsed && <PlatformSidebar onToggle={toggle} />}
     {/* The column stays unpositioned: a `relative` column would become the containing block of every `absolute` element inside main (sr-only text, popovers) and let them overflow it unclipped. */}
+    <div className={review ? 'relative flex min-w-0 flex-1' : 'contents'}>
     <div data-shell-content className="flex min-w-0 flex-1 flex-col">
       {/* The board window's area (893d2): a positioned box around main only, so a window is placed against main, not against its scrolling content, and never covers the rail, sidebar, or the chip row. It is `relative`, so every `absolute` element inside main (sr-only text, …) now has it as containing block: `contain: paint` clips what overflows it (as the root's clipping did before) without an `overflow` clip, which `contract-components` (PageFilterBar 접힘 요약) reads as a clipped ancestor of text. */}
       <div ref={mainArea} data-board-window-area className="relative min-h-0 min-w-0 flex-1 [contain:paint]">
         <main id="platform-main" tabIndex={-1} className="h-full min-h-0 min-w-0 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
-          <PlatformPageTitleLead.Provider value={SCOPE_CHIP}><Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense></PlatformPageTitleLead.Provider>
+          <PlatformPageTitleLead.Provider value={SCOPE_CHIP}><Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>
+            <OpenApprovalReview.Provider value={openReview}><TransientOverlayScope active={!review}>
+              <div hidden={!!review} inert={!!review} className={review ? 'hidden' : 'contents'}>{children}</div>
+            </TransientOverlayScope></OpenApprovalReview.Provider>
+            {copy && <section aria-label={m('savedViewReviewBody')} className="h-full">
+              {'href' in copy
+                ? <SavedViewPreview view={copy.view} href={copy.href} readOnly>
+                  <DetailPanelSlotProvider><TransientOverlayScope active={false}><ScreenOutlet /></TransientOverlayScope></DetailPanelSlotProvider>
+                </SavedViewPreview>
+                : <p role="status" className="px-4 pb-4 pt-16 text-sm text-text-muted">{copy.reason}</p>}
+            </section>}
+          </Suspense></PlatformPageTitleLead.Provider>
         </main>
       </div>
       <BoardRestoreChip />
@@ -115,7 +145,16 @@ function ShellLayout({ children, productName }: { children: ReactNode; productNa
     <aside ref={detail.ref} hidden={!detailShown} aria-label={m('detailPanel')} data-open={detailShown} data-expanded={detailShown && expanded} style={expanded && detailShown ? { '--detail-left': expandedStyle['--detail-left'], '--detail-top': expandedStyle['--detail-top'], '--detail-width': expandedStyle['--detail-width'], '--detail-height': expandedStyle['--detail-height'] } as CSSProperties : undefined}
       className={expanded && detailShown ? expandedDetailClass : cn('h-full max-w-[520px] shrink-0 overflow-hidden border-border-subtle bg-surface-detail',
         detailShown ? 'relative z-30 w-[clamp(360px,var(--detail-panel-width,440px),520px)] min-w-[360px] border-l shadow-xl' : 'w-0 min-w-0 border-l-0')} />
-    {voc && <VocDrawer voc={voc} lang={lang} expandedStyle={expandedStyle} />}
+    {review && <aside aria-label={m('savedViewReview')} className="mt-[50px] w-[400px] shrink-0 overflow-y-auto border-l border-border-subtle bg-surface-detail p-4">
+      <ApprovalReviewPanel requester={review.requester} requestedAt={review.request?.requestedAt} audience={{ kind: 'official' }}
+        changes={review.request?.changes} metricVersion={typeof metric === 'number' || typeof metric === 'string' ? metric : undefined}
+        approverSpaceName={approverSpace && tx(approverSpace.label)}
+        approved={review.approved && { shown: active?.approved === true, toggle: () => setActive(current => current && { ...current, approved: !current.approved }) }} />
+    </aside>}
+    {voc && <VocDrawer voc={review ? { ...voc, visible: false } : voc} lang={lang} expandedStyle={expandedStyle} />}
+    {review && <ApprovalReviewFrame name={review.proposal.view.name} {...review.frame}
+      activeCopy={copy && 'href' in copy ? (active?.approved ? 'approved' : 'proposal') : undefined} onClose={closeReview} />}
+    </div>
     <CommandPalette />
     <LeaveConfirmDialog />
   </div></VocDrawerContext.Provider></DetailPanelFullscreenContext.Provider></UndeclaredProvider>;

@@ -471,6 +471,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
     }),
     listApprovalRequests: async key => {
       const storage = getStorage(); const a = actorNow(); if (key.userId !== a.userId) return [];
+      const groups = readGroups(storage).groups;
       return seed.directory.flatMap(p => readBucket(storage, p.userId, key.menuId).views.flatMap((stored: Stored): ApprovalRequestInfo[] => {
         if (stored.kind === 'custom-group' || !matchesKey(stored, key)) return [];
         const proposal = stored.pending ?? stored;
@@ -478,7 +479,11 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
         const actionable = proposal.approval === 'pending' && mayApproveView(stored, a);
         if (!actionable && !ownRejection) return [];
         const approverSpace = approverSpaceOf(stored);
+        const { pending, ...published } = stored;
+        // The previous approved copy rides along only when the actor could open it on its own.
+        const approved = actionable && pending && published.approval === 'approved' ? ev(published, a, groups) : null;
         return [{
+          ...(approved && !approved.denied && approved.view.kind === 'menu-view' ? { approvedCopy: approved.view } : {}),
           viewId: stored.id, requestedBy: stored.ownerId, requestedAt: proposal.updatedAt, targetVersion: proposal.version, changes: proposalChanges(stored),
           ...(approverSpace === undefined ? {} : { approverSpace }),
           ...(ownRejection && proposal.approvalNote ? { rejectReason: proposal.approvalNote } : {}),

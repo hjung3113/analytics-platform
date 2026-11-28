@@ -21,6 +21,7 @@ export type ViewManagementProps = {
   currentUserId: string;
   /** The filter each opening starts on; `pending` opens the approval queue directly. */
   initialFilter?: ViewManagementFilter;
+  onOpenReview?: (id: string) => void;
   onDecide?: ViewDecideHandler;
   onRevoke?: ViewRevokeHandler;
   onMigrate?: (id: string) => void;
@@ -48,7 +49,7 @@ export function ViewManagement(props: ViewManagementProps) {
   </Dialog>;
 }
 
-function Body({ entries, requests, diagnoses, currentUserId, initialFilter = 'all', onDecide, onRevoke, onMigrate, personName = id => id, groupName = id => id, describeView, formatTime: suppliedFormatTime, onDone }: ViewManagementProps) {
+function Body({ entries, requests, diagnoses, currentUserId, initialFilter = 'all', onOpenReview, onDecide, onRevoke, onMigrate, personName = id => id, groupName = id => id, describeView, formatTime: suppliedFormatTime, onDone }: ViewManagementProps) {
   const { t } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const formatTime = suppliedFormatTime ?? formatListTime;
@@ -99,7 +100,7 @@ function Body({ entries, requests, diagnoses, currentUserId, initialFilter = 'al
       ? <QueuePanel
         items={entries} requests={requests} diagnoses={diagnoses} currentUserId={currentUserId} defaultStatus="pending"
         selectedId={selectedId} onSelectedChange={setSelectedId} reasonsId={reasonsId} onReasonsChange={setReasonsId} elements={els}
-        onDecide={onDecide} onRevoke={onRevoke} onMigrate={onMigrate} personName={personName} groupName={groupName} describeView={describeView} formatTime={formatTime} onDone={done} />
+        onOpenReview={onOpenReview} onDecide={onDecide} onRevoke={onRevoke} onMigrate={onMigrate} personName={personName} groupName={groupName} describeView={describeView} formatTime={formatTime} onDone={done} />
       : <div className="grid min-h-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         <div className="flex min-h-0 flex-col gap-2">
           <Input ref={search} type="search" aria-label={m('svManageSearch')} placeholder={m('svManageSearch')} value={query} onChange={event => setQuery(event.target.value)} />
@@ -117,8 +118,8 @@ function Body({ entries, requests, diagnoses, currentUserId, initialFilter = 'al
             </ul>}
         </div>
         {selected && <ViewDetail
-          key={selected.view.id} entry={selected} request={requests?.[selected.view.id]} diagnosis={diagnoses?.[selected.view.id]}
-          personName={personName} groupName={groupName} describeView={describeView} formatTime={formatTime} onDecide={onDecide} onRevoke={onRevoke} onMigrate={onMigrate}
+          key={selected.view.id} entry={selected} currentUserId={currentUserId} request={requests?.[selected.view.id]} diagnosis={diagnoses?.[selected.view.id]}
+          personName={personName} groupName={groupName} describeView={describeView} formatTime={formatTime} onOpenReview={onOpenReview} onDecide={onDecide} onRevoke={onRevoke} onMigrate={onMigrate}
           onClose={() => closeDetail(selected.view.id)} onDone={done} />}
       </div>}
   </DialogContent>;

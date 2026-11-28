@@ -1,10 +1,11 @@
 import { Suspense, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { RotateCw, ServerCrash } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
+import { useReadOnlyPreviewTabs } from '@ap/kernel/host';
 import { Button, Skeleton } from '@ap/ui';
 import { StateMessage } from '../StateView';
 import { ChunkLoadBoundary, lazyChunk, useLazyChunk } from '../lazyChunk';
-import { panelOrder } from './commands';
+import { activatePanel, groupOf, panelOrder } from './commands';
 import { stackedTree, visiblePanelIds } from './displayModel';
 import { DEFAULT_MIN_PANEL_SIZE, type DockLayoutProps, type DockRows } from './dockTypes';
 import { focusRevealing } from './focusTab';
@@ -19,11 +20,22 @@ const tabOf = (target: EventTarget | null, root: Element | null) => {
 /** The header slots of a group, in DOM (= Tab) order: after the tabs, then the right side. */
 const SLOT = '[data-dock-group-tabs-end], [data-dock-group-actions]';
 const NAVIGATION_KEYS = new Set(['Enter', ' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']);
+function previewTabIndex(key: string | undefined, index: number, length: number): number {
+  switch (key) {
+    case 'Home': return 0;
+    case 'End': return length - 1;
+    case 'ArrowLeft':
+    case 'ArrowUp': return (index + length - 1) % length;
+    case 'ArrowRight':
+    case 'ArrowDown': return (index + 1) % length;
+    default: return index;
+  }
+}
 const TABBABLE = 'a[href], button, input:not([type="hidden"]), select, textarea, summary, [tabindex], [contenteditable="true"]';
 
 /** What Tab can reach inside `root`, in DOM order: not disabled, not `tabindex=-1`, not inside an `inert`/`hidden` subtree, not hidden from layout. */
 function tabbablesIn(root: HTMLElement): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>(TABBABLE)).filter(element => element.tabIndex >= 0 && !(element as HTMLButtonElement).disabled
+  return Array.from(root.querySelectorAll<HTMLElement>(TABBABLE)).filter(element => element.tabIndex >= 0 && !element.matches(':disabled')
     && !element.closest('[inert], [hidden]') && (typeof element.checkVisibility !== 'function' || element.checkVisibility({ visibilityProperty: true })));
 }
 
@@ -166,6 +178,8 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
   const instanceId = useId();
   const container = useRef<HTMLDivElement>(null);
   const { Component: DockEngine, failed, attempt, onError, retry } = useLazyChunk(engineChunk);
+  const previewTabs = useReadOnlyPreviewTabs();
+  const [previewSelection, setPreviewSelection] = useState<ReadonlyMap<string, string>>(() => new Map());
 
   const minWidth = props.minPanelSize?.width ?? DEFAULT_MIN_PANEL_SIZE.width;
   const minHeight = props.minPanelSize?.height ?? DEFAULT_MIN_PANEL_SIZE.height;
@@ -197,21 +211,46 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
   }
   // The host's current panel wins over the display-only choice: it is the panel the host works on, so it is the one shown.
   const shown = currentPanelId !== undefined && known.has(currentPanelId) ? currentPanelId : stackedChoice;
-  const display = useMemo(() => (narrow ? stackedTree(layout, shown, panels.map(panel => panel.id)) : layout), [narrow, layout, shown, panels]);
+  const projection = useMemo(() => (narrow ? stackedTree(layout, shown, panels.map(panel => panel.id)) : layout), [narrow, layout, shown, panels]);
+  const display = useMemo(() => {
+    if (!previewTabs) return projection;
+    let display = projection;
+    for (const group of dockGroups(projection)) {
+      const selected = previewSelection.get(group.panels[0]!);
+      if (selected && group.active !== selected && group.panels.includes(selected)) display = activatePanel(display, selected);
+    }
+    return display;
+  }, [projection, previewTabs, previewSelection]);
   const maximized = !narrow && maximizedPanelId !== null && known.has(maximizedPanelId) ? maximizedPanelId : null;
   // Workspace edges have their own breakpoint; a compact dock can still host a peek above that edge breakpoint.
   const floating = props.floating;
   const visible = useMemo(() => new Set([...visiblePanelIds(display, maximized), ...(floating?.panels.map(panel => panel.panelId) ?? [])]), [display, maximized, floating]);
 
   const activate = useCallback((panelId: string) => {
+    if (previewTabs) return;
     if (narrow) setChoice({ base: firstActive, id: panelId });
     onActivate?.(panelId);
-  }, [narrow, firstActive, onActivate]);
+  }, [previewTabs, narrow, firstActive, onActivate]);
 
   const focusTab = useCallback((panelId: string) => {
     const tab = Array.from(container.current?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? []).find(item => item.dataset.tabPanelId === panelId && tabOf(item, container.current));
     if (tab) programmaticFocus(() => { focusRevealing(tab, container.current, rowMode); });
   }, [rowMode]);
+  useLayoutEffect(() => {
+    const root = container.current;
+    if (!previewTabs || failed || !root) return;
+    previewTabs.set(root, (target, key) => {
+      const id = tabOf(target, root)?.dataset.tabPanelId;
+      if (!id || (key !== undefined && !NAVIGATION_KEYS.has(key))) return false;
+      const group = groupOf(display, id);
+      if (!group) return false;
+      const choice = group.panels[previewTabIndex(key, group.panels.indexOf(id), group.panels.length)]!;
+      if (choice !== group.active) setPreviewSelection(previous => new Map(previous).set(group.panels[0]!, choice));
+      focusTab(choice);
+      return true;
+    });
+    return () => { previewTabs.delete(root); };
+  }, [display, failed, focusTab, previewTabs]);
   // Keyboard menu gestures leave timers and an observer running; cancel what is left when the layout goes (#3074).
   const [menuWork] = useState(pendingWork);
   useEffect(() => () => { menuWork.cancel(); }, [menuWork]);
@@ -380,7 +419,7 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
     }}>
     <ChunkLoadBoundary key={attempt} onError={onError}>
       <Suspense fallback={<div role="status" aria-busy className="h-full w-full"><Skeleton className="h-full w-full" /></div>}>
-        <DockEngine panels={panels} layout={layout} display={display} interactive={!narrow} maximizedPanelId={maximized} visible={visible} minPanelSize={minPanelSize}
+        <DockEngine panels={panels} layout={layout} display={display} interactive={!narrow && !previewTabs} readOnly={previewTabs !== null} maximizedPanelId={maximized} visible={visible} minPanelSize={minPanelSize}
           onLayoutChange={onLayoutChange} onActivate={activate} renderTab={renderTab} renderGroupActions={renderGroupActions} renderGroupTabsEnd={renderGroupTabsEnd} tabA11y={tabA11y} separatorLabel={separatorLabel} canDropAt={canDropAt}
           containerRef={container} instanceId={instanceId} mergeChartHead={props.mergeChartHead ?? false} rows={narrow ? undefined : rows} floating={floating} />
       </Suspense>

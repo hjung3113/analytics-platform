@@ -22,6 +22,7 @@ export type ApprovalQueueProps = {
   /** Controlled open detail (the hosting dialog needs it for Escape). Uncontrolled when absent. */
   selectedId?: string | null;
   onSelectedChange?: (id: string | null) => void;
+  onOpenReview?: (id: string) => void;
   onDecide?: ViewDecideHandler;
   onRevoke?: ViewRevokeHandler;
   onMigrate?: (id: string) => void;
@@ -54,7 +55,7 @@ export function ApprovalQueue(props: ApprovalQueueProps) {
   return <QueuePanel {...props} />;
 }
 
-export function QueuePanel({ items, requests, diagnoses, currentUserId, defaultStatus = 'pending', selectedId: controlledId, onSelectedChange, reasonsId: controlledReasons, onReasonsChange, elements, onDecide, onRevoke, onMigrate, personName = id => id, groupName = id => id, describeView, formatTime: suppliedFormatTime, onDone }: QueuePanelProps) {
+export function QueuePanel({ items, requests, diagnoses, currentUserId, defaultStatus = 'pending', selectedId: controlledId, onSelectedChange, reasonsId: controlledReasons, onReasonsChange, elements, onOpenReview, onDecide, onRevoke, onMigrate, personName = id => id, groupName = id => id, describeView, formatTime: suppliedFormatTime, onDone }: QueuePanelProps) {
   const { tx, lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const formatTime = suppliedFormatTime ?? formatListTime;
@@ -128,8 +129,8 @@ export function QueuePanel({ items, requests, diagnoses, currentUserId, defaultS
         </ul>}
     </div>
     {selected && <ViewDetail
-      key={selected.view.id} entry={selected} request={requests?.[selected.view.id]} diagnosis={diagnoses?.[selected.view.id]}
-      personName={personName} groupName={groupName} describeView={describeView} formatTime={formatTime} onDecide={onDecide} onRevoke={onRevoke} onMigrate={onMigrate}
+      key={selected.view.id} entry={selected} currentUserId={currentUserId} request={requests?.[selected.view.id]} diagnosis={diagnoses?.[selected.view.id]}
+      personName={personName} groupName={groupName} describeView={describeView} formatTime={formatTime} onOpenReview={onOpenReview} onDecide={onDecide} onRevoke={onRevoke} onMigrate={onMigrate}
       onClose={() => closeDetail(selected.view.id)}
       onDone={(kind, name) => {
         const at = visible.findIndex(entry => entry.view.id === selected.view.id);

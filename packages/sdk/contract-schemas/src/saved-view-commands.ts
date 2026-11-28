@@ -384,7 +384,8 @@ const myMenuEntrySchema = savedViewEntrySchema.extend({
 /** Out of permission: id and reason only, never a title, owner or content. */
 const deniedView = z.strictObject({ id, denied: z.literal(true), reason: z.string() });
 export const savedViewListItemSchema = z.union([savedViewEntrySchema, deniedView]);
-const approvalRequest = z.strictObject({ viewId: id, requestedBy: z.string(), requestedAt: z.number(), targetVersion: version, changes: strings, approverSpace: id.optional(), rejectReason: z.string().optional() });
+// The server may omit approvedCopy until it checks access to the approved copy independently (#3251).
+const approvalRequest = z.strictObject({ viewId: id, requestedBy: z.string(), requestedAt: z.number(), targetVersion: version, changes: strings, approverSpace: id.optional(), rejectReason: z.string().optional(), approvedCopy: menuViewRecord.optional() });
 const groupEntry = z.strictObject({
   group: z.strictObject({ id, kind: z.enum(['org-team', 'custom']), name: z.string(), memberCount: z.number().int(), managerIds: strings.optional() }),
   members: z.array(groupMemberSchema),

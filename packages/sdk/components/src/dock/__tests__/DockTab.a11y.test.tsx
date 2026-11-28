@@ -1,8 +1,11 @@
 import { useState, type ComponentProps } from 'react';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { DockviewApi } from 'dockview-react';
-import { I18nProvider } from '@ap/kernel';
+import { groupId, type MenuView } from '@ap/contracts';
+import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { SavedViewPreview } from '@ap/kernel/host';
+import { testAdapter, testMenu, testSavedView, testSpace } from '@ap/kernel/testing';
 import { DockLayout } from '../DockLayout';
 import type { DockNode } from '../schema';
 import { group, installResizeObserver, row } from './harness';
@@ -29,6 +32,39 @@ function Host() {
   return <DockLayout panels={panels} layout={layout} maximizedPanelId={null} onLayoutChange={set} onActivate={() => {}} onMaximizedChange={() => {}}
     separatorLabel={() => 'sep'} label="테스트 배치" minPanelSize={{ width: 20, height: 20 }} tabA11y={tabA11y} />;
 }
+
+it('switches read-only preview tabs by pointer and keyboard without writing', async () => {
+  const menu = testMenu();
+  const space = testSpace();
+  const registry = createRegistry({ spaces: [space], groups: [{ id: groupId('overview'), space: space.id, label: menu.label, icon: menu.icon }], menus: [menu] });
+  const view = testSavedView({ id: 'review', kind: 'menu-view', menuId: menu.id, menuSchemaVersion: 1, page: [], chartOptions: {}, layout: null, panels: null }) as MenuView;
+  const layout = row([50, 50], group(['a', 'b'], 'a'), group(['c']));
+  const write = vi.fn();
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter()}>
+    <SavedViewPreview view={view} href="/" readOnly>
+      <DockLayout panels={panels} layout={layout} onLayoutChange={write} onActivate={write} onPanelDelete={write}
+        separatorLabel={() => 'sep'} label="읽기 전용 배치" />
+    </SavedViewPreview>
+  </PlatformProvider></I18nProvider>);
+  await screen.findByRole('tab', { name: '패널 a', selected: true });
+  const address = window.location.href;
+  // user-event treats every descendant of a disabled fieldset as disabled, including the engine's div tabs.
+  fireEvent.click(screen.getByRole('tab', { name: '패널 b', selected: false }));
+  const b = await screen.findByRole('tab', { name: '패널 b', selected: true });
+  expect(screen.getByText('content b')).toBeVisible();
+  expect(screen.getByText('content b').closest('[inert]')).toBeNull();
+  expect(b).toHaveFocus();
+  fireEvent.keyDown(b, { key: 'ArrowLeft' });
+  const a = await screen.findByRole('tab', { name: '패널 a', selected: true });
+  expect(screen.getByText('content a')).toBeVisible();
+  expect(screen.getByText('content a').closest('[inert]')).toBeNull();
+  expect(a).toHaveFocus();
+  fireEvent.keyDown(a, { key: 'Delete' });
+  expect(a).toBeInTheDocument();
+  expect(write).not.toHaveBeenCalled();
+  expect(layout).toEqual(row([50, 50], group(['a', 'b'], 'a'), group(['c'])));
+  expect(window.location.href).toBe(address);
+});
 
 /** What `findByRole('tab', { name })` sees: a MutationObserver callback after a task's mutations, with no `act` flushing React's queued work. */
 function sightings(id: string) {
