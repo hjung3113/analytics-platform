@@ -24,11 +24,16 @@ const REVOKE_NOTE = '공식 등록이 회수되어 개인 비공개로 돌아왔
 const fail = (reason: 'conflict' | 'forbidden' | 'unavailable' | 'invalid', detail?: string): Result<never> => ({ ok: false, reason, ...(detail ? { detail } : {}) });
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** Saved content is JSON: array order matters, object key order does not. */
+/** Saved content is JSON: array order matters, object key order does not. An array hole is stored as null, so it compares as null. */
 function sameContent(left: unknown, right: unknown): boolean {
   if (left === right) return true;
   if (Array.isArray(left) && Array.isArray(right)) {
-    return left.length === right.length && left.every((value, index) => sameContent(value, right[index]));
+    if (left.length !== right.length) return false;
+    // An index loop, not `every`: `every` skips holes.
+    for (let index = 0; index < left.length; index += 1) {
+      if (!sameContent(left[index] ?? null, right[index] ?? null)) return false;
+    }
+    return true;
   }
   if (!isObject(left) || !isObject(right)) return false;
   const keys = Object.keys(left);

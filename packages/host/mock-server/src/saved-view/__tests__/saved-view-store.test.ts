@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { SavedView, SavedViewDraft, SavedViewEntry, SavedViewListItem, SavedViewPatch, SavedViewStore } from '@ap/contracts';
+import type { JsonValue, SavedView, SavedViewDraft, SavedViewEntry, SavedViewListItem, SavedViewPatch, SavedViewStore } from '@ap/contracts';
 import { rejectedChartConfigCases, storedPanelCases } from '@ap/contracts/testing/saved-view-panels';
 import { createLocalSavedViewStore, savedViewDefaultStorageKey, savedViewGroupsStorageKey, savedViewsStorageKey } from '../saved-view-store';
 // The kernel `testing` entry is not a dependency of this package, so the storage helper is defined here with the same semantics.
@@ -509,6 +509,24 @@ it('keeps the rejected official proposal when a My Menus patch echoes the shown 
   const { view: updated } = ok(await s.update(saved.id, { myMenu: false, name: rejected.name }, { expectedVersion: rejected.version }));
   expect(updated).toMatchObject({ ...proposedContent, approval: 'rejected', approvalNote: 'Needs evidence' });
   expect(updated).not.toHaveProperty('myMenu');
+});
+
+it('treats a sparse layout sent with a My Menus patch as a content edit, as stored JSON reads it', async () => {
+  const s = store();
+  const { view: saved } = ok(await s.save({ ...draft('Published'), myMenu: true } as SavedViewDraft));
+  const { view: requested } = ok(await s.requestOfficial(saved.id, { expectedVersion: saved.version }));
+  as('admin');
+  const { view: approved } = ok(await s.decide(saved.id, 'approve', undefined, { expectedVersion: requested.version }));
+  as('engineer');
+  const { view: pending } = ok(await s.update(saved.id, { layout: [1] }, { expectedVersion: approved.version }));
+  as('admin');
+  const { view: rejected } = ok(await s.decide(saved.id, 'reject', 'Needs evidence', { expectedVersion: pending.version }));
+  as('engineer');
+  // A hole is written as null, so `[1]` → `new Array(1)` changes the content and must become a pending proposal again.
+  ok(await s.update(saved.id, { myMenu: false, layout: new Array<JsonValue>(1) }, { expectedVersion: rejected.version }));
+  const read = await s.get(saved.id);
+  expect(read).toMatchObject({ view: { approval: 'pending', layout: [null] } });
+  expect(read).not.toHaveProperty('view.myMenu');
 });
 
 // A menu that needs two grants (menuPermissions): each grant alone is not enough on any path, both are, revoking one denies an existing view.
