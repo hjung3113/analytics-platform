@@ -58,7 +58,7 @@ const bundle = () => ({ ...routedBundle(), targets: { 'tgt-1': { ...routedBundle
 function snapshot() {
   const { limits: _limits, paramTypes: _paramTypes, ...endpoint } = first(routedBundle().endpoints);
   return menuSnapshot({
-    menus: [{ id: 'syn', permission: 'syn:view', requiresScope: true, context: { time: 'apply' } }],
+    menus: [{ id: 'syn', space: 'mars', permission: 'syn:view', requiresScope: true, context: { time: 'apply' } }],
     permissions: ['syn:view'],
     endpoints: [endpoint as SnapshotEndpoint],
     actions: [],
@@ -67,11 +67,11 @@ function snapshot() {
 
 describe('declaration bundle is checked against the menu declarations at boot (#1900)', () => {
   it('boots when the bundle matches the menu declarations', async () => {
-    await expect(boot(bundle(), snapshot())).resolves.toBeDefined();
+    await expect(boot(bundle(), snapshot())).resolves.toMatchObject({ menuSpaces: new Map([['syn', 'mars']]) });
   });
 
   it('#1846: preserves all snapshot requirements for the assembled-server comparison without refusing boot', async () => {
-    const withMenu = (permission: string) => ({ ...snapshot(), menus: [...snapshot().menus, { id: 'syn-b', permission, requiresScope: false, context: {} }] });
+    const withMenu = (permission: string) => ({ ...snapshot(), menus: [...snapshot().menus, { id: 'syn-b', space: '', permission, requiresScope: false, context: {} }] });
     const rebuilt = (permission: string) => { const { digest: _digest, ...body } = withMenu(permission); return menuSnapshot(body); };
     const missing = await boot(bundle(), rebuilt('syn:undeclared'));
     expect(missing?.menuRequirements).toEqual([{ id: 'syn', permission: 'syn:view' }, { id: 'syn-b', permission: 'syn:undeclared' }]);

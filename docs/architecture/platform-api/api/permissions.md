@@ -712,8 +712,8 @@ No session or `ScopeCheck` room-name expansion is added here.
 
 ### Direct grants and lists
 
-`POST /permissions/grants` additionally accepts `scope_kind`, `scope_site`,
-`scope_room`, with the same scope rules as requests. For example:
+`POST /permissions/grants` accepts `scope_kind`, `scope_site` and `scope_room`
+for Site and room grants. For example:
 
 ```json
 {
@@ -747,6 +747,39 @@ fields; approval also records requested/granted targets. Any Role Level can hold
 `scope.read`; Admin self-grant uses the existing policy/envelope and self_grant
 audit. Resolver calls observe writes immediately. Production session snapshot and
 sessionVersion polling integration remain #1844d's assembly responsibility.
+
+### Saved View approval Space grants
+
+An administrator can delegate `saved_view.approve` for one Space via
+`POST /permissions/grants`. Send `scope_kind: "space"` and a nonempty
+`scope_space` matching a Space ID represented by a menu in the server's loaded
+declaration snapshot.
+
+```json
+{
+  "actor_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "capability": "saved_view.approve",
+  "scope_kind": "space",
+  "scope_space": "mars",
+  "reason": "Delegate approval for this system"
+}
+```
+
+For `POST /permissions/grants/batch`, put the capability and both scope fields
+on each item. Share the recipient, reason and optional expiry at the batch
+level. The batch is atomic. Only `saved_view.approve` supports this scope kind.
+An unknown Space or a Space grant combined with Managed System, Site or room
+coordinates fails validation. Ordinary permission requests cannot create Space
+grants, including requests that specify only the capability.
+
+`GET /permissions/grants` accepts `scope_kind=space` and a `scope_space` filter.
+Space items return the two scope fields, `managed_system_id: null`, and
+`in_catalog` indicating whether the Space is present in the loaded snapshot.
+A grant whose Space was removed stays visible while active and can still be
+revoked by ID via `POST /permissions/grants/:id/revoke`. Grant and revoke audit
+details include the Space coordinate. Active uniqueness and expired reissue
+use the exact Space, so one actor can hold independent grants in different
+Spaces. Saved View decisions consume this delegation in part (b) of #2765.
 
 ## Permission groups (ADR-0163, #2408)
 

@@ -3,12 +3,12 @@ import { endpointDeclarationSchema } from './menu-query.ts';
 import { APPLIED_CAPABILITIES, CONTEXT_KEYS } from './vocab.ts';
 
 /**
- * Menu declaration snapshot v1 (#1900, ADR-0156): the file `menu-declarations.snapshot.json` the app assembly build writes
+ * Menu declaration snapshot v2 (#1900, ADR-0156): the file `menu-declarations.snapshot.json` the app assembly build writes
  * (`menuDeclarationSnapshot` / `menuDeclarationSnapshotPlugin` in `@ap/contracts/build`) and the core server reads beside the
  * declaration bundle. Rows are sorted by id and ids are unique; `digest` is `sha256:` + hex over the canonical JSON of
  * every other field (sorted keys, no whitespace). Recomputing the digest is a runtime rule the server applies.
  */
-export const MENU_DECLARATION_SNAPSHOT_SCHEMA_VERSION = 1;
+export const MENU_DECLARATION_SNAPSHOT_SCHEMA_VERSION = 2;
 
 const appliedContext = z.strictObject(
   Object.fromEntries(CONTEXT_KEYS.map((key) => [key, z.enum(APPLIED_CAPABILITIES).optional()])) as {
@@ -20,6 +20,7 @@ const uniqueIds = <T extends { id: string }>(rows: T[]) => new Set(rows.map((row
 
 export const snapshotMenuSchema = z.strictObject({
   id: z.string().min(1),
+  space: z.string().regex(new RegExp(String.raw`^[^\s?#&/\x00]*$`)),
   permission: z.string().min(1),
   requiresScope: z.boolean(),
   /** The Context keys the menu applies or references; an absent key is unsupported. */

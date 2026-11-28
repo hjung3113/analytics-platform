@@ -9,6 +9,7 @@ export interface GrantScope {
   kind: string;
   site: string | null;
   room: string | null;
+  space?: string | null;
 }
 export const managedScope: GrantScope = { kind: 'managed_system', site: null, room: null };
 
@@ -51,6 +52,11 @@ export function scopeFields(scope: GrantScope) {
     scope_kind: scope.kind as 'site' | 'site_room', scope_site: scope.site, scope_room: scope.room,
   };
 }
+export function grantScopeFields(scope: GrantScope) {
+  return scope.kind === 'space'
+    ? { scope_kind: 'space' as const, scope_space: scope.space }
+    : scopeFields(scope);
+}
 export function requestedScopeFields(scope: GrantScope) {
   return scope.kind === 'managed_system' ? {} : {
     requested_scope_kind: scope.kind as 'site' | 'site_room', requested_scope_site: scope.site, requested_scope_room: scope.room,
@@ -64,8 +70,8 @@ export function grantedScopeFields(scope: GrantScope) {
 export function requestScope(row: { requestedScopeKind: string; requestedScopeSite: string | null; requestedScopeRoom: string | null }): GrantScope {
   return { kind: row.requestedScopeKind, site: row.requestedScopeSite, room: row.requestedScopeRoom };
 }
-export function grantScope(row: { scopeKind: string; scopeSite: string | null; scopeRoom: string | null }): GrantScope {
-  return { kind: row.scopeKind, site: row.scopeSite, room: row.scopeRoom };
+export function grantScope(row: { scopeKind: string; scopeSite: string | null; scopeRoom: string | null; scopeSpace?: string | null }): GrantScope {
+  return { kind: row.scopeKind, site: row.scopeSite, room: row.scopeRoom, space: row.scopeSpace ?? null };
 }
 export function inScopeCatalog(scope: GrantScope, catalog?: ScopeCatalog): boolean {
   return scope.kind === 'managed_system' || Boolean(scope.site && catalog?.hasSite(scope.site) &&

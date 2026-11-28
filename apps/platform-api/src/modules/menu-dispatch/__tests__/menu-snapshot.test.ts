@@ -26,8 +26,8 @@ const action = (over: Partial<DeclaredAction> = {}): DeclaredAction => ({
 });
 const declarations = () => menuSnapshot({
   menus: [
-    { id: 'syn', permission: 'syn:view', requiresScope: true, context: { time: 'apply', metric: 'reference' } },
-    { id: 'other', permission: 'other:view', requiresScope: false, context: {} },
+    { id: 'syn', space: 'mars', permission: 'syn:view', requiresScope: true, context: { time: 'apply', metric: 'reference' } },
+    { id: 'other', space: '', permission: 'other:view', requiresScope: false, context: {} },
   ],
   permissions: ['other:view', 'syn:edit', 'syn:view'],
   endpoints: [
@@ -107,16 +107,23 @@ describe('menu declaration snapshot file', () => {
   it('fails closed on a missing file, bad JSON, an unknown schemaVersion, a schema error and a hand edit', async () => {
     await expect(loadMenuSnapshot(join(dir, 'absent.json'))).rejects.toThrow(/cannot be read \(ENOENT\)/);
     expect(await refusal('{ not json')).toMatch(/is not valid JSON/);
-    expect(await refusal(JSON.stringify({ ...declarations(), schemaVersion: 2 }))).toMatch(/schemaVersion is not 1/);
+    expect(await refusal(JSON.stringify({ ...declarations(), schemaVersion: 1 }))).toMatch(/schemaVersion is not 2/);
     expect(await refusal(JSON.stringify({ ...declarations(), extra: 'secret-value' }))).not.toContain('secret-value');
     const edited = declarations();
     defined(edited.endpoints[0]).permission = 'platform:view';
     expect(await refusal(JSON.stringify(edited))).toMatch(/digest does not match its content/);
   });
 
+  it('changes the digest when only a menu Space changes and refuses the stale digest', () => {
+    const { digest, ...body } = declarations();
+    const moved = { ...body, menus: body.menus.map((menu) => menu.id === 'syn' ? { ...menu, space: 'venus' } : menu) };
+    expect(menuSnapshotDigest(moved)).not.toBe(digest);
+    expect(() => parseMenuSnapshot({ ...moved, digest })).toThrow(/digest does not match/);
+  });
+
   it('digest equals the @ap/contracts emitter for the same body (fixed vector shared with its test)', () => {
-    const body = { schemaVersion: 1 as const, sdkVersion: '1', menus: [], permissions: [], endpoints: [], actions: [] };
-    expect(menuSnapshotDigest(body)).toBe('sha256:fa52fa14c7a2cce0fd5053db69be7a77e7ee26880578091d40da9dbd14556a98');
+    const body = { schemaVersion: 2 as const, sdkVersion: '1', menus: [], permissions: [], endpoints: [], actions: [] };
+    expect(menuSnapshotDigest(body)).toBe('sha256:c32e2de4b9371b3c068c8ff95fc661b9a5f0c5068fb24bc77dc45dcdf5a06ca9');
   });
 });
 
@@ -208,7 +215,7 @@ describe('local schema copy is pinned to @ap/contract-schemas menuDeclarationSna
 
   it.each([
     ['valid', (s: Record<string, unknown>) => s],
-    ['unknown version', (s: Record<string, unknown>) => ({ ...s, schemaVersion: 2 })],
+    ['unknown version', (s: Record<string, unknown>) => ({ ...s, schemaVersion: 1 })],
     ['stray field', (s: Record<string, unknown>) => ({ ...s, extra: 1 })],
     ['bad digest', (s: Record<string, unknown>) => ({ ...s, digest: 'sha256:xyz' })],
     ['duplicate menu', (s: Record<string, unknown>) => ({ ...s, menus: [...(s.menus as unknown[]), (s.menus as unknown[])[0]] })],

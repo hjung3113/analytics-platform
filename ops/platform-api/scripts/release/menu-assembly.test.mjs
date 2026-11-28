@@ -45,7 +45,7 @@ const keys = join(dir, 'keys');
 mkdirSync(assembly);
 mkdirSync(keys);
 writeFileSync(join(assembly, 'menu-declarations.json'), '{}');
-writeFileSync(join(assembly, 'menu-declarations.snapshot.json'), '{}');
+writeFileSync(join(assembly, 'menu-declarations.snapshot.json'), '{"schemaVersion": 2}');
 writeFileSync(join(assembly, 'platform-systems.json'), '[]');
 writeFileSync(join(keys, 'identity.pem'), 'synthetic-not-a-key');
 chmodSync(join(keys, 'identity.pem'), 0o600);
@@ -97,6 +97,21 @@ test('preflight: no MENU_DECLARATIONS_FILE means no menu-assembly checks (unchan
 test('preflight: a complete synthetic menu assembly passes', () => {
   const r = preflight({ ...MENU, PLATFORM_SYSTEMS_FILE: '/menu-assembly/platform-systems.json' });
   assert.equal(r.code, 0, r.out);
+});
+
+test('preflight: rejects a readable v1 snapshot and malformed or nonnumeric versions', () => {
+  const filename = 'other.snapshot.json';
+  for (const body of [
+    '{"schemaVersion": 1}',
+    '{"schemaVersion": "2"}',
+    '{"schemaVersion": 2,',
+    '{}',
+  ]) {
+    writeFileSync(join(assembly, filename), body);
+    const r = preflight({ ...MENU, MENU_DECLARATIONS_SNAPSHOT_FILE: `/menu-assembly/${filename}` });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /MENU_DECLARATIONS_SNAPSHOT_FILE.*schemaVersion.*2/);
+  }
 });
 
 test('preflight: a missing identity key file is refused with a clear message', () => {

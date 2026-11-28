@@ -1,5 +1,5 @@
 import { defineAction, defineEndpoint, menuPermission } from '@ap/contracts';
-import { canonicalJson, collectDeclarations, menuDeclarationSnapshot, MENU_DECLARATION_SNAPSHOT_VERSION, MenuDeclarationSnapshotError } from '@ap/contracts/build';
+import { canonicalJson, collectDeclarations, menuDeclarationSnapshot, menuDeclarationSnapshotPlugin, MENU_DECLARATION_SNAPSHOT_VERSION, MenuDeclarationSnapshotError } from '@ap/contracts/build';
 import { describe, expect, it } from 'vitest';
 import { menuDeclarationSnapshotSchema, MENU_DECLARATION_SNAPSHOT_SCHEMA_VERSION, SCHEMA_FILES, toJsonSchema } from '../index.ts';
 
@@ -16,13 +16,33 @@ const save = defineAction<{ name: string }, unknown>({
   id: 'syn.save', menuId: 'syn', inputKeys: { name: true }, permission: menuPermission('syn:edit'), requiresScope: true, concurrency: 'none', invalidates: [rows],
 });
 const menus = [
-  { id: 'syn', permission: 'syn:view', requiresScope: true, context: { time: 'apply', roomNames: 'unsupported', metric: 'reference' } as const },
-  { id: 'alpha', permission: 'platform:view', requiresScope: false, context: {} },
+  { id: 'syn', space: 'mars', permission: 'syn:view', requiresScope: true, context: { time: 'apply', roomNames: 'unsupported', metric: 'reference' } as const },
+  { id: 'alpha', space: '', permission: 'platform:view', requiresScope: false, context: {} },
 ];
 const input = { sdkVersion: '0.0.0-test', menus, permissions: ['syn:view', 'syn:edit', 'syn:view'], endpoints: [sum, rows], actions: [save] };
 
 describe('menu declaration snapshot', () => {
-  it('emits a file the schema accepts: version 1, applied Context only, key lists, invalidates as ids', () => {
+  it.each(['mars', null, 'unknown'])('checks declared group space %j in the build', async (space) => {
+    const plugin = menuDeclarationSnapshotPlugin({
+      registry: 'fixture', declarationModules: [], sdkVersion: '1',
+      load: async () => ({ declarations: { spaces: [{ id: 'mars' }], groups: [{ id: 'analysis', space }], menus: [{ ...menus[0], group: 'analysis' }] } }),
+    });
+    const output: unknown[] = [];
+    const emit = plugin.generateBundle.call({ emitFile: (file) => { output.push(JSON.parse(file.source)); return file.fileName; } });
+    if (space === 'unknown') {
+      await expect(emit).rejects.toThrow(/space/);
+      return;
+    }
+    await emit;
+    expect(menuDeclarationSnapshotSchema.parse(output[0]).menus).toMatchObject([{ id: 'syn', space: space ?? '' }]);
+  });
+
+  it('rejects a missing space field', () => {
+    const snapshot = menuDeclarationSnapshot(input);
+    const { space: _space, ...menu } = snapshot.menus[0]!;
+    expect(menuDeclarationSnapshotSchema.safeParse({ ...snapshot, menus: [menu] }).success).toBe(false);
+  });
+  it('emits a file the schema accepts: version 2, applied Context only, key lists, invalidates as ids', () => {
     const snapshot = menuDeclarationSnapshot(input);
     expect(menuDeclarationSnapshotSchema.parse(snapshot)).toEqual(snapshot);
     expect(MENU_DECLARATION_SNAPSHOT_VERSION).toBe(MENU_DECLARATION_SNAPSHOT_SCHEMA_VERSION);
@@ -70,7 +90,7 @@ describe('menu declaration snapshot', () => {
 
   it('schema refuses an unknown schemaVersion, a stray field and a malformed digest', () => {
     const snapshot = menuDeclarationSnapshot(input);
-    expect(menuDeclarationSnapshotSchema.safeParse({ ...snapshot, schemaVersion: 2 }).success).toBe(false);
+    expect(menuDeclarationSnapshotSchema.safeParse({ ...snapshot, schemaVersion: 1 }).success).toBe(false);
     expect(menuDeclarationSnapshotSchema.safeParse({ ...snapshot, extra: true }).success).toBe(false);
     expect(menuDeclarationSnapshotSchema.safeParse({ ...snapshot, digest: 'md5:00' }).success).toBe(false);
     expect(Object.keys(SCHEMA_FILES)).toContain('menuDeclarationSnapshot');
@@ -78,4 +98,4 @@ describe('menu declaration snapshot', () => {
   });
 });
 
-const DIGEST_OF_MINIMAL = 'sha256:fa52fa14c7a2cce0fd5053db69be7a77e7ee26880578091d40da9dbd14556a98';
+const DIGEST_OF_MINIMAL = 'sha256:c32e2de4b9371b3c068c8ff95fc661b9a5f0c5068fb24bc77dc45dcdf5a06ca9';

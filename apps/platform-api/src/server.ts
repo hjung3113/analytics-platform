@@ -261,6 +261,7 @@ export interface BuildServerOptions {
   menuDispatch?: readonly MenuDispatchContribution[];
   /** Validated snapshot requirements, compared with this server's complete permission registry. */
   menuRequirements?: readonly { id: string; permission: string }[];
+  menuSpaces?: ReadonlyMap<string, string>;
   /**
    * Site/room Scope resolver shared by session, checks and dispatch (ADR-0154). Production
    * selects the grant table with a catalog, or the optional HTTP service; synthetic resolvers are test-only.
@@ -635,6 +636,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   });
   const grantAdminService = createGrantAdminService({
     ...scopeDeps,
+    grantSpaces: new Set(opts.menuSpaces?.values()),
     db: dbHandle.db,
     checkService,
     auditService,

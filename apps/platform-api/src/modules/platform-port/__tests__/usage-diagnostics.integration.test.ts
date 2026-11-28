@@ -77,9 +77,9 @@ describe.skipIf(!(APP_URL && MIGRATE_URL && WORKSPACE_ID))('usage summary diagno
     try {
       const config = loadConfig();
       const snapshotMenus = [
-        { id: 'synthetic-builtin', permission: 'synthetic:builtin', requiresScope: false, context: {} },
-        { id: 'synthetic-bundle', permission: 'synthetic:bundle', requiresScope: false, context: {} },
-        { id: 'synthetic-missing', permission: 'synthetic:missing', requiresScope: false, context: {} },
+        { id: 'synthetic-builtin', space: '', permission: 'synthetic:builtin', requiresScope: false, context: {} },
+        { id: 'synthetic-bundle', space: '', permission: 'synthetic:bundle', requiresScope: false, context: {} },
+        { id: 'synthetic-missing', space: '', permission: 'synthetic:missing', requiresScope: false, context: {} },
       ];
       const bundleFile = join(dir, 'bundle.json');
       const snapshotFile = join(dir, 'snapshot.json');

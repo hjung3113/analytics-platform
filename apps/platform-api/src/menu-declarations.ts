@@ -52,6 +52,7 @@ export interface MenuDeclarationSetup {
   timeDomainAssertions?: readonly SiteTimeDomainAssertion[];
   /** Validated snapshot requirements, compared with all contributions by server assembly (#1846). */
   menuRequirements: readonly { id: string; permission: string }[];
+  menuSpaces: ReadonlyMap<string, string>;
 }
 
 /**
@@ -71,6 +72,7 @@ export async function loadMenuDeclarationSetup(
   const snapshotFile = config.MENU_DECLARATIONS_SNAPSHOT_FILE;
   if (snapshotFile === undefined) throw new DeclarationBundleError(['MENU_DECLARATIONS_SNAPSHOT_FILE is required when MENU_DECLARATIONS_FILE is set']);
   const snapshot = await loadMenuSnapshot(snapshotFile);
+  const menuSpaces = new Map(snapshot.menus.flatMap(({ id, space }) => space === '' ? [] : [[id, space] as const]));
   // Validate before reading any secret. No partially validated target can reach a connector.
   const bundle = await loadDeclarationBundle(file, bundleSnapshotCheck(snapshot));
   const scopeCatalog = bundle.scopeCatalog;
@@ -102,6 +104,7 @@ export async function loadMenuDeclarationSetup(
   const timeDomainAssertions = bundle.timeDomainAssertions?.length ? bundle.timeDomainAssertions : undefined;
   if (!envelope) return {
     menuDispatch: [declaredContribution({ bundle, snapshot, checkService: deps.checkService, ...routedDeps })],
+    menuSpaces,
     menuRequirements: snapshot.menus.map(({ id, permission }) => ({ id, permission })),
     ...(scopeResolver ? { scopeResolver } : {}),
     ...(scopeCatalog ? { scopeCatalog } : {}),
@@ -141,6 +144,7 @@ export async function loadMenuDeclarationSetup(
   return {
     ...(targetSecrets === undefined ? {} : { targetSecrets }),
     menuDispatch: [declaredContribution({ bundle, snapshot, forwarder, checkService: deps.checkService, ...routedDeps })],
+    menuSpaces,
     menuRequirements: snapshot.menus.map(({ id, permission }) => ({ id, permission })),
     ...(scopeResolver ? { scopeResolver } : {}),
     ...(scopeCatalog ? { scopeCatalog } : {}),

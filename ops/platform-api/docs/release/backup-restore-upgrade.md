@@ -170,6 +170,23 @@ already loaded, run `bash scripts/release/rollback-round-trip-check.sh --prev-ta
 `ops/platform-api`. Use a disposable Docker host with the same tools as the offline check and free
 `platform-release-{backend,migrate,web}:local` tags. The rehearsal reserves those tags until cleanup.
 
+**Declaration-backed release inputs.** Keep each release's web-built `menu-declarations.snapshot.json` with its
+backend, migrate and web image tags. Stage the previous v1 and target v2 snapshots at separate paths under
+`MENU_ASSEMBLY_DIR`, for example `/menu-assembly/<previous-tag>/menu-declarations.snapshot.json` and
+`/menu-assembly/<new-tag>/menu-declarations.snapshot.json` as seen by the containers. Keep the previous file and its
+deployment settings intact. Use `python3` on the host for the snapshot preflight. Select the target path in
+`MENU_DECLARATIONS_SNAPSHOT_FILE` in the deployment env file before running `upgrade.sh`. Clear any exported
+override when using the env file to select the release. The script checks the
+selected file's numeric `schemaVersion` against the target backend image before stopping the running backend.
+The backend checks the full snapshot, digest and bundle when it starts.
+
+For rollback, select the previous path in the env file together with the previous backend, migrate and web images
+(or the previous restore pins). Restore the previous bundle settings if they changed. Recreate the backend with
+those inputs so it reads the restored pointer. The standard image rollback rehearsal above disables the declaration
+bundle. A declaration-backed rehearsal needs a disposable project with both release snapshots and a compatible
+bundle enabled: verify v1 startup, upgrade with v2, then restore the v1 pointer and previous images and verify
+readiness on the migrated database. Check that rollback leaves the migration journal unchanged.
+
 **From a checkout (build on the host).** Step 1 is the web image: build it from the same commit as the backend and migrate images with
 `bash scripts/release/build-web-image.sh` (it writes only `platform-release-web:local`), then tag it with the release tag:
 `docker tag platform-release-web:local platform-release-web:<tag>`. Load the other two images under
@@ -194,7 +211,8 @@ The nested backup still records the containers' images, so preloaded `:local` ta
    restart only the existing container: `docker compose -p <project> --env-file <env> -f <compose> start backend` (the script
    prints it with its own values). With `upgrade.sh local` the `:local` tags already hold the new images, so `up -d` would
    first run the new migrate image on a database without a verified backup: use `start backend` only, or first move `:local`
-   back to the `:pre-<UTC timestamp>` images the script printed in step 2 (it prints the `docker tag` commands).
+   back to the `:pre-<UTC timestamp>` images the script printed in step 2 (it prints the `docker tag` commands) and
+   restore the previous snapshot pointer for a declaration-backed install.
 4. Moves the new backend, migrate and web images onto the `:local` tags together and runs the `migrate` job. On a non-zero exit
    the backend **stays stopped** and the script prints the journal inspection command, the `restore.sh` command for the
    matching backup and the image rollback tags (backend, migrate and web).

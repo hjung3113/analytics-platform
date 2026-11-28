@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { CAPABILITY_LABELS, getCapabilityDisplayLabel } from '../capabilities.js';
 
 const EXPECTED_LABELS: Record<Capability, string> = {
+  'saved_view.approve': '저장된 뷰 공식 승인',
   'workspace.read': '전체 읽기',
   'workspace.admin': '관리자 권한',
   'voc.triage': 'VOC 분류',

@@ -9,7 +9,7 @@ import { allManagedSystemIds } from '../managed-systems/read-projections.js';
 
 /** `workspace.admin` is granted only through the approval path, never requested ordinarily. */
 export function isOrdinarilyRequestable(capability: Capability): boolean {
-  return capability !== 'workspace.admin' && capability !== 'scope.read';
+  return capability !== 'workspace.admin' && capability !== 'scope.read' && capability !== 'saved_view.approve';
 }
 
 /** ADR-0107: a User cannot receive these (request, approval, direct grant); Admin-only restrictions are judged below. */
@@ -52,7 +52,7 @@ export async function supportedScopeCandidates(
   // whose last branch (one candidate per Managed System) is the open answer a declared name must never reach.
   if (capabilities.isDeclared(capability)) return [{ managed_system_id: null }];
   if (!isCapability(capability)) throw new UnknownCapabilityError(capability);
-  if (capability === 'scope.read') return [];
+  if (capability === 'scope.read' || capability === 'saved_view.approve') return [];
   if (
     capability === 'workspace.read' ||
     capability === 'workspace.admin' ||
@@ -117,6 +117,7 @@ export async function validateSupportedScope(
   options: {
     scope?: GrantScope;
     scopeCatalog?: ScopeCatalog | undefined;
+    grantSpaces?: ReadonlySet<string> | undefined;
     scopePrefix?: string;
     approval?: boolean;
     field?: string;
@@ -130,6 +131,18 @@ export async function validateSupportedScope(
   const capabilities = options.capabilities ?? PLATFORM_CAPABILITY_REGISTRY;
   if (!capabilities.has(capability)) throw new UnknownCapabilityError(capability);
   const scope = options.scope ?? managedScope;
+  if (capability === 'saved_view.approve' || scope.kind === 'space' || scope.space != null) {
+    const invalidSpaceGrant = (field: string, message: string): never => {
+      throw new HttpError('validation.failed', message, { fields: [{ path: [field], code: 'custom' }] });
+    };
+    if (capability !== 'saved_view.approve' || scope.kind !== 'space' || !options.grantSpaces)
+      invalidSpaceGrant(options.capabilityField ?? 'requested_capability', 'saved_view.approve is granted directly for a space');
+    if (!scope.space || !options.grantSpaces?.has(scope.space))
+      invalidSpaceGrant('scope_space', 'space is not in the menu declaration snapshot');
+    if (managedSystemId !== null || scope.site !== null || scope.room !== null || objectType !== null || objectId !== null)
+      invalidSpaceGrant('scope_kind', 'space grants cannot carry another scope');
+    return;
+  }
   validateSiteScope(capability, scope, managedSystemId, objectType, objectId, options.scopeCatalog, options.scopePrefix ?? 'requested_');
   if (scope.kind !== 'managed_system') return;
   if (!options.approval && capability === 'workspace.admin') {

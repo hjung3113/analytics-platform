@@ -9,13 +9,13 @@ import type { AnyEndpointSpec } from './menu-query.js';
 import type { Capability, ContextKey } from './menu.js';
 import type { AssessmentKind } from '../adapter/response.js';
 
-export const MENU_DECLARATION_SNAPSHOT_VERSION = 1 as const;
+export const MENU_DECLARATION_SNAPSHOT_VERSION = 2 as const;
 /** The file name the app assembly build writes into its output folder. */
 export const MENU_DECLARATION_SNAPSHOT_FILE = 'menu-declarations.snapshot.json';
 
 export type SnapshotContext = Partial<Record<ContextKey, Exclude<Capability, 'unsupported'>>>;
 
-export type SnapshotMenu = { id: string; permission: string; requiresScope: boolean; context: SnapshotContext };
+export type SnapshotMenu = { id: string; space: string; permission: string; requiresScope: boolean; context: SnapshotContext };
 export type SnapshotEndpoint = {
   id: string;
   menuId: string;
@@ -51,8 +51,8 @@ export type MenuDeclarationSnapshot = {
   digest: string;
 };
 
-/** What the emitter reads of a menu: the Registry input's menu entries are structurally this. */
-export type SnapshotMenuInput = { readonly id: string; readonly permission: string; readonly requiresScope: boolean; readonly context: Readonly<Partial<Record<ContextKey, Capability>>> };
+/** What the emitter reads of a menu: the assembly resolves the group space first. Empty space marks a global menu. */
+export type SnapshotMenuInput = { readonly id: string; readonly space: string; readonly permission: string; readonly requiresScope: boolean; readonly context: Readonly<Partial<Record<ContextKey, Capability>>> };
 
 export type MenuDeclarationSnapshotInput = {
   sdkVersion: string;
@@ -121,6 +121,9 @@ export function menuDeclarationSnapshot(input: MenuDeclarationSnapshotInput): Me
     }
   };
   unique('menu', input.menus.map((menu) => menu.id));
+  for (const menu of input.menus) {
+    if (typeof menu.space !== 'string' || /[\s?#&/]/.test(menu.space) || menu.space.includes(String.fromCharCode(0))) problems.push(`menu ${menu.id}: invalid space`);
+  }
   unique('endpoint', input.endpoints.map((spec) => spec.id));
   unique('action', (input.actions ?? []).map((spec) => spec.id));
   if (problems.length > 0) throw new MenuDeclarationSnapshotError(problems);
@@ -128,7 +131,7 @@ export function menuDeclarationSnapshot(input: MenuDeclarationSnapshotInput): Me
   const body: Omit<MenuDeclarationSnapshot, 'digest'> = {
     schemaVersion: MENU_DECLARATION_SNAPSHOT_VERSION,
     sdkVersion: input.sdkVersion,
-    menus: input.menus.map((menu) => ({ id: menu.id, permission: menu.permission, requiresScope: menu.requiresScope, context: applied(menu.context) })).sort(byId),
+    menus: input.menus.map((menu) => ({ id: menu.id, space: menu.space, permission: menu.permission, requiresScope: menu.requiresScope, context: applied(menu.context) })).sort(byId),
     permissions: [...new Set(input.permissions ?? [])].sort(),
     endpoints: input.endpoints.map(endpointRow).sort(byId),
     actions: (input.actions ?? []).map(actionRow).sort(byId),
@@ -201,10 +204,23 @@ export function menuDeclarationSnapshotPlugin(options: MenuDeclarationSnapshotPl
       if (!isRecord(registry) || !Array.isArray(registry.menus)) {
         throw new MenuDeclarationSnapshotError([`${options.registry} has no Registry input export ${options.registryExport ?? 'declarations'}`]);
       }
+      if (!Array.isArray(registry.groups) || !Array.isArray(registry.spaces)) {
+        throw new MenuDeclarationSnapshotError(['Registry input must declare groups and spaces']);
+      }
+      const groups = new Map(registry.groups.map((group) => [group.id, group.space]));
+      const spaces = new Set(registry.spaces.map((space) => space.id));
+      const menus = (registry.menus as readonly (Omit<SnapshotMenuInput, 'space'> & { group: string })[]).map((menu) => {
+        const space: unknown = groups.get(menu.group);
+        if (space === null) return { ...menu, space: '' };
+        if (typeof space !== 'string' || space === '' || !spaces.has(space)) {
+          throw new MenuDeclarationSnapshotError([`menu ${menu.id}: group ${menu.group} has no declared space`]);
+        }
+        return { ...menu, space };
+      });
       const modules = await Promise.all(options.declarationModules.map((path) => options.load(path)));
       const snapshot = menuDeclarationSnapshot({
         sdkVersion: options.sdkVersion,
-        menus: registry.menus as readonly SnapshotMenuInput[],
+        menus,
         permissions: Array.isArray(registry.permissions) ? (registry.permissions as readonly string[]) : [],
         ...collectDeclarations(modules),
       });

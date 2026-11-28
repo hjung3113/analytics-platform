@@ -40,14 +40,14 @@ export function PermissionGrantDetail({
 }) {
   const { kind, item } = permission;
   const actorName = actorNames[item.actor_id] ?? GLOSSARY.unknownUser;
-  const systemName = item.managed_system_id
-    ? managedSystemNames[item.managed_system_id] ?? shortId(item.managed_system_id)
-    : SCOPE_SELECTOR_COPY.allLabel;
-  const permissionName = getCapabilityDisplayLabel(item.capability);
+  const scopeTarget = kind === 'grants' ? scopeTargetLabelOf(item) : null;
+  const revokeScope = scopeTarget ?? (item.managed_system_id
+    ? `시스템 ${managedSystemNames[item.managed_system_id] ?? shortId(item.managed_system_id)}`
+    : ADMIN_PERMISSIONS_COPY.revokeScopeAll);
   const revokeImpact = ADMIN_PERMISSIONS_COPY.revokeImpact(
     actorName,
-    item.managed_system_id ? systemName : null,
-    permissionName,
+    revokeScope,
+    getCapabilityDisplayLabel(item.capability),
   );
 
   const body = (
@@ -76,9 +76,9 @@ export function PermissionGrantDetail({
           </span>
         </FieldRow>
         <FieldRow label={ADMIN_PERMISSIONS_COPY.scope} inset="none">
-          {kind === 'grants' && scopeTargetLabelOf(item) !== null ? (
+          {kind === 'grants' && scopeTarget !== null ? (
             <span className="flex flex-wrap items-center gap-2">
-              <span>{scopeTargetLabelOf(item)}</span>
+              <span>{scopeTarget}</span>
               {item.in_catalog === false ? (
                 <OutlineBadge>{PERMISSION_SCOPE_COPY.notInCatalog}</OutlineBadge>
               ) : null}

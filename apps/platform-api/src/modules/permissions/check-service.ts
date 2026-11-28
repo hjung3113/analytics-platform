@@ -133,7 +133,7 @@ export interface CheckServiceDeps {
 }
 
 /** `capabilities` is optional on the type so a stand-in or a transaction-binding wrapper stays a check service; read it with `capabilitiesOf`. */
-type OptionalCheckMethods = 'capabilities' | 'loadCapabilityRows' | 'checkCapabilityAcross';
+type OptionalCheckMethods = 'capabilities' | 'loadCapabilityRows' | 'checkCapabilityAcross' | 'savedViewApprovalSpaces';
 type ConcreteCheckService = ReturnType<typeof createCheckService>;
 export type CheckService = Omit<ConcreteCheckService, OptionalCheckMethods> &
   Partial<Pick<ConcreteCheckService, OptionalCheckMethods>>;
@@ -325,7 +325,20 @@ export function createCheckService(deps: CheckServiceDeps) {
     };
   }
 
-  return { checkCapability, capabilityScope, loadCapabilitySnapshot, loadCapabilityRows, checkCapabilityAcross, capabilities };
+  /** Explicit, still-active Saved View delegation. This scope never becomes a workspace or Managed System grant. */
+  async function savedViewApprovalSpaces(actor: ActorContext, tx: Tx): Promise<ReadonlySet<string>> {
+    const capability = 'saved_view.approve';
+    if (tokenDenial(capability, { capabilities })) return new Set();
+    const rows = await loadDenyAndGrantRows(tx, actor, capability, capabilities, { kind: 'space' });
+    const at = now();
+    return new Set(rows.grantRows.flatMap((grant) => {
+      const space = grant.space;
+      if (!space || !decideFromRows(actor, capability, { workspace_id: actor.workspace_id }, { denyRows: rows.denyRows, grantRows: [grant] }, at, capabilities).allow) return [];
+      return [space];
+    }));
+  }
+
+  return { checkCapability, savedViewApprovalSpaces, capabilityScope, loadCapabilitySnapshot, loadCapabilityRows, checkCapabilityAcross, capabilities };
 }
 
 /**
@@ -354,6 +367,7 @@ interface GrantRow {
   managedSystemId: string | null;
   revokedAt: Date | null;
   expiresAt: Date | null;
+  space?: string | null;
 }
 export interface DenyAndGrantRows {
   denyRows: DenyRow[];
@@ -397,6 +411,7 @@ export async function loadDenyAndGrantRows(
   actor: ActorContext,
   capability: CapabilityName,
   capabilities: CapabilityRegistry = PLATFORM_CAPABILITY_REGISTRY,
+  scope: { kind: 'managed_system' | 'space' } = { kind: 'managed_system' },
 ): Promise<DenyAndGrantRows> {
   const [denyRows, grantRows] = await Promise.all([
     db
@@ -411,11 +426,11 @@ export async function loadDenyAndGrantRows(
         ),
       ),
     db
-      .select(grantColumns)
+      .select({ ...grantColumns, ...(scope.kind === 'space' ? { space: permissionGrants.scopeSpace } : {}) })
       .from(permissionGrants)
       .where(
         and(
-          eq(permissionGrants.scopeKind, 'managed_system'),
+          eq(permissionGrants.scopeKind, scope.kind),
           eq(permissionGrants.workspaceId, actor.workspace_id),
           eq(permissionGrants.actorId, actor.actor_id),
           eq(permissionGrants.capability, capability),

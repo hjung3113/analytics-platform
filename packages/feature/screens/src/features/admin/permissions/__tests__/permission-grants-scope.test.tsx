@@ -222,6 +222,48 @@ describe('부여 목록 — Site·공정 grants', () => {
     );
   });
 
+  it('distinguishes same-actor Space grants in the list, detail and revoke confirmation', async () => {
+    const user = userEvent.setup();
+    const items = [
+      { id: IN_CATALOG_ID, scope_space: 'analysis' },
+      { id: REMOVED_ID, scope_space: 'operations' },
+    ].map((space) =>
+      permissionGrantAdminItemSchema.parse({
+        ...space,
+        actor_id: SCOPE_ACTOR,
+        capability: 'saved_view.approve',
+        managed_system_id: null,
+        scope_kind: 'space',
+        in_catalog: true,
+        granted_by_actor_id: ADMIN_ID,
+        granted_at: SCOPE_AT,
+        expires_at: null,
+      }),
+    );
+    const respond = apiRequestMock.getMockImplementation();
+    apiRequestMock.mockImplementation((method, path, parser, options) =>
+      method === 'GET' && path === '/permissions/grants'
+        ? Promise.resolve({ data: parser.parse({ items }) })
+        : respond?.(method, path, parser, options),
+    );
+    renderScreen(`/admin/permissions/grants?selected=${REMOVED_ID}`);
+    expect(await screen.findAllByText('업무 시스템 operations')).toHaveLength(2);
+    expect(screen.getByText('업무 시스템 analysis')).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('사유 · 필수'), '운영 권한 정리');
+    await user.click(screen.getByTestId('permission-grants-submit'));
+    const confirmation = await screen.findByRole('alertdialog', { name: '권한 취소 확인' });
+    expect(confirmation).toHaveTextContent('업무 시스템 operations');
+    expect(confirmation).not.toHaveTextContent('업무 시스템 analysis');
+    await user.click(within(confirmation).getByRole('button', { name: '권한 취소' }));
+    await waitFor(() =>
+      expect(requests).toContainEqual(expect.objectContaining({
+        method: 'POST',
+        path: `/permissions/grants/${REMOVED_ID}/revoke`,
+      })),
+    );
+  });
+
   it('a declared-capability row shows the declared display name beside its id (ADR-0157 decision 9)', async () => {
     const declaredGrant = permissionGrantAdminItemSchema.parse({
       id: IN_CATALOG_ID,

@@ -41,7 +41,7 @@ afterEach(async () => { await app?.close(); app = undefined; });
 
 /** The menu side as the app build declares it: menu `fill` with two endpoints, both Scope-bound. */
 const declarations = () => menuSnapshot({
-  menus: [{ id: 'fill', permission: 'fill:view', requiresScope: true, context: { metric: 'apply' } }],
+  menus: [{ id: 'fill', space: '', permission: 'fill:view', requiresScope: true, context: { metric: 'apply' } }],
   permissions: ['fill:view'],
   endpoints: [
     { id: 'fill.rows', menuId: 'fill', paramKeys: ['q'], permission: 'fill:view', requiresScope: true, context: { metric: 'apply' }, kinds: [], mergeTimeDomain: false },
@@ -132,7 +132,7 @@ describe('bundle endpoint rows filled from the menu declaration snapshot (#1900 
     const { endpoints: [declared] } = routedBundle();
     const { limits: _limits, paramTypes: _paramTypes, ...menuOwned } = defined(declared);
     const snapshot = menuSnapshot({
-      menus: [{ id: 'syn', permission: 'syn:view', requiresScope: true, context: { time: 'apply' } }],
+      menus: [{ id: 'syn', space: '', permission: 'syn:view', requiresScope: true, context: { time: 'apply' } }],
       permissions: ['syn:view'],
       endpoints: [menuOwned as never],
       actions: [],

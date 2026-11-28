@@ -21,7 +21,7 @@ export function assertKitSnapshot(mode, result) {
   }
   if (assets.length !== 1) throw new Error('real: menu-declarations.snapshot.json is not in the build output');
   const snapshot = JSON.parse(String(assets[0].source));
-  if (snapshot.schemaVersion !== 1 || !snapshot.endpoints?.length || !snapshot.menus?.length) throw new Error('real: menu-declarations.snapshot.json lacks the kit menus or endpoints');
+  if (snapshot.schemaVersion !== 2 || !snapshot.endpoints?.length || !snapshot.menus?.length || !snapshot.menus.some(menu => menu.space)) throw new Error('real: menu-declarations.snapshot.json lacks the kit menus or endpoints');
 }
 
 /**

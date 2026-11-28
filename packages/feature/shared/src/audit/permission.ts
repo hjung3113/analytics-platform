@@ -4,7 +4,7 @@
 // AUDIT_EVENT_DETAIL_SCHEMAS.
 
 import { z } from 'zod';
-import { permissionScopeFields, requestedPermissionScopeFields, grantedPermissionScopeFields } from '../permissions/scope-kinds.js';
+import { permissionGrantScopeFields, permissionScopeFields, requestedPermissionScopeFields, grantedPermissionScopeFields } from '../permissions/scope-kinds.js';
 
 import { capabilityNameSchema } from '../permissions/admin.js';
 
@@ -174,7 +174,7 @@ export const permissionRevokedDetailSchema = z
   .object({
     grant_id: z.string().uuid(),
     capability: z.string().min(1),
-    ...permissionScopeFields,
+    ...permissionGrantScopeFields,
   managed_system_id: z.string().uuid().nullable(),
     grantee_actor_id: z.string().uuid(),
     reason: z.string().min(1),
@@ -200,7 +200,7 @@ export const permissionGrantedDetailSchema = z
     grant_id: z.string().uuid(),
     grantee_actor_id: z.string().uuid(),
     capability: capabilityNameSchema,
-    ...permissionScopeFields,
+    ...permissionGrantScopeFields,
   managed_system_id: z.string().uuid().nullable(),
     reason: z.string().trim().min(1).max(2000),
     expires_at: z.string().datetime().nullable(),

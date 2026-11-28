@@ -407,6 +407,7 @@ case "$*" in
 "image inspect --format"*platform-release-backend:local) echo "\${STUB_LOCAL_BACKEND_ID:-sha256:imageid}"; exit 0 ;;
 "image inspect --format"*) echo sha256:imageid; exit 0 ;;
 "image inspect"*) case "$*" in *"\${STUB_MISSING_IMAGE:-@@none@@}"*) exit 1 ;; esac; exit 0 ;;
+*"--entrypoint node"*) echo "\${STUB_BACKEND_SNAPSHOT_VERSION:-2}"; exit 0 ;;
 "tag "*) exit 0 ;;
 *" up -d") exit "\${STUB_UP_RC:-0}" ;;
 *"exec -T backend node -e "*"/health/ready"*) exit "\${STUB_READY_RC:-0}" ;;
@@ -427,6 +428,7 @@ case "$*" in
   case "$*" in *--globals-only*--no-role-passwords*) echo GLOBALS ;; *) echo "ALTER ROLE platform_app PASSWORD '${ROLE_SECRET}'" ;; esac
   exit 0 ;;
 *"exec -T postgres pg_dump "*)
+  if [ -n "\${STUB_DUMP_RC:-}" ]; then exit "$STUB_DUMP_RC"; fi
   if [ -n "\${STUB_BLOCK_DUMP_DIR:-}" ]; then : >"\$STUB_BLOCK_DUMP_DIR/reached"; while [ ! -e "\$STUB_BLOCK_DUMP_DIR/release" ]; do sleep 0.05; done; fi
   case "$*" in *--exclude-table-data=core.sessions*) echo DUMP ;; *) echo "COPY core.sessions FROM stdin; ${SESSION_SECRET}" ;; esac
   exit 0 ;;
@@ -445,11 +447,11 @@ exit 0
 }
 
 describe('upgrade.sh ordering (stub docker)', () => {
-  function go(extraEnv = {}) {
+  function go(extraEnv = {}, { envName = 'env', composeFile = COMPOSE } = {}) {
     const bin = tmp();
     const log = join(tmp(), 'calls.log');
     writeStub(bin, log);
-    const envFile = join(tmp(), 'env');
+    const envFile = join(tmp(), envName);
     writeFileSync(
       envFile,
       'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
@@ -460,11 +462,15 @@ describe('upgrade.sh ordering (stub docker)', () => {
       chmodSync(join(bin, 'sleep'), 0o755);
     }
     const root = tmp();
-    const r = run('bash', [UPGRADE, 'local', '--env-file', envFile, '--compose-file', COMPOSE], {
-      PATH: `${bin}:${process.env.PATH}`,
-      BACKUP_ROOT: root,
-      ...extraEnv,
-    });
+    const r = run(
+      'bash',
+      [UPGRADE, 'local', '--env-file', envFile, '--compose-file', composeFile],
+      {
+        PATH: `${bin}:${process.env.PATH}`,
+        BACKUP_ROOT: root,
+        ...extraEnv,
+      },
+    );
     const calls = existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter(Boolean) : [];
     return { ...r, calls, root, envFile, log: calls.join('\n') };
   }
@@ -489,6 +495,39 @@ describe('upgrade.sh ordering (stub docker)', () => {
     assert.doesNotMatch(r.log, new RegExp(SECRET));
     assert.doesNotMatch(r.out + r.err, new RegExp(SECRET));
   });
+  function menuEnv(schemaVersion) {
+    const assembly = tmp();
+    writeFileSync(join(assembly, 'declarations.json'), '{}');
+    writeFileSync(join(assembly, 'snapshot.json'), JSON.stringify({ schemaVersion }));
+    return {
+      MENU_ASSEMBLY_DIR: assembly,
+      MENU_DECLARATIONS_FILE: '/menu-assembly/declarations.json',
+      MENU_DECLARATIONS_SNAPSHOT_FILE: '/menu-assembly/snapshot.json',
+    };
+  }
+
+  test('a snapshot version mismatch is refused before the running backend stops', () => {
+    for (const [selected, accepted] of [
+      [1, 2],
+      [2, 3],
+    ]) {
+      const r = go({ ...menuEnv(selected), STUB_BACKEND_SNAPSHOT_VERSION: String(accepted) });
+      assert.equal(r.code, 1, r.err);
+      assert.match(
+        r.out + r.err,
+        new RegExp(`MENU_DECLARATIONS_SNAPSHOT_FILE.*schemaVersion.*${accepted}`),
+      );
+      assert.equal(idx(r.calls, /stop backend$/), -1, r.log);
+    }
+  });
+
+  test('local upgrade recovery pairs the previous snapshot pointer with the previous images', () => {
+    const r = go({ ...menuEnv(2), STUB_DUMP_RC: '3' });
+    assert.equal(r.code, 1, r.err);
+    assert.match(r.err, /MENU_DECLARATIONS_SNAPSHOT_FILE.*previous release/);
+    assert.match(r.err, /move :local back: docker tag/);
+  });
+
   test('the dump commands carry the secret-exclusion flags', () => {
     const r = go();
     assert.equal(r.code, 0, r.err);
@@ -521,12 +560,22 @@ describe('upgrade.sh ordering (stub docker)', () => {
     assert.match(readFileSync(join(dir, 'manifest.json'), 'utf8'), /"identity": "platform"/);
   });
   test('migration failure: no backend start at all, restore command printed, exit 1', () => {
-    const r = go({ STUB_MIGRATE_RC: '1' });
+    const composeFile = join(tmp(), 'custom compose.yml');
+    copyFileSync(COMPOSE, composeFile);
+    const r = go({ ...menuEnv(2), STUB_MIGRATE_RC: '1' }, { envName: 'custom env', composeFile });
     assert.equal(r.code, 1);
     assert.equal(r.calls.findIndex(startsBackend), -1, `backend must stay stopped:\n${r.log}`);
     assert.match(r.err, /MIGRATION FAILED/);
     assert.match(r.err, /restore\.sh/);
-    assert.match(r.err, /--project <new-project>/);
+    assert.match(r.err, /MENU_DECLARATIONS_SNAPSHOT_FILE.*previous release/);
+    assert.match(r.err, /image rollback: docker tag/);
+    assert.ok(
+      r.err.includes(
+        `--project <new-project> --env-file ${r.envFile.replaceAll(' ', '\\ ')} --compose-file ${composeFile.replaceAll(' ', '\\ ')}`,
+      ),
+      r.err,
+    );
+    assert.match(r.err, /clear or restore any exported MENU_DECLARATIONS_SNAPSHOT_FILE/);
   });
   test('readiness failure after up -d: the last line says the stack is up and how to stop it', () => {
     const r = go({ STUB_READY_RC: '1' });
@@ -1177,14 +1226,14 @@ describe('OPS-04 restore: journal check always, images pinned (stub docker)', ()
   function writeStubAndGo(extraEnv = {}, backupOpts = {}) {
     const bin = tmp();
     const log = join(tmp(), 'calls.log');
-    const envFile = join(tmp(), 'env');
+    const envFile = join(tmp(), 'custom env');
     writeFileSync(
       envFile,
       'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
     );
     const dir = makeBackup(tmp(), undefined, backupOpts);
     const composeDir = tmp();
-    const compose = join(composeDir, 'docker-compose.production.yml');
+    const compose = join(composeDir, 'custom compose.yml');
     copyFileSync(COMPOSE, compose);
     const capture = tmp();
     writeRestoreStubFile(bin, log);
@@ -1207,6 +1256,7 @@ describe('OPS-04 restore: journal check always, images pinned (stub docker)', ()
       calls,
       log: calls.join('\n'),
       compose,
+      envFile,
       pinsPath,
       pinsKept: existsSync(pinsPath),
       pins: existsSync(captured) ? readFileSync(captured, 'utf8') : '',
@@ -1235,12 +1285,13 @@ describe('OPS-04 restore: journal check always, images pinned (stub docker)', ()
       r.log,
     );
     assert.ok(r.pinsKept, 'the pin file is kept for later starts');
-    assert.match(
-      r.err,
-      new RegExp(
-        `-f ${r.compose.replace(/[.]/g, '\\.')} -f ${r.pinsPath.replace(/[.]/g, '\\.')} up -d`,
+    assert.ok(
+      r.err.includes(
+        `docker compose -p restored --env-file ${r.envFile.replaceAll(' ', '\\ ')} -f ${r.compose.replaceAll(' ', '\\ ')} -f ${r.pinsPath} up -d`,
       ),
+      r.err,
     );
+    assert.ok(r.err.includes(`put both lines in ${r.envFile}`), r.err);
   });
 
   test('storage provisioning failure refuses backend startup and readiness', () => {
@@ -1732,10 +1783,7 @@ describe('b10b restore: web image, verification isolation, --replace-live lock (
       /NOTIFICATION_EMAIL_CHANNEL|SMTP_/,
       'switch-over file has the real settings',
     );
-    assert.match(
-      r.err,
-      /docker compose -p restored --env-file \.env\.production -f \S+ -f \S+ up -d/,
-    );
+    assert.match(r.err, /docker compose -p restored --env-file \S+\/env -f \S+ -f \S+ up -d/);
     assert.doesNotMatch(
       r.err,
       /no-init|override/,

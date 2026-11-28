@@ -1,4 +1,4 @@
-import { grantScope, managedScope, scopeFields, type GrantScope } from './site-scope-policy.js';
+import { grantScope, managedScope, grantScopeFields, type GrantScope } from './site-scope-policy.js';
 import {
   type CapabilityName,
   type PermissionGrantAdminItem,
@@ -33,6 +33,7 @@ export async function writePermissionGrant(
     .where(
       and(
         eq(permissionGrants.scopeKind, scope.kind),
+        scope.space == null ? isNull(permissionGrants.scopeSpace) : eq(permissionGrants.scopeSpace, scope.space),
         scope.site === null ? isNull(permissionGrants.scopeSite) : eq(permissionGrants.scopeSite, scope.site),
         scope.room === null ? isNull(permissionGrants.scopeRoom) : eq(permissionGrants.scopeRoom, scope.room),
         eq(permissionGrants.workspaceId, input.workspaceId),
@@ -70,6 +71,7 @@ export async function writePermissionGrant(
       scopeKind: scope.kind,
       scopeSite: scope.site,
       scopeRoom: scope.room,
+      scopeSpace: scope.space ?? null,
       managedSystemId: input.managedSystemId,
       grantedByActorId: input.grantedByActorId,
       expiresAt: input.expiresAt,
@@ -80,7 +82,7 @@ export async function writePermissionGrant(
   if (!grant) throw new HttpError('internal.unexpected', 'permission grant insert returned no row');
   return {
     item: permissionGrantAdminItemSchema.parse({
-      ...scopeFields(grantScope(grant)),
+      ...grantScopeFields(grantScope(grant)),
       id: grant.id,
       // A write response keeps the legacy shape unless the grant came from a group (#2408).
       ...(grant.permissionGroupId

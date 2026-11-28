@@ -62,6 +62,7 @@ const NONE: Capability[] = [
   'explorer.investigate',
   'explorer.handoff',
   'dataset.baseline.approve',
+  'saved_view.approve',
 ];
 
 describe('applyAdminModuleBypass', () => {
