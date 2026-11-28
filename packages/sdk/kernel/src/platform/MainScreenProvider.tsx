@@ -217,9 +217,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       menuId, viewId, kind: sameMenu ? 'current' : 'arrival', generation: isCurrentGeneration,
       isCurrent: () => activePick.current === request && isCurrentGeneration() && canOpen(menuId),
       ...(sameMenu ? {
-        focusOrigin: options?.focusOrigin && (() => {
-          if (request.isCurrent()) options.focusOrigin?.();
-        }),
+        focusOrigin: options?.focusOrigin,
         accept: () => {
           if (!isCurrentGeneration() || !canOpen(menuId)) return;
           usageNav.current.via = 'my-menus';
