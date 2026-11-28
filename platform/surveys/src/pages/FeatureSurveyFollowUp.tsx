@@ -16,7 +16,7 @@ export default function FeatureSurveyFollowUp({ params }: PageProps) {
   const { pageParam, setPage } = usePlatform();
   const selectedId = pageParam('focus');
   const onSelect = useCallback((id: string | null) => { setPage({ focus: id }, id === null ? { replace: true } : undefined); }, [setPage]);
-  return <SurveyChildPage surveyId={params.surveyId!} route={surveyFollowUpRoute} useSearch={useSurveyFollowUpSearch} useHere={useSurveyFollowUpHere}>
+  return <SurveyChildPage surveyId={params.surveyId ?? ''} route={surveyFollowUpRoute} useSearch={useSurveyFollowUpSearch} useHere={useSurveyFollowUpHere}>
     {({ surveyId }) => <SurveyFollowUpScreen surveyId={surveyId} selection={{ selectedId, onSelect }} renderDetail={renderDetail} />}
   </SurveyChildPage>;
 }

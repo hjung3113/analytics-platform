@@ -8,7 +8,7 @@ import { SurveyChildPage } from './SurveyChildPage';
  * The screen's own Back confirms an unsaved draft, and leaving by the menu or the browser asks through the shell's unsaved guard (#2533).
  */
 export default function FeatureSurveyBuilder({ params }: PageProps) {
-  return <SurveyChildPage surveyId={params.surveyId!} route={surveyBuilderRoute} useSearch={useSurveyBuilderSearch} useHere={useSurveyBuilderHere}>
+  return <SurveyChildPage surveyId={params.surveyId ?? ''} route={surveyBuilderRoute} useSearch={useSurveyBuilderSearch} useHere={useSurveyBuilderHere}>
     {({ surveyId, backToList }) => <SurveyBuilderScreen surveyId={surveyId} onBack={backToList} />}
   </SurveyChildPage>;
 }

@@ -73,7 +73,7 @@ export function isDotSegment(segment: string): boolean {
  */
 export function isAppPath(href: string): boolean {
   if (/[#\u0000-\u001F\u007F]/.test(href)) return false;
-  const path = href.split('?')[0];
+  const [path = ''] = href.split('?');
   if (!path.startsWith('/') || path.includes('//') || path.includes('\\')) return false;
   let decoded: string;
   try { decoded = decodeURIComponent(path); } catch { return false; }

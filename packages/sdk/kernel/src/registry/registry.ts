@@ -167,7 +167,10 @@ export type MissingLinkTarget = { menuId: string; target: string; level: 'requir
 
 export class RegistryError extends Error {}
 
-const namespaceOf = (permission: string) => permission.split(':')[0];
+const namespaceOf = (permission: string): string => {
+  const [namespace = ''] = permission.split(':');
+  return namespace;
+};
 const KERNEL_NAMESPACES = new Set<string>(KERNEL_PERMISSIONS.map(namespaceOf));
 /** True when `id` is the namespace of a kernel permission; a module id may not take one. `createRegistry` also reserves the namespaces of the app's declared permissions. */
 export const isKernelNamespace = (id: string) => KERNEL_NAMESPACES.has(id);
@@ -562,16 +565,18 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
       const members = menus.filter(m => m.carrySet === set.id);
       const lists = members.filter(m => m.repeatedPageKeys?.includes(key));
       const single = members.find(m => !m.repeatedPageKeys?.includes(key));
-      if (lists.length > 0 && single !== undefined) fail(`Carry set "${set.id}" key "${key}" is a repeated page key of menu "${lists[0].id}" but not of menu "${single.id}"`);
+      const [listed] = lists;
+      if (listed !== undefined && single !== undefined) fail(`Carry set "${set.id}" key "${key}" is a repeated page key of menu "${listed.id}" but not of menu "${single.id}"`);
     }
   }
   const homeMenus = menus.filter(m => groupSpace.get(m.group) === null && [m.path, ...(m.aliases ?? [])].some(path => segments(path).length === 0));
+  const [homeMenu] = homeMenus;
   let platformHome: MenuEntry | null = null;
   if (platformHomeMenuId !== undefined) {
     platformHome = byId.get(platformHomeMenuId) ?? fail(`platformHomeMenuId "${platformHomeMenuId}" is unknown`);
     if (groupSpace.get(platformHome.group) !== null) fail(`platformHomeMenuId "${platformHomeMenuId}" must be a menu outside every space`);
     if (segments(platformHome.path).some(isParam)) fail(`platformHomeMenuId "${platformHomeMenuId}" route must not need parameters`);
-  } else if (homeMenus.length > 0) fail(`Menu "${homeMenus[0].id}" declares the platform home path "/": pass platformHomeMenuId`);
+  } else if (homeMenu !== undefined) fail(`Menu "${homeMenu.id}" declares the platform home path "/": pass platformHomeMenuId`);
   for (const g of groups) {
     const primaries = menus.filter(m => m.group === g.id && m.primary).length;
     if (primaries !== 1) fail(`Group "${g.id}" needs exactly one primary menu, found ${primaries}`);
@@ -650,7 +655,11 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
   compiled.sort((a, b) => (specificity(a.pattern) < specificity(b.pattern) ? 1 : specificity(a.pattern) > specificity(b.pattern) ? -1 : 0));
   // A pattern that wins over another menu's canonical pattern captures URLs that menu's pathFor builds (a param value equal to the static
   // segment): the redirect or the direct open would land on the wrong menu and permission. Static-over-param stays for legacy aliases only.
-  const overlaps = (a: string[], b: string[]) => a.length === b.length && a.every((segment, i) => isParam(segment) || isParam(b[i]) || segment === b[i]);
+  const overlaps = (a: string[], b: string[]) => a.length === b.length && a.every((segment, i) => {
+    const other = b[i];
+    if (other === undefined) throw new Error('Equal-length route patterns must have matching segments');
+    return isParam(segment) || isParam(other) || segment === other;
+  });
   compiled.forEach((winner, i) => {
     for (const loser of compiled.slice(i + 1)) {
       if (loser.viaAlias || loser.menu.id === winner.menu.id || !overlaps(winner.pattern, loser.pattern)) continue;
@@ -668,9 +677,14 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
       let ok = true;
       let paramIndex = 0;
       for (let i = 0; i < pattern.length; i++) {
-        if (isParam(pattern[i])) {
-          try { params[canonical.filter(isParam)[paramIndex++].slice(1)] = decodeURIComponent(parts[i]); } catch { ok = false; break; }
-        } else if (pattern[i] !== parts[i]) { ok = false; break; }
+        const token = pattern[i];
+        const part = parts[i];
+        if (token === undefined || part === undefined) throw new Error('Route pattern and path must have matching segments');
+        if (isParam(token)) {
+          const name = canonical.filter(isParam)[paramIndex++];
+          if (name === undefined) { ok = false; break; }
+          try { params[name.slice(1)] = decodeURIComponent(part); } catch { ok = false; break; }
+        } else if (token !== part) { ok = false; break; }
       }
       if (ok) return aliasPage === undefined ? { menu, params, viaAlias } : { menu, params, viaAlias, aliasPage };
     }

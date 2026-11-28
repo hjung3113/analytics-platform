@@ -95,7 +95,11 @@ export function recordOrigin(
   const sameMenu = before.menuId === destination.menuId;
   const sameDestination = sameMenu && sameParams(before.params, destination.params)
     && before.selectors.length === destination.selectors.length
-    && before.selectors.every(([key, value], i) => key === destination.selectors[i][0] && value === destination.selectors[i][1]);
+    && before.selectors.every(([key, value], i) => {
+      const other = destination.selectors[i];
+      if (other === undefined) throw new Error('Equal-length destination selectors must have matching entries');
+      return key === other[0] && value === other[1];
+    });
   const set = registry.carrySetOf(to.route.menu);
   const carryHop = !sameMenu && set?.id === registry.carrySetOf(from.route.menu)?.id && carriesReturnTo(set);
   if (carryHop) return { ...prior, destination, carried: {} };

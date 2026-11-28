@@ -13,7 +13,7 @@ import { VOC_ID } from '../feature/voc-query';
 export default function VocDetail({ params }: PageProps) {
   const m = useMessages(MY_ACTIVITY_MESSAGES);
   const { pageParam } = usePlatform();
-  const vocId = params.vocId!;
+  const vocId = params.vocId ?? '';
   if (!VOC_ID.test(vocId)) {
     return <PlatformPage>
       <StateMessage icon={<SearchX className="size-4" aria-hidden />}

@@ -1,0 +1,214 @@
+import { GENERIC_ERROR_MESSAGE } from '../../../../lib/api/errorMapper';
+import { createMilestone, getMilestone, updateMilestone } from '../../../../lib/api/milestones';
+import { listTasks } from '../../../../lib/api/tasks';
+import { registerDefaultHost } from '../../../../lib/host/host-seam';
+import {
+  MilestoneCreatePanel,
+  MilestoneDetailPanel,
+} from '../../../../test/host-adapters/features/tasks/components/MilestoneDetailPanel';
+import type { MilestoneDetailDto } from '@ap/feature-shared';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../../../../lib/api/milestones', () => ({
+  createMilestone: vi.fn(),
+  getMilestone: vi.fn(),
+  updateMilestone: vi.fn(),
+}));
+
+vi.mock('../../../../lib/api/tasks', () => ({ listTasks: vi.fn() }));
+
+const navigateMock = vi.hoisted(() => vi.fn());
+vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigateMock }));
+
+const MANAGED_SYSTEM_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccc00c1';
+const MILESTONE_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbb1021';
+const ACTOR_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0002';
+const WORKSPACE_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeee0001';
+
+const milestone: MilestoneDetailDto = {
+  id: MILESTONE_ID,
+  workspace_id: WORKSPACE_ID,
+  display_id: 'MLS-1021',
+  primary_managed_system_id: MANAGED_SYSTEM_ID,
+  title: 'SSO Stabilization',
+  why: 'SSO 세션 만료 후 재인증 흐름이 없습니다.',
+  status: 'in_progress',
+  owner_actor_id: ACTOR_ID,
+  analytics_area_id: null,
+  start_date: '2026-05-10',
+  target_date: '2026-06-15',
+  created_by: ACTOR_ID,
+  created_at: '2026-07-21T01:00:00.000Z',
+  updated_at: '2026-07-21T08:30:00.000Z',
+  progress: { released_done: 0, in_flight: 0, queued: 0, total: 0, percent: 0 },
+  source_finding: null,
+};
+
+function renderCreatePanel(): void {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MilestoneCreatePanel
+        managedSystems={[{ id: MANAGED_SYSTEM_ID, name: 'Power BI' }]}
+        analyticsAreas={[]}
+        actors={[]}
+        defaultManagedSystemId={MANAGED_SYSTEM_ID}
+        onCreated={() => {}}
+        onCancel={() => {}}
+      />
+    </QueryClientProvider>,
+  );
+}
+
+function renderDetailPanel(): void {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MilestoneDetailPanel
+        milestoneId={MILESTONE_ID}
+        onClose={() => {}}
+        actorNamesById={new Map([[ACTOR_ID, '박서연']])}
+        managedSystemNamesById={new Map([[MANAGED_SYSTEM_ID, 'Power BI']])}
+        analyticsAreaNamesById={new Map()}
+      />
+    </QueryClientProvider>,
+  );
+}
+
+function fillRequiredCreateFields(): void {
+  fireEvent.change(screen.getByRole('textbox', { name: '제목' }), {
+    target: { value: 'Milestone 생성' },
+  });
+  fireEvent.change(screen.getByRole('textbox', { name: '이 Milestone의 목적' }), {
+    target: { value: 'A reason for this milestone' },
+  });
+  fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2026-05-10' } });
+  fireEvent.change(screen.getByLabelText('목표일'), { target: { value: '2026-06-15' } });
+}
+
+beforeEach(() => {
+  vi.mocked(createMilestone).mockReset();
+  vi.mocked(getMilestone).mockReset().mockResolvedValue(milestone);
+  vi.mocked(updateMilestone).mockReset();
+  vi.mocked(listTasks).mockReset().mockResolvedValue({ items: [] });
+});
+
+// The detail content renders at the slot provider, outside the route's seam: it navigates through the default host,
+// which these router-less tests route to `navigateMock` as the call objects the route wrote.
+beforeAll(async () => {
+  const { tanstackHost } = await import('../../../../test/host-adapters/lib/host/tanstack-host');
+  registerDefaultHost({
+    ...tanstackHost,
+    useNavigate: () => (to, options) => {
+      const location = new URL(to, 'http://platform.local');
+      navigateMock({
+        to: location.pathname,
+        search: Object.fromEntries(location.searchParams),
+        ...(options?.replace === true ? { replace: true } : {}),
+      });
+    },
+  });
+});
+
+describe('Milestone mutation error copy', () => {
+  const rawError = 'private backend exception detail';
+
+  it.each(['create', 'title', 'status'] as const)(
+    'shows the catalog message after a failed %s mutation',
+    async (mutation) => {
+      const user = userEvent.setup();
+
+      if (mutation === 'create') {
+        vi.mocked(createMilestone).mockRejectedValue(new Error(rawError));
+        renderCreatePanel();
+        fillRequiredCreateFields();
+        await user.click(screen.getByRole('button', { name: '생성' }));
+      } else {
+        vi.mocked(updateMilestone).mockRejectedValue(new Error(rawError));
+        renderDetailPanel();
+        await screen.findByRole('heading', { name: 'SSO Stabilization' });
+
+        if (mutation === 'title') {
+          await user.click(screen.getByRole('button', { name: '제목 편집' }));
+          fireEvent.change(screen.getByRole('textbox', { name: '제목' }), {
+            target: { value: 'SSO Stabilization v2' },
+          });
+          await user.click(screen.getByRole('button', { name: '저장' }));
+        } else {
+          fireEvent.click(screen.getByRole('combobox', { name: '상태' }));
+          fireEvent.click(await screen.findByRole('option', { name: '릴리스됨' }));
+        }
+      }
+
+      expect(await screen.findByText(GENERIC_ERROR_MESSAGE)).toBeInTheDocument();
+      expect(screen.queryByText(rawError)).not.toBeInTheDocument();
+    },
+  );
+});
+
+describe('Milestone create idempotency', () => {
+  it('keeps submit enabled for invalid input, shows field errors and focuses the first invalid field', async () => {
+    const user = userEvent.setup();
+    renderCreatePanel();
+
+    const submit = screen.getByRole('button', { name: '생성' });
+    const title = screen.getByRole('textbox', { name: '제목' });
+    expect(submit).toBeEnabled();
+    expect(title).not.toHaveAttribute('aria-invalid');
+
+    await user.click(submit);
+
+    expect(screen.getByText('제목을 입력해 주세요.')).toBeVisible();
+    expect(screen.queryByText('제목, 사유, 시스템, 시작일, 목표일을 입력해 주세요.')).toBeNull();
+    expect(title).toHaveAttribute('aria-invalid', 'true');
+    expect(title).toHaveFocus();
+    expect(createMilestone).not.toHaveBeenCalled();
+
+    expect(screen.getByText('사유를 입력해 주세요.')).toBeVisible();
+    expect(screen.getByText('시작일을 선택해 주세요.')).toBeVisible();
+    expect(screen.getByText('목표일을 선택해 주세요.')).toBeVisible();
+    await user.type(title, 'Milestone');
+    expect(title).not.toHaveAttribute('aria-invalid');
+    expect(screen.getByRole('textbox', { name: '이 Milestone의 목적' })).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('시작일')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('목표일')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText('사유를 입력해 주세요.')).toBeVisible();
+    expect(screen.getByText('시작일을 선택해 주세요.')).toBeVisible();
+    expect(screen.getByText('목표일을 선택해 주세요.')).toBeVisible();
+  });
+
+  it('renders required markers beside the Milestone labels without hidden FormField markers', () => {
+    renderCreatePanel();
+
+    const marks = screen.getAllByText('· 필수');
+    expect(marks).toHaveLength(5);
+    expect(marks.every((mark) => mark.closest('label') === null)).toBe(true);
+    expect(screen.getByRole('textbox', { name: '제목' })).toHaveAttribute('aria-required', 'true');
+  });
+
+  it('reuses the original key when the payload is edited and reverted before retry', async () => {
+    const user = userEvent.setup();
+    vi.mocked(createMilestone).mockRejectedValue(new Error('temporary failure'));
+    renderCreatePanel();
+    fillRequiredCreateFields();
+
+    await user.click(screen.getByRole('button', { name: '생성' }));
+    await screen.findByText(GENERIC_ERROR_MESSAGE);
+    const firstKey = vi.mocked(createMilestone).mock.calls[0]?.[1];
+    if (firstKey === undefined) throw new Error('first create idempotency key missing');
+
+    fireEvent.change(screen.getByRole('textbox', { name: '제목' }), {
+      target: { value: 'Changed milestone' },
+    });
+    fireEvent.change(screen.getByRole('textbox', { name: '제목' }), {
+      target: { value: 'Milestone 생성' },
+    });
+    await user.click(screen.getByRole('button', { name: '생성' }));
+    await screen.findByText(GENERIC_ERROR_MESSAGE);
+    const retryKey = vi.mocked(createMilestone).mock.calls[1]?.[1];
+    expect(retryKey).toBe(firstKey);
+  });
+});

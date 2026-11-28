@@ -438,11 +438,12 @@ const BUILD_OUTPUT = { ignores: ['dist/**'] };
 // menu and app, on EV's ui packages and menus (#2216), and on the feature screens (#2217).
 const IME_ENTER_GUARD = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: { 'ap/ime-enter-guard': 'error' } };
 
-// #2180: asserting existence hides the missing-value case. Enable as sites are fixed: contracts and kernel first,
-// then components, adapters, menus and shell. Tests may assert fixture invariants.
+// #2180: asserting existence hides the missing-value case. Enabled preset by preset as their sites are fixed (#2181: the
+// per-preset counts are in issue #2181); on in contracts, ui, kernel, app-host, http-adapter, the app, the feature bridge and
+// the bridge menus so far. Tests may assert fixture invariants, and so may a menu's `src/mock/**`: it is test data too (#2181).
 const NON_NULL = {
   files: ['**/*.{ts,tsx}'],
-  ignores: TEST_ENTRY_FILES,
+  ignores: [...TEST_ENTRY_FILES, 'src/mock/**'],
   plugins: { '@typescript-eslint': tsPlugin },
   rules: { '@typescript-eslint/no-non-null-assertion': 'error' },
 };
@@ -521,7 +522,7 @@ export const ui = [
   layerConfig({ restriction: { allow: [], denyReact: false, mockAllowed: false, allowRadix: true } }),
   designSystem({ componentSource: true }),
   IME_ENTER_GUARD,
-  directLocaleFormat(),
+  directLocaleFormat(),  NON_NULL,
 ];
 
 // #2174: ko/en copy lives in a message table, not a language ternary (rule source: no-lang-copy-ternary.js). Tests may
@@ -585,6 +586,7 @@ export const appHost = [
   layerConfig({ restriction: APP_HOST_RESTRICTION }),
   testEntryOverride(APP_HOST_RESTRICTION, ABOVE_COMPONENTS_TEST_ENTRIES),
   designSystem(),
+  NON_NULL,
 ];
 
 const CONTRACTS_ONLY_RESTRICTION = { allow: ['contracts'], denyReact: true, mockAllowed: false };
@@ -593,7 +595,7 @@ const CONTRACTS_ONLY_RESTRICTION = { allow: ['contracts'], denyReact: true, mock
 export const httpAdapter = [
   layerConfig({ restriction: CONTRACTS_ONLY_RESTRICTION }),
   // Test files compare the response guards with the wire schemas and share stored-panel fixtures.
-  testEntryOverride({ ...CONTRACTS_ONLY_RESTRICTION, allow: ['contracts', 'contract-schemas'] }, ['contract-schemas/source', SAVED_VIEW_PANEL_TEST_ENTRY], ['**/*.test.ts']),
+  testEntryOverride({ ...CONTRACTS_ONLY_RESTRICTION, allow: ['contracts', 'contract-schemas'] }, ['contract-schemas/source', SAVED_VIEW_PANEL_TEST_ENTRY], ['**/*.test.ts']),  NON_NULL,
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -709,6 +711,7 @@ export const featureBridgeMenuPreset = [
   testEntryOverride(FEATURE_BRIDGE_RESTRICTION, [...ABOVE_COMPONENTS_TEST_ENTRIES, ...FEATURE_BRIDGE_TEST_SUBPATHS]),
   // Last, so the mock policy (contracts + mock-server only) also wins for tests under src/mock/**.
   menuMockOverride,
+  NON_NULL,
 ];
 
 /**
@@ -732,6 +735,7 @@ export const featureBridgePreset = [
   },
   designSystem(),
   directLocaleFormat(),
+  NON_NULL,
 ];
 
 // App: all package entries allowed, deep subpaths, mock-server and ./dev banned (#153). src/main.tsx keeps only
@@ -767,6 +771,7 @@ export const app = [
   LANG_COPY,
   designSystem(),
   IME_ENTER_GUARD,
+  NON_NULL,
 ];
 
 // Storybook (#2828, tooling/storybook): a dev-only consumer that sees the SDK like a menu (public entries only). Its story

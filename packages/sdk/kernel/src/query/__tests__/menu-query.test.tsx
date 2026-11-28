@@ -8,6 +8,7 @@ import { PlatformProvider, useHostPlatform } from '../../platform/platform';
 import { type MenuFetch, type QueryState, projectMenuContext, useEntityQuery, useMenuFetch, useMenuQuery } from '../query';
 import { createRegistry } from '../../registry/registry';
 import { memoryStorage, testAdapter, testSession, testSpace } from '../../testing';
+import { at } from '../../test-support';
 
 type Params = { page: number; sort?: string };
 type QueryData = { call: number; context: MenuQuery['context']; params: Params };
@@ -45,8 +46,9 @@ const periodRegistry = makeRegistry('apply');
 
 describe('cross-menu fetch on an idle Apply screen (#2008 KER-6)', () => {
   it('a detached fetch (sidebar source) uses the screen Condition preset only for the screen\'s own endpoint', () => {
+    const home = at(registry.menus, 0);
     const route = {
-      menu: { ...registry.menus[0], conditionPresets: [{ id: 'one', label: { ko: 'One', en: 'One' }, axes: ['team'] }], conditionPreset: { key: 'view', default: 'one' } },
+      menu: { ...home, conditionPresets: [{ id: 'one', label: { ko: 'One', en: 'One' }, axes: ['team'] }], conditionPreset: { key: 'view', default: 'one' } },
       params: {}, viaAlias: false,
     };
     const input = { route, page: [], global: { ...emptyGlobal, condition: { team: ['T'], maker: ['M'] } } };
@@ -84,7 +86,7 @@ describe('cross-menu fetch on an idle Apply screen (#2008 KER-6)', () => {
     expect(fx.requests).toHaveLength(0);
     await act(async () => { expect((await otherFetch.fetch(params)).outcome).toBe('ok'); });
     expect(fx.requests).toHaveLength(1);
-    expect(fx.requests[0].context).toEqual({});
+    expect(at(fx.requests, 0).context).toEqual({});
     expect((await ownFetch.fetch(params)).outcome).toBe('error');
     expect(fx.requests).toHaveLength(1);
   });
@@ -195,7 +197,7 @@ describe('useMenuQuery identity and request shape', () => {
     mount(f);
     expect(await screen.findByText('done:1')).toBeTruthy();
 
-    const request = f.requests[0];
+    const request = at(f.requests, 0);
     expect(Object.keys(request).sort()).toEqual(['context', 'endpoint', 'params']);
     expect(request).toEqual({ endpoint: endpoint.id, context: { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' }, params });
     expect(request.context).not.toHaveProperty('roomNames');
@@ -223,7 +225,7 @@ describe('useMenuQuery identity and request shape', () => {
     expect(screen.getByTestId('query').textContent).toBe('loading:-');
     expect(await screen.findByText('done:2')).toBeTruthy();
     expect(f.requests).toHaveLength(2);
-    expect(f.requests[1].context.from).toBe('2026-09-25T00:00:00');
+    expect(at(f.requests, 1).context.from).toBe('2026-09-25T00:00:00');
   });
 
   it('hides the previous result immediately after a role/session switch', async () => {
@@ -249,7 +251,7 @@ describe('useMenuQuery identity and request shape', () => {
     act(() => finishValidation({ status: 'valid', grantedRooms: [] }));
     expect(await screen.findByText('done:1')).toBeTruthy();
     expect(f.requests).toHaveLength(1);
-    expect(f.requests[0].context.scopeId).toBe('MEM');
+    expect(at(f.requests, 0).context.scopeId).toBe('MEM');
   });
 
   it('queries an endpoint that does not require Scope when no Scope is selected', async () => {
@@ -257,7 +259,7 @@ describe('useMenuQuery identity and request shape', () => {
     mount(f);
     expect(await screen.findByText('done:1')).toBeTruthy();
     expect(f.requests).toHaveLength(1);
-    expect(f.requests[0].context).not.toHaveProperty('scopeId');
+    expect(at(f.requests, 0).context).not.toHaveProperty('scopeId');
   });
 
   it('does not query for a new user until that user has validated the selected Scope', async () => {
@@ -310,12 +312,12 @@ describe('useMenuQuery identity and request shape', () => {
     await act(async () => { await Promise.resolve(); });
     expect(validationCount).toBe(3);
     await act(async () => {
-      replacementValidations[0]({ status: 'valid', grantedRooms: [] });
+      at(replacementValidations, 0)({ status: 'valid', grantedRooms: [] });
       await Promise.resolve();
     });
     expect(f.requests).toHaveLength(1);
 
-    act(() => replacementValidations[1]({ status: 'valid', grantedRooms: [] }));
+    act(() => at(replacementValidations, 1)({ status: 'valid', grantedRooms: [] }));
     expect(await screen.findByText('done:2')).toBeTruthy();
     expect(f.requests).toHaveLength(2);
   });
@@ -343,8 +345,8 @@ describe('useMenuQuery identity and request shape', () => {
     act(() => finishXiaValidation({ status: 'valid', grantedRooms: [] }));
     expect(await screen.findByText('done:2')).toBeTruthy();
     expect(f.requests).toHaveLength(2);
-    expect(f.requests[0].context.scopeId).toBe('MEM');
-    expect(f.requests[1].context.scopeId).toBe('XIA');
+    expect(at(f.requests, 0).context.scopeId).toBe('MEM');
+    expect(at(f.requests, 1).context.scopeId).toBe('XIA');
   });
 
   it('waits for the default period before querying a time-applying endpoint', async () => {
@@ -355,7 +357,7 @@ describe('useMenuQuery identity and request shape', () => {
     expect(await screen.findByText('2026-09-25T00:00:00|2026-09-26T00:00:00')).toBeTruthy();
     await act(async () => { await Promise.resolve(); });
     expect(f.requests).toHaveLength(1);
-    expect(f.requests[0].context).toMatchObject({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' });
+    expect(at(f.requests, 0).context).toMatchObject({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' });
   });
 
   it('does not query while disabled', async () => {
@@ -429,7 +431,7 @@ describe('useMenuQuery keepPrevious (#1365)', () => {
     });
     const settle = async (n: number, outcome?: ApiResponse<QueryData>['outcome']) => {
       await waitFor(() => expect(gates.length).toBeGreaterThanOrEqual(n));
-      await act(async () => { gates[n - 1](outcome); await Promise.resolve(); });
+      await act(async () => { at(gates, n - 1)(outcome); await Promise.resolve(); });
     };
     return { settle, signals, requested: () => gates.length };
   }
@@ -657,7 +659,7 @@ describe('useMenuQuery assessment contract', () => {
 
     expect(screen.getByTestId('outcome').textContent).toBe('empty');
     expect(observed.at(-1)?.response).toBe(serverResponse);
-    expect(f.requests[0].context.roomNames).toEqual([]);
+    expect(at(f.requests, 0).context.roomNames).toEqual([]);
   });
 
   it.each([
@@ -672,7 +674,7 @@ describe('useMenuQuery assessment contract', () => {
     mount(f, { spec: setEndpoint, onQuery: query => { observed.push(query); } });
     expect(await screen.findByText('done:-')).toBeTruthy();
 
-    expect(f.requests[0].context[field]).toEqual([]);
+    expect(at(f.requests, 0).context[field]).toEqual([]);
     expect(observed.at(-1)?.response).toBe(serverResponse);
   });
 
@@ -684,7 +686,7 @@ describe('useMenuQuery assessment contract', () => {
     mount(f, { spec: roomEndpoint, onQuery: query => { observed.push(query); } });
     expect(await screen.findByText('done:-')).toBeTruthy();
 
-    expect(f.requests[0].context.roomNames).toBeNull();
+    expect(at(f.requests, 0).context.roomNames).toBeNull();
     expect(observed.at(-1)?.response).toMatchObject({
       outcome: 'error', trust: null, assessments: [],
       message: 'contract_violation: assessments [] ≠ declared [collection, coverage]',
@@ -763,7 +765,7 @@ describe('useMenuFetch (caller-driven: table loadPage, export)', () => {
     const fetcher = mountFetch(f);
     act(() => screen.getByTestId('applied').click());
     await fetcher().fetch({ page: 1 });
-    expect(f.requests[0].context).toEqual({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' });
+    expect(at(f.requests, 0).context).toEqual({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' });
   });
 
   it('answers not_ready without reaching the adapter while Scope is unvalidated', async () => {
@@ -782,7 +784,7 @@ describe('useMenuFetch (caller-driven: table loadPage, export)', () => {
     act(() => finishValidation({ status: 'valid', grantedRooms: [] }));
     expect(await screen.findByText('true')).toBeTruthy();
     expect((await fetcher().fetch({ page: 1 })).outcome).toBe('ok');
-    expect(f.requests[0].context.scopeId).toBe('MEM');
+    expect(at(f.requests, 0).context.scopeId).toBe('MEM');
   });
 
   it('applies the same assessment contract as useMenuQuery', async () => {

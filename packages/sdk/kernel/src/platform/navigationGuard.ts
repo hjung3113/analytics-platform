@@ -33,8 +33,15 @@ type Entry = { read: () => UnsavedGuardOptions; seq: number; unloadOnly: boolean
 /** `hiddenKeys`: page keys the destination menu keeps out of its address; a Back/Forward address can still carry one from an older entry, so a `{ pageKeys }` comparison skips them. */
 export type AddressChange = { from: string; to: string; hiddenKeys?: readonly string[] };
 
-const pathOf = (url: string): string => url.split('?')[0].split('#')[0];
-const addressOf = (url: string): string => url.split('#')[0];
+const pathOf = (url: string): string => {
+  const [beforeQuery = ''] = url.split('?');
+  const [path = ''] = beforeQuery.split('#');
+  return path;
+};
+const addressOf = (url: string): string => {
+  const [address = ''] = url.split('#');
+  return address;
+};
 /** The ordered decoded values of one query key. The query is everything after the first `?` (a later `?` is part of a value), fragment excluded. */
 const valuesOf = (url: string, key: string): string[] => {
   const address = addressOf(url);

@@ -37,7 +37,11 @@ export function splitHidden(url: string, keys: readonly string[]): { url: string
   return { url: url.slice(0, q) + (visible.length > 0 ? '?' + new URLSearchParams(visible).toString() : ''), hidden };
 }
 
-export const sameHidden = (a: readonly Pair[], b: readonly Pair[]): boolean => a.length === b.length && a.every(([k, v], i) => k === b[i][0] && v === b[i][1]);
+export const sameHidden = (a: readonly Pair[], b: readonly Pair[]): boolean => a.length === b.length && a.every(([k, v], i) => {
+  const other = b[i];
+  if (other === undefined) throw new Error('Equal-length hidden pairs must have matching entries');
+  return k === other[0] && v === other[1];
+});
 
 /** The pairs a menu may take as hidden state: only its declared hidden keys, and one value for a key that is not repeated. Anything else is dropped (a restored value is never trusted). */
 export function validateHidden(pairs: readonly Pair[], menu: { hiddenPageKeys?: readonly string[]; repeatedPageKeys?: readonly string[] } | undefined): Pair[] {

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { usePlatform } from '@ap/kernel';
 import type { PlatformTarget, TargetOf } from './links';
+import { ownValue } from './own-value';
 
 export type OperatorRouteSpec = {
   /** The feature path, e.g. `/vocs`. */
@@ -56,9 +57,11 @@ export function operatorRoute({ screenPath, screenFixed, menuId, keys, screenAbs
     for (const [key, value] of search) {
       if (Object.hasOwn(screenFixed, key)) {
         if (screenFixed[key] !== value) return null;
-      } else if (Object.hasOwn(keys, key)) {
-        if (value !== '') page[keys[key]!] = screenAbsent[key] === value ? null : value;
-      } else return null;
+        continue;
+      }
+      const pageKey = ownValue(keys, key);
+      if (pageKey === undefined) return null;
+      if (value !== '') page[pageKey] = screenAbsent[key] === value ? null : value;
     }
     if (Object.keys(screenFixed).some(key => !search.has(key))) return null;
     if (hashAt !== -1 && hash !== undefined) page[hash.key] = hash.fragment;
@@ -82,7 +85,8 @@ export function operatorRoute({ screenPath, screenFixed, menuId, keys, screenAbs
     preset(screenSearch) {
       const page: Record<string, string> = {};
       for (const [screenKey, value] of Object.entries(screenSearch)) {
-        if (Object.hasOwn(keys, screenKey)) page[keys[screenKey]!] = value;
+        const pageKey = ownValue(keys, screenKey);
+        if (pageKey !== undefined) page[pageKey] = value;
       }
       if (hash !== undefined && screenSearch[hash.key] === hash.fragment) page[hash.key] = hash.fragment;
       return page;

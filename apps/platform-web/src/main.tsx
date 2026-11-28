@@ -38,8 +38,11 @@ const homeTodo = { Todo: () => <><improvementHomeTodoSlot.Todo /><homeTodoSlot.T
 const vocCompose = vocComposeSlot(managedSystemFor, useComposeDefaultStatus);
 const useAppSlots = makeAppSlots({ notifications: notificationsSlot, vocCompose, homeTodo, scopeControl: scopeControlSlot, navCounts: navCountsSlot, spaceNavSection: savedViewsSlot, analysisActions: improvementAnalysisActions, accessRequest: accessRequestSlot, undeclaredMenus: undeclaredMenusSlot });
 
+const container = document.getElementById('root');
+if (!container) throw new Error('index.html has no #root element to mount the app in');
+
 void startAppHost({
-  container: document.getElementById('root')!,
+  container,
   declarations: createAssembly.configureDeclarations?.(declarations) ?? declarations,
   createAssembly,
   basePath: import.meta.env.BASE_URL,

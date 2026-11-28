@@ -51,7 +51,7 @@ export function AnalysisSelectionInstances({ instances, publishers, children }: 
   const indexed = useMemo(() => store && menu && outputs ? indexChartSelectionChannels(menu, channels, outputs) : undefined, [store, menu, channels, outputs]);
   const chartChannels = useStable(indexed?.channels, (a, b) => a === b || !!a && !!b && a.size === b.size && [...a].every(([key, channel]) => {
     const other = b.get(key);
-    return channel.dimension === other?.dimension && channel.shape === other.shape && channel.writers[0].panelId === other.writers[0].panelId;
+    return channel.dimension === other?.dimension && channel.shape === other.shape && chartChannelWriter(channel.writers).panelId === chartChannelWriter(other.writers).panelId;
   }));
   const value = useMemo(() => {
     if (!instances || !outputs || !store) return;
@@ -97,10 +97,18 @@ const useWriteScreen = (route: MenuPlatform['route']) => route ? use(PaneScreenC
 
 const readNoGraph = () => undefined;
 
+/** Chart channels are built with one writer. A missing one is the same failure as reading `[0].panelId`. */
+function chartChannelWriter<T>(writers: readonly T[]): T {
+  const writer = writers[0];
+  if (writer === undefined) throw new Error('Chart selection channel requires a writer');
+  return writer;
+}
+
 function chartInstanceOutput(graph: ReturnType<typeof analysisSelectionDependencies>, key: string, instanceId: string) {
   const namespaced = panelOutputRef(instanceId, key);
   if (graph.chartChannels?.has(namespaced)) return namespaced;
-  if (graph.chartChannels?.get(key)?.writers[0].panelId === instanceId) return key;
+  const channel = graph.chartChannels?.get(key);
+  if (channel !== undefined && chartChannelWriter(channel.writers).panelId === instanceId) return key;
 }
 
 /** Host chart metadata for a registered instance output; null when the chart instance's output was rejected. */
@@ -112,7 +120,8 @@ export function useChartInstanceSelectionOutput(key: string | undefined, instanc
     || key === undefined || instanceId === undefined) return;
   const outputKey = chartInstanceOutput(configured.graph, key, instanceId);
   if (outputKey !== undefined) {
-    const selection = configured.graph.chartChannels?.get(outputKey)?.writers[0].selection;
+    const channel = configured.graph.chartChannels?.get(outputKey);
+    const selection = channel === undefined ? undefined : chartChannelWriter(channel.writers).selection;
     return selection && { key: outputKey, shape: selection.shape, dimension: selection.dimension };
   }
   return configured.chartIds.has(instanceId) ? null : undefined;
@@ -387,6 +396,7 @@ export function useAnalysisSelectionInputs(panelId: string, inputs?: readonly Pa
     && sameItems(a.result.unavailable, b.result.unavailable)
     && a.result.applied.every((input, i) => {
       const other = b.result.applied[i];
+      if (other === undefined) throw new Error('Equal-length analysis selection inputs must have matching entries');
       return input.key === other.key && input.use === other.use && input.held === other.held
         && (!inputs || (input.dimension === other.dimension && input.source?.panelId === other.source?.panelId
           && input.source?.title === other.source?.title && input.source?.dimension === other.source?.dimension))
@@ -424,13 +434,15 @@ function orderChips(chips: readonly AnalysisSelectionChip[]): AnalysisSelectionC
     // A restored URL can contain a cycle of filter inputs: break only the cycle, at its first declared member.
     // Every remaining chip waits on another remaining chip here, so following `after` must revisit a key.
     const seen: string[] = [];
-    let key: string | null = remaining[0].key;
+    const [first] = remaining;
+    if (first === undefined) throw new Error('Cycle break requires a remaining chip');
+    let key: string | null = first.key;
     while (key !== null && !seen.includes(key)) {
       seen.push(key);
       key = waiting.get(key)?.after ?? null;
     }
     const cycle = new Set(key === null ? seen : seen.slice(seen.indexOf(key)));
-    const root = remaining.find(chip => cycle.has(chip.key)) ?? remaining[0];
+    const root = remaining.find(chip => cycle.has(chip.key)) ?? first;
     waiting.set(root.key, { ...root, after: null });
   }
   return ordered;
@@ -515,10 +527,13 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
   );
   const { chips } = useStable({ owner, configured: dependencies.configured, chips: result }, (a, b) =>
     a.owner === b.owner && a.configured === b.configured
-    && a.chips.length === b.chips.length && a.chips.every((chip, i) =>
-      chip.key === b.chips[i].key && chip.dimension === b.chips[i].dimension && (!dependencies.configured || chip.after === b.chips[i].after) && chip.available === b.chips[i].available && chip.applied === b.chips[i].applied && chip.arrival?.href === b.chips[i].arrival?.href
-      && chip.arrival?.origin?.menuLabel === b.chips[i].arrival?.origin?.menuLabel
-      && sameSelection(chip.selection, b.chips[i].selection)),
+    && a.chips.length === b.chips.length && a.chips.every((chip, i) => {
+      const other = b.chips[i];
+      if (other === undefined) throw new Error('Equal-length analysis selection chips must have matching entries');
+      return chip.key === other.key && chip.dimension === other.dimension && (!dependencies.configured || chip.after === other.after) && chip.available === other.available && chip.applied === other.applied && chip.arrival?.href === other.arrival?.href
+        && chip.arrival?.origin?.menuLabel === other.arrival?.origin?.menuLabel
+        && sameSelection(chip.selection, other.selection);
+    }),
   );
 
   // Bind the committed screen before descendant layout effects can clear it, as pane address writes do.

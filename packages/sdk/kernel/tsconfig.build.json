@@ -15,5 +15,5 @@
     "paths": { "@ap/contracts": ["../contracts/dist/index.d.ts"] }
   },
   "include": ["src"],
-  "exclude": ["**/*.test.*", "**/__tests__/**", "**/__fixtures__/**", "src/test-setup.ts", "src/vitest.setup.ts"]
+  "exclude": ["**/*.test.*", "**/__tests__/**", "**/__fixtures__/**", "src/test-setup.ts", "src/test-support.*", "src/vitest.setup.ts"]
 }
