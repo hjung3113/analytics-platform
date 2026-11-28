@@ -1,7 +1,8 @@
+import { useSavedViewPickWarning } from './useSavedViewPickWarning';
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { PEOPLE_LOOKUP_MAX, type ApprovalRequestInfo, type GroupMember, type SavedViewSupport, type Result, type SavedView, type SavedViewListItem, type SavedViewStore, type ViewVisibility } from '@ap/contracts';
 import { CONTEXT_LABELS, diagnoseSavedView, useEquipmentAxes, useI18n, useMessages, type SavedViewDiagnosis } from '@ap/kernel';
-import { captureApplied, useAnalysisSelectionLabels, useHostPlatform, useMyMenus, useSavedViews, type SavedViews, type SelectOutcome } from '@ap/kernel/host';
+import { captureApplied, useAnalysisSelectionLabels, useHostPlatform, useMyMenus, useSavedViews, type SavedViews } from '@ap/kernel/host';
 import { DirtyConfirmation } from '@ap/ui';
 import { failureText, SaveViewDialog, ShareTargetPicker, ViewManagement, ViewSelector, type SaveViewDialogProps, type ShareGroupsState, type ShareTargetDraft, type ViewFilter, type ViewSelectorState } from '@ap/components';
 import { SHELL_MESSAGES } from '../messages';
@@ -100,16 +101,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     if (result.ok) toast(done); else toast(result.code === 'blocked' ? blockedMessage : fail(result.reason), { tone: 'warning' });
     return result.ok;
   };
-  const pickFailed = (outcome: SelectOutcome) => {
-    if (outcome.ok || outcome.reason === 'held' || outcome.reason === 'cancelled') return;
-    const keys = {
-      'wrong-menu': 'savedViewWrongMenu',
-      'stale-schema': 'savedViewStaleSchema',
-      unavailable: 'savedViewUnavailable',
-      denied: 'savedViewDenied',
-    } as const;
-    toast(m(keys[outcome.reason]), { tone: 'warning' });
-  };
+  const pickFailed = useSavedViewPickWarning();
 
   // Focus goes back to the selector after a surface that has no trigger of its own; deferred so it lands after the dialog's own cleanup.
   const [returnFocus, setReturnFocus] = useState(0);
@@ -329,7 +321,10 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       picker={picker}
       views={items} currentId={selected?.view.id ?? null} defaultId={views.defaultId} state={state} discardsChanges={discards}
       selectionDisabled={host.queryPolicy.autoApplyingDefault === true}
-      selectionRequest={selectionRequest}
+      selectionRequest={selectionRequest && {
+        ...selectionRequest,
+        onSelect: id => { void views.select(id, { via: 'my-menus' }).then(pickFailed); },
+      }}
       loading={views.status === 'loading'} error={views.status === 'unavailable'} onRetry={views.refresh}
       groups={groups.entries.map(entry => ({ id: entry.group.id, name: entry.group.name }))} query={query} onQuery={setQuery} filter={filter} onFilter={setFilter} userId={userId} ownerLabel={ownerName} staleIds={staleIds} panelCount={panelCount}
       onSelect={id => { void views.select(id).then(pickFailed); }}

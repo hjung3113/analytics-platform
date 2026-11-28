@@ -248,6 +248,11 @@ describe('usage navigation path (#605)', () => {
     expect('fromMenuId' in rows[2]).toBe(false);
   });
 
+  it('accepts a My Menus entry and keeps its source', async () => {
+    expect((await recordUsage([entry({ via: 'my-menus', fromMenuId: 'home' })])).accepted).toBe(1);
+    expect(storedUsage()[0]).toMatchObject({ via: 'my-menus', fromMenuId: 'home' });
+  });
+
   it('accepts paneOpen/paneReplace and fromMenuId on a board entry, each key optional, and stores them', async () => {
     const board = { source: 'board' as const, stayId: 'stay-a' };
     expect((await recordUsage([entry({ ...board, via: 'paneOpen', fromMenuId: null }), entry({ ...board, via: 'paneReplace', fromMenuId: 'home' }), entry({ ...board }), entry({ ...board, fromMenuId: 'home' })])).accepted).toBe(4);

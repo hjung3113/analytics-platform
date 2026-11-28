@@ -268,7 +268,7 @@ Text | type | type Text = { en: string; ko: string; }
 TextOp | type | type TextOp = (typeof @ap/contracts#TEXT_OPS)[number]
 Trust | type | type Trust = { coverage: null | number; dataThrough: null | string; metricVersion?: string; provisional: boolean; source: string; sourceLogicVersions?: string[]; updatedAt: string; }
 UPLOAD_FILE_MAX_BYTES | const | const UPLOAD_FILE_MAX_BYTES: 33554432
-USAGE_VIAS | const | const USAGE_VIAS: readonly [ "sidebar", "switcher", "palette", "board", "return", "crossLink", "drill", "history", "direct", "link", "paneOpen", "paneReplace" ]
+USAGE_VIAS | const | const USAGE_VIAS: readonly [ "sidebar", "my-menus", "switcher", "palette", "board", "return", "crossLink", "drill", "history", "direct", "link", "paneOpen", "paneReplace" ]
 UpdateNoticeInput | type | type UpdateNoticeInput = @ap/contracts#NoticeDraft & { expectedVersion: string; id: string; idempotencyKey: string; }
 UploadFileInput | type | type UploadFileInput = { file: Blob; idempotencyKey: string; name: string; }
 UploadedFile | type | type UploadedFile = { id: string; mimeType: string; name: string; size: number; }

@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Bookmark, ChevronDown, ChevronRight, Users } from 'lucide-react';
 import { PEOPLE_LOOKUP_MAX, type MenuView } from '@ap/contracts';
 import { PlatformLink, useI18n, useMessages } from '@ap/kernel';
 import { useHostPlatform, useMyMenus } from '@ap/kernel/host';
 import { cn, navRowVariants } from '@ap/ui';
 import { SHELL_MESSAGES } from '../messages';
+import { useSavedViewPickWarning } from '../saved-view/useSavedViewPickWarning';
 import { SIDEBAR_GROUP_TITLE } from './SidebarHierarchy';
 
 type Item = { view: MenuView; owner?: string };
@@ -12,37 +13,43 @@ type Item = { view: MenuView; owner?: string };
 export function MyMenusSection() {
   const { savedViewStore: store, session, revision, user, scope, adapter, canOpen, route, registry, resolveLink, reportShellError } = useHostPlatform();
   const { revision: writes, open } = useMyMenus();
-  const read = useMemo(() => ({ store, session, revision, userId: user.id, scopeId: scope.scopeId, writes, adapter, canOpen, reportShellError }), [store, session, revision, user.id, scope.scopeId, writes, adapter, canOpen, reportShellError]);
-  const [result, setResult] = useState<{ read: typeof read; items: Item[] }>();
+  const owner = useMemo(() => ({ store, session, revision, userId: user.id, scopeId: scope.scopeId, adapter, canOpen }), [store, session, revision, user.id, scope.scopeId, adapter, canOpen]);
+  const reporter = useRef(reportShellError);
+  useLayoutEffect(() => { reporter.current = reportShellError; }, [reportShellError]);
+  const pickFailed = useSavedViewPickWarning();
+  const [result, setResult] = useState<{ owner: typeof owner; items: Item[] }>();
   useEffect(() => {
-    const { store } = read;
+    const { store, userId, adapter, canOpen } = owner;
     if (!store?.listMyMenus) return;
     const controller = new AbortController();
     const load = async () => {
-      const entries = await store.listMyMenus?.(read.userId) ?? [];
+      const entries = await store.listMyMenus?.(userId) ?? [];
       if (controller.signal.aborted) return;
-      const views = entries.flatMap(({ view, capabilities }) => view.kind === 'menu-view' && capabilities.canView && read.canOpen(view.menuId) ? [view] : []);
-      const ids = [...new Set(views.map(view => view.ownerId).filter(id => id !== read.userId))];
+      const views = entries.flatMap(({ view, capabilities }) => view.kind === 'menu-view' && capabilities.canView && canOpen(view.menuId) ? [view] : []);
+      const ids = [...new Set(views.map(view => view.ownerId).filter(id => id !== userId))];
       const lookups = [];
       for (let i = 0; i < ids.length; i += PEOPLE_LOOKUP_MAX) {
         // A failed directory chunk falls back to the owner ID, as in the view selector.
-        lookups.push(read.adapter.lookupPeople(ids.slice(i, i + PEOPLE_LOOKUP_MAX), controller.signal).catch(() => []));
+        lookups.push(adapter.lookupPeople(ids.slice(i, i + PEOPLE_LOOKUP_MAX), controller.signal).catch(() => []));
       }
       const names = new Map((await Promise.all(lookups)).flat().map(person => [person.userId, person.displayName]));
-      if (!controller.signal.aborted) setResult({ read, items: views.map(view => ({
-        view, owner: view.ownerId === read.userId ? undefined : names.get(view.ownerId) || view.ownerId,
+      if (!controller.signal.aborted) setResult({ owner, items: views.map(view => ({
+        view, owner: view.ownerId === userId ? undefined : names.get(view.ownerId) || view.ownerId,
       })) });
     };
     void load().catch(error => {
       // Hide just this section if its list cannot be read.
-      if (!controller.signal.aborted) read.reportShellError(error);
+      if (!controller.signal.aborted) {
+        setResult(undefined);
+        reporter.current(error);
+      }
     });
     return () => controller.abort();
-  }, [read]);
+  }, [owner, writes]);
 
   const m = useMessages(SHELL_MESSAGES);
   const { tx } = useI18n();
-  const rows = result?.read === read ? result.items.flatMap(({ view, owner }) => {
+  const rows = result?.owner === owner ? result.items.flatMap(({ view, owner }) => {
     const menu = registry.menuById(view.menuId);
     const params = route?.menu.id === view.menuId ? route.params : undefined;
     // A view stores a menu ID; another parameterized path needs its own destination parameters.
@@ -71,7 +78,8 @@ export function MyMenusSection() {
       onClick={event => {
         if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
-        open?.(view.menuId, view.id, href);
+        const row = event.currentTarget;
+        open?.(view.menuId, view.id, href, { focusOrigin: () => row.focus(), onOutcome: pickFailed });
       }}>
       <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
       <span className="min-w-0 flex-1"><span className="block truncate">{view.name}</span>

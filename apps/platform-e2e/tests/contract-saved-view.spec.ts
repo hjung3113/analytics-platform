@@ -380,11 +380,13 @@ test.describe('My Menus saved-view sharing', () => {
     await picker.getByRole('button', { name: '새 그룹 만들기' }).click();
     const create = page.getByRole('dialog', { name: '새 그룹 만들기' });
     await create.getByLabel('그룹 이름').fill(group);
-    await create.getByLabel('사람 검색').fill('오세진');
+    await create.getByLabel('멤버 검색').fill('오세진');
     await create.getByRole('checkbox', { name: /오세진/ }).check();
     await create.getByRole('button', { name: '그룹 만들기', exact: true }).click();
     await expect(picker.getByRole('checkbox', { name: new RegExp(group) })).toBeChecked();
     await picker.getByRole('button', { name: '공유 대상 저장' }).click();
+    await expect(toast(page, `"${name}" 뷰를 저장하고 공유 대상을 정했습니다.`)).toBeVisible();
+    await expect(picker).toHaveCount(0);
     await expect(myMenus(page).getByRole('group', { name: '내가 만든 것' }).getByRole('link', { name: new RegExp(name) })).toBeVisible();
 
     const recipient = await context.newPage();
@@ -392,7 +394,7 @@ test.describe('My Menus saved-view sharing', () => {
     await openCycle(recipient, `/analytics/cycle-time?v=1&scopeId=FDRY&${PERIOD}`);
     await savePrivate(recipient, adminAnchor);
     await recipient.goto(`/analytics/productivity?v=1&scopeId=FDRY&${PERIOD}`);
-    const sharedLink = myMenus(recipient).getByRole('group', { name: '공유받음' }).getByRole('link', { name: new RegExp(`${name}.*한지우`) });
+    const sharedLink = myMenus(recipient).getByRole('group', { name: '공유받음' }).getByRole('link', { name: new RegExp(`${name}.*공정 엔지니어`) });
     await expect(sharedLink).toBeVisible();
     await evidence(recipient, testInfo, 'my-menus-shared');
     await sharedLink.click();
@@ -413,6 +415,8 @@ test.describe('My Menus saved-view sharing', () => {
 
     await recipient.reload();
     await expect(myMenus(recipient).getByRole('link', { name: new RegExp(adminAnchor) })).toBeVisible();
+    // The owned anchor and shared count come from the same completed sidebar list read.
+    await expect(myMenus(recipient).getByRole('button', { name: '공유받음 0', exact: true })).toBeVisible();
     await expect(sharedLink).toHaveCount(0);
     await evidence(recipient, testInfo, 'my-menus-membership-revoked');
   });

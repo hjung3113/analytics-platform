@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { useLayoutEffect, useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { groupId, spaceId, type SavedViewSupport } from '@ap/contracts';
+import { groupId, spaceId, type SavedViewSupport, type UsageEvent } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, diagnoseSavedView, useSavedViewPanels, useSavedViewSupport, useUnsavedGuard } from '@ap/kernel';
 import { PaneQueryDraftProvider, PaneScreenProvider, useHostPlatform, useLeaveRequest } from '@ap/kernel/host';
 import { ToastProbe, createFakeSavedViewStore as createFakeViewStore, memoryStorage, noContext, testAdapter, testSavedView as viewOf, testSession, testSpace, testViewCapabilities as ALL, useTestSavedViewTableSlots, type FakeSavedViewStore as FakeViewStore } from '@ap/kernel/testing';
@@ -1209,6 +1209,164 @@ describe('My Menus sidebar', () => {
     expect(platform.global.roomNames).toEqual(['PHOTO']);
     expect(new URLSearchParams(window.location.search).has('savedViewToken')).toBe(false);
     await waitFor(() => expect(recordUsage).toHaveBeenCalledWith([expect.objectContaining({ name: 'entry', menuId: 'home', via: 'my-menus' })]));
+  });
+
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (error: Error) => void;
+    const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
+    return { promise, resolve, reject };
+  }
+
+  function trackMyMenusReads(store: FakeViewStore) {
+    const read = store.listMyMenus;
+    if (!read) throw new Error('My Menus fixture requires a list reader');
+    const list = vi.fn(read);
+    store.listMyMenus = list;
+    return list;
+  }
+
+  function mountMyMenus(store: FakeViewStore, url: string, options: { autoApply?: boolean } = {}) {
+    const recordUsage = vi.fn(async (events: UsageEvent[]) => ({ accepted: events.length }));
+    const chosenRegistry = options.autoApply ? createRegistry({
+      spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
+      menus: [menu('home', '/', { requiresScope: false, query: { mode: 'apply', autoApplyDefault: true, applyPeriodOnLegacyEntry: true } }),
+        menu('live', '/live', { requiresScope: false, savedViews: undefined, features: { export: false, savedView: false, annotate: false, compare: false } })],
+    }) : registry;
+    window.history.replaceState(null, '', url);
+    render(<I18nProvider><PlatformProvider registry={chosenRegistry} adapter={testAdapter({ session: () => session, recordUsage })} savedViews={store}>
+      <Probe /><AppSidebar onToggle={() => {}} /><GlobalContextBar /><ToastProbe />
+    </PlatformProvider></I18nProvider>);
+    return recordUsage;
+  }
+
+  it.each(['legacy period', 'personal default'] as const)('keeps a deferred sidebar pick through %s initialization', async kind => {
+    const fallback = { ...mine, id: 'fallback', name: '개인 기본', myMenu: undefined, context: { ...mine.context, roomNames: ['ETCH'] } };
+    const store = createFakeViewStore([mine, fallback]);
+    store.defaults.set('u1:home', fallback.id);
+    const pending = deferred<Awaited<ReturnType<FakeViewStore['get']>>>();
+    const get = store.get;
+    const reread = vi.spyOn(store, 'get').mockImplementation(id => id === mine.id ? pending.promise : get(id));
+    const beyondDefaultDeadline = 10_000;
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      mountMyMenus(store, kind === 'legacy period' ? '/live?scopeId=MEM&roomNames=ETCH' : '/live', { autoApply: true });
+      // Drive the application timers without adding user-event's own delays.
+      await act(async () => {});
+      fireEvent.click(screen.getByRole('link', { name: /포토 뷰.*home/ }));
+      await act(async () => { await vi.advanceTimersByTimeAsync(beyondDefaultDeadline); });
+      await act(async () => pending.resolve(await get(mine.id)));
+      expect(reread).toHaveBeenCalledWith(mine.id);
+      expect(reread).not.toHaveBeenCalledWith(fallback.id);
+      expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰');
+      expect(platform.global.roomNames).toEqual(['PHOTO']);
+      expect(toasts().join(' ')).not.toContain('개인 기본');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each(['presentation', 'navigation', 'Scope'] as const)('checks a deferred sidebar pick after a %s change', async change => {
+    const store = createFakeViewStore([mine]);
+    const hold = deferred<void>();
+    store.getHold.set(mine.id, hold.promise);
+    mountMyMenus(store, `/live?scopeId=MEM&${period}`);
+    fireEvent.click(await screen.findByRole('link', { name: /포토 뷰.*home/ }));
+    await waitFor(() => expect(store.reads).toContain('get'));
+    act(() => {
+      switch (change) {
+        case 'presentation': platform.setDetailExpanded(true); break;
+        case 'navigation': platform.setGlobal({ roomNames: ['ETCH'] }); break;
+        case 'Scope': platform.setGlobal({ scopeId: 'FDRY' }); break;
+      }
+    });
+    if (change === 'presentation') expect(platform.detailExpanded).toBe(true);
+    await act(async () => hold.resolve());
+    if (change === 'presentation') {
+      expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰');
+    } else {
+      expect(selector()).not.toHaveAccessibleName('저장된 뷰: 포토 뷰');
+      expect(toasts()).toEqual([]);
+    }
+  });
+
+  it.each([
+    ['denied', '이 뷰를 볼 권한이 없습니다.'],
+    ['missing', '뷰를 불러오지 못했습니다.'],
+    ['stale', '메뉴 화면 버전이 달라 적용하지 못했습니다.'],
+  ] as const)('warns when a cross-menu pick is %s at click time', async (kind, message) => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([mine]);
+    const answers = {
+      denied: { denied: true, id: mine.id, reason: 'scope' } as const,
+      missing: null,
+      stale: { view: { ...mine, menuSchemaVersion: 99 }, capabilities: ALL },
+    };
+    vi.spyOn(store, 'get').mockResolvedValue(answers[kind]);
+    mountMyMenus(store, `/live?scopeId=MEM&${period}`);
+    await user.click(await screen.findByRole('link', { name: /포토 뷰.*home/ }));
+    await waitFor(() => expect(toasts().join(' ')).toContain(message));
+  });
+
+  it.each(['cancel', 'already selected', 'refused', 'discard'] as const)('records only accepted same-menu picks and restores sidebar focus (%s)', async action => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([mine, shared]);
+    const recordUsage = mountMyMenus(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`);
+    const entries = () => recordUsage.mock.calls.flatMap(([events]) => events).filter(event => event.name === 'entry');
+    await waitFor(() => expect(entries()).toHaveLength(1));
+    const first = await screen.findByRole('link', { name: /포토 뷰.*home/ });
+    await user.click(first);
+    await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰'));
+    await waitFor(() => expect(entries()).toHaveLength(2));
+    const second = action === 'already selected' ? first : within(section()).getByRole('link', { name: /공유 뷰.*home/ });
+    if (action === 'cancel' || action === 'discard') act(() => platform.setGlobal({ roomNames: ['ETCH'] }));
+    if (action === 'refused') vi.spyOn(store, 'get').mockResolvedValue(null);
+    await user.click(second);
+    if (action === 'cancel' || action === 'discard') {
+      const dialog = await screen.findByRole('dialog');
+      expect.soft(entries()).toHaveLength(2);
+      await user.click(within(dialog).getByRole('button', { name: action === 'cancel' ? '취소' : '버리고 이동' }));
+    }
+    if (action === 'refused') await waitFor(() => expect(toasts().join(' ')).toContain('뷰를 불러오지 못했습니다.'));
+    if (action === 'discard') {
+      await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 공유 뷰'));
+      await waitFor(() => expect(entries()).toHaveLength(3));
+      expect(entries()[2]).toMatchObject({ via: 'my-menus' });
+    } else {
+      expect.soft(entries()).toHaveLength(2);
+    }
+    await waitFor(() => expect(second).toHaveFocus());
+  });
+
+  it('keeps a collapsed group mounted during refresh and hides it if the read fails', async () => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([mine, shared]);
+    const pending = deferred<Awaited<ReturnType<NonNullable<FakeViewStore['listMyMenus']>>>>();
+    const list = trackMyMenusReads(store);
+    mountMyMenus(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`);
+    const owned = await screen.findByRole('button', { name: '내가 만든 것 1' });
+    await user.click(owned);
+    const readsBeforeWrite = list.mock.calls.length;
+    list.mockReturnValue(pending.promise);
+    await user.click(selector());
+    await user.click(await screen.findByRole('button', { name: '포토 뷰 동작' }));
+    await user.click(await screen.findByRole('menuitem', { name: '내 메뉴에서 내리기' }));
+    await waitFor(() => expect(list.mock.calls.length).toBeGreaterThan(readsBeforeWrite));
+    expect(owned).toBeInTheDocument();
+    expect(owned).toHaveAttribute('aria-expanded', 'false');
+    await act(async () => pending.reject(new Error('offline')));
+    expect(screen.queryByRole('region', { name: '내 메뉴' })).toBeNull();
+  });
+
+  it('keeps the completed list when navigation changes only the error reporter', async () => {
+    const store = createFakeViewStore([mine]);
+    const list = trackMyMenusReads(store);
+    mountMyMenus(store, `/?scopeId=MEM&${period}`);
+    await screen.findByRole('region', { name: '내 메뉴' });
+    const count = list.mock.calls.length;
+    await act(async () => { platform.navigate(`/live?scopeId=MEM&${period}`); });
+    expect(platform.route?.menu.id).toBe('live');
+    expect(list).toHaveBeenCalledTimes(count);
   });
 
   it('refreshes after saving a marked view and clearing the marker from its menu', async () => {

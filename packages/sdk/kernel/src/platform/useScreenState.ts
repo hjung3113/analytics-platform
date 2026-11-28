@@ -543,7 +543,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     settle: () => setSettledSavedView(savedViewEntry),
     materialize: href => materializer.current(href),
   }), [savedViewEntry]);
-  const waitingForSavedView = eligible && entryKind === 'bare' && savedViewEnabled && settledSavedView !== savedViewEntry;
+  const waitingForSavedView = eligible && entryKind === 'bare' && savedViewEnabled && !source.myMenuArrival && settledSavedView !== savedViewEntry;
   if (newEntry || entry.kind !== entryKind || entry.pendingDefault !== waitingForSavedView || entry.traversal !== traversal) {
     setEntry({ route: autoApplyRoute, paneId, kind: entryKind, pendingDefault: waitingForSavedView, traversal });
   }
@@ -594,7 +594,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // blocks. Admission is `${userId}\0${menu.id}\0${pathname}` (a pane adds its paneId, so two panes with the same
   // menu each count) and requires the menu gate; a space menu also
   // needs space entry, while a global utility menu does not (06 §9.1). Query-only changes (setGlobal/setPage,
-  // default-period replace) never re-admit. `path` is the manifest route pattern, never the concrete pathname,
+  // default-period replace) never re-admit. An accepted in-place My Menus choice starts a new stay. `path` is the manifest route pattern, never the concrete pathname,
   // search or Context values. A pane's events carry `source: 'board'` and one opaque `stayId` per stay (ADR-0049).
   const lastAdmitted = useRef<string | null>(null);
   // A pane's own trail (#605): never shared with the main `usageNav` or another pane, never persisted, starts over when the pane id changes.

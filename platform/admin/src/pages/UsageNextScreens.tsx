@@ -8,13 +8,14 @@ import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from
 
 // Fixed bar/legend order. Direct entry is not a movement; all other ungrouped ways belong to Other.
 const GROUPS = [
-  { ...ADMIN_MESSAGES.usageNextScreensMenuNavigation, color: 'var(--color-chart-series-1)', swatch: 'bg-chart-series-1', vias: ['sidebar', 'switcher'] },
+  { ...ADMIN_MESSAGES.usageNextScreensMenuNavigation, color: 'var(--color-chart-series-1)', swatch: 'bg-chart-series-1', vias: ['sidebar', 'my-menus', 'switcher'] },
   { ...ADMIN_MESSAGES.usageNextScreensMenuSearch, color: 'var(--color-chart-series-2)', swatch: 'bg-chart-series-2', vias: ['palette'] },
   { ...ADMIN_MESSAGES.usageNextScreensInScreenLinks, color: 'var(--color-chart-series-3)', swatch: 'bg-chart-series-3', vias: ['crossLink', 'drill', 'link'] },
   { ...ADMIN_MESSAGES.usageNextScreensAnalysisBoard, color: 'var(--color-cat-purple)', swatch: 'bg-cat-purple', vias: ['board'] },
   { ...ADMIN_MESSAGES.usageNextScreensOther, color: 'var(--color-chart-series-4)', swatch: 'bg-chart-series-4', vias: [] },
 ] as const;
 const VIA_LABELS: Record<UsageVia, { ko: string; en: string }> = {
+  'my-menus': ADMIN_MESSAGES.usageNextScreensMyMenus,
   sidebar: ADMIN_MESSAGES.usageNextScreensSidebar, switcher: ADMIN_MESSAGES.usageNextScreensSwitcher,
   palette: ADMIN_MESSAGES.usageNextScreensMenuSearch2, board: ADMIN_MESSAGES.usageNextScreensAnalysisBoard2,
   crossLink: ADMIN_MESSAGES.usageNextScreensCrossMenuLink, drill: ADMIN_MESSAGES.usageNextScreensDrill,

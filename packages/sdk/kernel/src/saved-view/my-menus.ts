@@ -1,21 +1,34 @@
 import { createContext, useContext, useSyncExternalStore } from 'react';
 import { AppContext } from '../platform/contexts';
 
-export type MyMenuPick = { menuId: string; kind: 'arrival' | 'current'; isCurrent: () => boolean; take: () => string | null };
+import type { SelectOutcome } from './useSavedViews';
 
-export function createMyMenuPick(menuId: string, viewId: string, kind: MyMenuPick['kind'], isCurrent: () => boolean): MyMenuPick {
+type OpenMyMenuOptions = {
+  focusOrigin?: () => void;
+  onOutcome?: (outcome: SelectOutcome) => void;
+};
+
+export type MyMenuPick = OpenMyMenuOptions & {
+  menuId: string;
+  viewId: string;
+  kind: 'arrival' | 'current';
+  generation: () => boolean;
+  isCurrent: () => boolean;
+  take: () => string | null;
+  accept?: () => void;
+};
+
+export function createMyMenuPick(request: Omit<MyMenuPick, 'take'>): MyMenuPick {
   let taken = false;
-  return { menuId, kind, isCurrent, take: () => {
-    if (taken || !isCurrent()) return null;
+  return { ...request, take: () => {
+    if (taken || !request.isCurrent()) return null;
     taken = true;
-    return viewId;
+    return request.viewId;
   } };
 }
 
-export const MyMenuPickContext = createContext<{
-  pick?: MyMenuPick;
-  open: (menuId: string, viewId: string, href: string) => void;
-} | null>(null);
+export type OpenMyMenu = (menuId: string, viewId: string, href: string, options?: OpenMyMenuOptions) => void;
+export const MyMenuPickContext = createContext<{ pick?: MyMenuPick; open: OpenMyMenu } | null>(null);
 
 export function createSavedViewChanges() {
   let revision = 0;
@@ -36,8 +49,8 @@ const noSubscribe = () => () => {};
 /** Host-only sidebar connection to committed navigation and saved-view writes. */
 export function useMyMenus(): {
   revision: number;
-  open?: (menuId: string, viewId: string, href: string) => void;
-  selectionRequest?: { take: () => string | null };
+  open?: OpenMyMenu;
+  selectionRequest?: { take: () => string | null; focusOrigin?: () => void };
 } {
   const changes = useContext(AppContext)?.internal.savedViewChanges;
   const navigation = useContext(MyMenuPickContext);

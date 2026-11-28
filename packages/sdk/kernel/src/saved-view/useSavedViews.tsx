@@ -44,7 +44,7 @@ export type SavedViews = {
   saveBlocked: readonly (string | Text)[];
   /** Reads the current slot reasons synchronously before a save or its sharing continuation. */
   readSaveBlocks: () => SavedViews['saveBlocked'];
-  select: (id: string) => Promise<SelectOutcome>;
+  select: (id: string, options?: { via?: 'my-menus' }) => Promise<SelectOutcome>;
   clearSelection: () => void;
   /** 새 뷰로 저장: stores the APPLIED conditions (never the draft) as a new view and selects it. */
   saveAs: (input: SaveInput) => Promise<SaveResult>;
@@ -239,7 +239,7 @@ function useSavedViewController(
     setSelection({ key, id });
   }, [key, slots, panelSlots]);
 
-  const sidebarPick = host.screenMode === 'main' && pick?.kind === 'arrival' && pick.menuId === menuId && pick.isCurrent() ? pick : undefined;
+  const sidebarPick = host.screenMode === 'main' && pick?.kind === 'arrival' && pick.menuId === menuId ? pick : undefined;
   const [tick, setTick] = useState(0);
   const refresh = useCallback(() => setTick(n => n + 1), []);
   const publishChange = useCallback(() => {
@@ -380,7 +380,7 @@ function useSavedViewController(
       if (work.initial === initial && work.gen === gen) setRearmed(n => n + 1);
     }
   }, [initial, gen, pendingLeave]);
-  const [arrivingSelection, setArrivingSelection] = useState<{ gen: object; mine: number; href: string; entry: SavedViewEntry } | null>(null);
+  const [arrivingSelection, setArrivingSelection] = useState<{ gen: object; mine: number; href: string; entry: SavedViewEntry; accept?: () => void } | null>(null);
   const alive = useRef(true);
   useLayoutEffect(() => { alive.current = true; return () => { alive.current = false; initialWork.current = null; clearDeadlineTimer(); }; }, [clearDeadlineTimer]);
   const stale = (at: object) => !alive.current || live.current.gen !== at;
@@ -400,6 +400,7 @@ function useSavedViewController(
     if (host.pathname + buildQuery(host.global, host.page, host.extras) !== arrival.href) return;
     setFresh({ gen, entry: arrival.entry });
     setSelected(arrival.entry.view.id);
+    arrival.accept?.();
   }, [arrivingSelection, gen, host.pathname, host.global, host.page, host.extras, setSelected]);
 
   const currentRevision = app?.internal.currentRevision;
@@ -414,7 +415,7 @@ function useSavedViewController(
     if (heldRequest.current && guard?.getRequest() === heldRequest.current) guard.dropRequest();
     heldRequest.current = null;
     const startUrl = live.current.host.appliedUrl;
-    const currentAddress = () => (fromSidebar?.isCurrent() ?? true) && !stale(at) && live.current.host.appliedUrl === startUrl && (mode !== 'owner' || currentRevision?.() === revision);
+    const currentAddress = () => (fromSidebar?.isCurrent() ?? true) && !stale(at) && (fromSidebar !== undefined || live.current.host.appliedUrl === startUrl) && (mode !== 'owner' || currentRevision?.() === revision);
     const currentDecision = () => live.current.initial === decision && expiredInitial.current !== decision && initialWork.current?.mine === mine;
     const stillCurrent = () => currentAddress() && (!ownsDecision || currentDecision()) && ((ownsDecision && source === 'default') || intent.current === mine);
     const unchanged = () => {
@@ -472,7 +473,7 @@ function useSavedViewController(
         applySlots();
         if (ownsDecision) acceptDecision(decision, at, mine);
         // The arrived address is rebuilt as the visible pairs, then the hidden ones (ADR-0105); the expected one must be in that order too.
-        if (held) setArrivingSelection({ gen: at, mine, href: arrivalHref(result.next, current), entry: found });
+        if (held) setArrivingSelection({ gen: at, mine, href: arrivalHref(result.next, current), entry: found, accept: fromSidebar?.accept });
         return true;
       } });
       if (!moved) {
@@ -488,13 +489,14 @@ function useSavedViewController(
     }
     setFresh({ gen: at, entry: found });
     setSelected(id);
+    fromSidebar?.accept?.();
     if (sameAddress) { if (fromSidebar && ownsDecision) settleDecision(decision, at, mine); else unchanged(); }
     return { ok: true, unsupported: result.unsupported, excludedByScope: result.excludedByScope };
   }, [enabled, support, blocked, gen, entryGen, store, anchor, clearSelection, setSelected, guard, mode, currentRevision, revision, slots, panelSlots, acceptDecision, settleDecision]);
   useEffect(() => {
     if (!enabled || blocked || host.scope.status === 'validating' || (host.scope.scopeId !== null && host.scope.status !== 'valid')) return;
     const id = sidebarPick?.take();
-    if (id != null) void apply(id, 'selected', sidebarPick);
+    if (id != null) void apply(id, 'selected', sidebarPick).then(sidebarPick?.onOutcome);
   }, [enabled, blocked, host.scope.status, host.scope.scopeId, sidebarPick, apply]);
   useEffect(() => {
     if (!initial) return;
@@ -567,7 +569,11 @@ function useSavedViewController(
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `differs` is rebuilt every render from `applied`/`anchor`, both listed
   }, [host.appliedUrl, selected, support, applied, anchor, clearSelection]);
 
-  const select = useCallback((id: string) => apply(id, 'selected'), [apply]);
+  const select = useCallback<SavedViews['select']>((id, options) => {
+    if (options?.via !== 'my-menus') return apply(id, 'selected');
+    if (pick?.kind !== 'current' || pick.viewId !== id || !pick.isCurrent()) return Promise.resolve({ ok: false, reason: 'cancelled' });
+    return apply(id, 'selected', pick);
+  }, [apply, pick]);
   const saveAs = useCallback(async (input: SaveInput): Promise<SaveResult> => {
     if (!enabled || !support) return OFF;
     if (readSaveBlocks().length > 0) return SAVE_BLOCKED;
