@@ -11,7 +11,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
-import { ManagedSystemPicker } from './ui/index';
+import { ManagedSystemPicker } from '../ui/index';
 
 describe('<ManagedSystemPicker>', () => {
   test('renders options and fires onChange with the selected id', () => {

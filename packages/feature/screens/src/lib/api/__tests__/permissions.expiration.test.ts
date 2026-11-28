@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 const apiRequestMock = vi.hoisted(() => vi.fn());
 
-vi.mock('./client', () => ({ apiRequest: apiRequestMock }));
+vi.mock('../client', () => ({ apiRequest: apiRequestMock }));
 
-import { decidePermissionRequest } from './permissions';
+import { decidePermissionRequest } from '../permissions';
 
 const REQUEST_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const IDEMPOTENCY_KEY = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';

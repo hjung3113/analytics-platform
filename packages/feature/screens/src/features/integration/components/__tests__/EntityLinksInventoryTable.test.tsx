@@ -2,7 +2,7 @@ import type { EntityLinkDto } from '@ap/feature-shared';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { EntityLinksInventoryTable } from './EntityLinksInventoryTable';
+import { EntityLinksInventoryTable } from '../EntityLinksInventoryTable';
 
 const ALLOWED_LINK = {
   id: '10000000-0000-0000-0000-000000000001',

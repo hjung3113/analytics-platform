@@ -5,7 +5,7 @@ import {
   isIntegrationDashboardSearchValueValid,
   isIntegrationLinksSearchValueValid,
   validateIntegrationDashboardSearch,
-} from './integration-search';
+} from '../integration-search';
 
 const ID = '11111111-1111-4111-8111-111111111111';
 const ITEM = `r1_${'a'.repeat(23)}`;

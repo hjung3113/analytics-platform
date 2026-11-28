@@ -1,9 +1,9 @@
-import { DETAIL_SECTIONS as FINDING_SECTIONS } from './findings/components/FindingDetail/useFindingDetailController';
-import { SECTIONS as MILESTONE_SECTIONS } from './tasks/components/milestone-detail/constants';
-import { buildVocClusterDetailSections } from './voc-cluster/components/detail/VocClusterDetailPanel';
-import { VOC_DETAIL_SECTIONS } from './voc/components/detail/FullDetailView';
-import { TASK_DETAIL_SECTIONS } from '../test/host-adapters/features/tasks/components/TaskDetailPanel';
-import { buildTaskRequestSections } from '../test/host-adapters/features/tasks/routes/task-requests/TaskRequestPanel';
+import { DETAIL_SECTIONS as FINDING_SECTIONS } from '../findings/components/FindingDetail/useFindingDetailController';
+import { SECTIONS as MILESTONE_SECTIONS } from '../tasks/components/milestone-detail/constants';
+import { buildVocClusterDetailSections } from '../voc-cluster/components/detail/VocClusterDetailPanel';
+import { VOC_DETAIL_SECTIONS } from '../voc/components/detail/FullDetailView';
+import { TASK_DETAIL_SECTIONS } from '../../test/host-adapters/features/tasks/components/TaskDetailPanel';
+import { buildTaskRequestSections } from '../../test/host-adapters/features/tasks/routes/task-requests/TaskRequestPanel';
 import { describe, expect, it } from 'vitest';
 
 const cases = [

@@ -7,7 +7,7 @@ import {
   formatShortDateTime,
   formatTime,
   formatZonedDateTime,
-} from './datetime';
+} from '../datetime';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-10-01T06:05:00.000Z');

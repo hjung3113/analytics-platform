@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ListStateMessage } from './ListStateMessage';
+import { ListStateMessage } from '../ListStateMessage';
 
 describe('ListStateMessage', () => {
   it('renders an empty message and invokes its action', () => {

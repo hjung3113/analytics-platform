@@ -1,11 +1,11 @@
-import { ENTITY_LINK_RELATION_LABELS } from '../../../lib/copy/enum-labels';
+import { ENTITY_LINK_RELATION_LABELS } from '../../../../lib/copy/enum-labels';
 import { type EntityLinkDto, entityLinkRelationTypeSchema } from '@ap/feature-shared';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { EntityRelationRow } from './EntityRelationRow';
+import { EntityRelationRow } from '../EntityRelationRow';
 
-vi.mock('../../../ui/index', async () => {
-  const actual = await vi.importActual<typeof import('../../../ui/index')>('../../../ui/index');
+vi.mock('../../../../ui/index', async () => {
+  const actual = await vi.importActual<typeof import('../../../../ui/index')>('../../../../ui/index');
   return {
     ...actual,
     EntityIconBadge: ({ type }: { type: string }) => <span aria-label={type} />,

@@ -2,14 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 describe('useMe with a partial API barrel mock', () => {
   afterEach(() => {
-    vi.doUnmock('../api');
+    vi.doUnmock('../../api');
     vi.resetModules();
   });
 
   it('handles unknown errors when the mock omits MeRequestError', async () => {
-    vi.doMock('../api', () => ({ fetchMe: vi.fn() }));
+    vi.doMock('../../api', () => ({ fetchMe: vi.fn() }));
 
-    const { meQueryOptions } = await import('./useMe');
+    const { meQueryOptions } = await import('../useMe');
     const options = meQueryOptions();
     const error = new Error('unexpected request failure');
 
