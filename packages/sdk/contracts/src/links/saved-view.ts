@@ -92,6 +92,8 @@ export type ApprovalRequestInfo = {
   targetVersion: number;
   /** Plain lines for what the application changes. */
   changes: readonly string[];
+  /** Registry Space of the approval stage, when the menu belongs to one. */
+  approverSpace?: string;
   rejectReason?: string;
 };
 

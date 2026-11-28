@@ -202,7 +202,7 @@ const myMenuEntry = strict({
 }, entryOptions);
 const denied = strict({ id, denied: lit(true), reason: str });
 const listItem = anyOf(entry, denied);
-const approvalRequest = strict({ viewId: id, requestedBy: str, requestedAt: num, targetVersion: int, changes: strings }, { rejectReason: str });
+const approvalRequest = strict({ viewId: id, requestedBy: str, requestedAt: num, targetVersion: int, changes: strings }, { approverSpace: id, rejectReason: str });
 const member = strict({ userId: str, displayName: str, affiliation: str });
 const groupEntry = strict({
   group: strict({ id, kind: oneOf('org-team', 'custom'), name: str, memberCount: int }, { managerIds: strings }),

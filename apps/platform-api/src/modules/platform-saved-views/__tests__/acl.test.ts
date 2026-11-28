@@ -115,6 +115,20 @@ describe('capabilities are separate per action', () => {
     });
   });
 
+  it('delegates official actions only for the matching menu and another owner’s request', () => {
+    const delegate = { ...other, approvesMenu: (menuId: string) => menuId === 'm' };
+    const pending = view({ approval: 'pending' });
+    expect(isReachable(pending, delegate, none)).toBe(true);
+    expect(capabilitiesOf(pending, delegate, none).canApprove).toBe(true);
+    expect(capabilitiesOf(view({ approval: 'approved', visibilityKind: 'official' }), delegate, none).canRevoke).toBe(true);
+    for (const menuId of ['elsewhere', null]) {
+      expect(isReachable({ ...pending, menuId }, delegate, none)).toBe(false);
+      expect(capabilitiesOf({ ...pending, menuId }, delegate, none).canApprove).toBe(false);
+    }
+    expect(capabilitiesOf({ ...pending, ownerId: delegate.id }, delegate, none).canApprove).toBe(false);
+    expect(capabilitiesOf({ ...pending, menuId: null }, approver, none).canApprove).toBe(true);
+  });
+
   it('only an approver revokes an approved official view; the owner cannot edit it directly', () => {
     const official = view({ visibilityKind: 'official', approval: 'approved' });
     expect(capabilitiesOf(official, approver, none).canRevoke).toBe(true);
@@ -220,6 +234,23 @@ describe('pending proposal and approved copy are separate', () => {
 });
 
 describe('visibility redaction', () => {
+  it.each([
+    {
+      stored: view({ visibilityKind: 'people', people: ['other', 'third'] }),
+      standings: none,
+      audience: { kind: 'people', userIds: ['other'] },
+    },
+    {
+      stored: view({ visibilityKind: 'groups', groupIds: ['member-group', 'unrelated-group'] }),
+      standings: new Map([['member-group', { member: true, manager: false }]]),
+      audience: { kind: 'groups', groupIds: ['member-group'] },
+    },
+  ])('a same-space delegate sees only their own $audience.kind share targets', ({ stored, standings, audience }) => {
+    const delegate = { ...other, approvesMenu: (menuId: string) => menuId === 'm' };
+    expect(isReachable(stored, delegate, standings)).toBe(true);
+    expect(visibilityOut(stored, delegate, standings)).toEqual(audience);
+  });
+
   it('a named person sees only themselves; the owner sees everyone', () => {
     const people = view({ visibilityKind: 'people', people: ['other', 'third'] });
     expect(visibilityOut(people, other, none)).toEqual({ kind: 'people', userIds: ['other'] });

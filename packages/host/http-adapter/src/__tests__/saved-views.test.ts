@@ -66,7 +66,7 @@ const cases: Case[] = [
   { op: 'requestOfficial', run: (s) => s.requestOfficial('v1', v1), body: { id: 'v1', expectedVersion: 1 }, reply: ok(entry) },
   { op: 'decide', run: (s) => s.decide('v1', 'approve', 'ok', v1), body: { id: 'v1', decision: 'approve', note: 'ok', expectedVersion: 1 }, reply: ok(entry) },
   { op: 'revoke', run: (s) => s.revoke('v1', v1), body: { id: 'v1', expectedVersion: 1 }, reply: ok(entry) },
-  { op: 'listApprovalRequests', run: (s) => s.listApprovalRequests({ userId: 'u1', menuId: null }), body: { key: { menuId: null } }, reply: [{ viewId: 'v1', requestedBy: 'u2', requestedAt: 1, targetVersion: 2, changes: ['c'] }] },
+  { op: 'listApprovalRequests', run: (s) => s.listApprovalRequests({ userId: 'u1', menuId: null }), body: { key: { menuId: null } }, reply: [{ viewId: 'v1', requestedBy: 'u2', requestedAt: 1, targetVersion: 2, changes: ['c'], approverSpace: 'bravo' }] },
   { op: 'listGroups', run: (s) => s.listGroups(), body: {}, reply: [group] },
   { op: 'createGroup', run: (s) => s.createGroup({ name: 'g', memberIds: ['u2'] }), body: { name: 'g', memberIds: ['u2'] }, reply: ok(group) },
   { op: 'updateGroup', run: (s) => s.updateGroup('g1', { addMembers: ['u2'] }), body: { id: 'g1', patch: { addMembers: ['u2'] } }, reply: ok(group) },
@@ -335,6 +335,16 @@ describe('guards equal the wire schemas', () => {
     const reply = [invalidEntry];
     expect.soft(savedViewResponseSchemas.listMyMenus.safeParse(reply).success, 'wire schema').toBe(false);
     expect.soft(responseGuards.listMyMenus(reply), 'HTTP guard').toBe(false);
+  });
+
+  it.each([
+    [{}, true],
+    [{ approverSpace: 'bravo' }, true],
+    [{ approverSpace: '' }, false],
+  ] as const)('validates the optional approval stage space %j', (stage, valid) => {
+    const reply = [{ viewId: 'v1', requestedBy: 'u2', requestedAt: 1, targetVersion: 2, changes: [], ...stage }];
+    expect(savedViewResponseSchemas.listApprovalRequests.safeParse(reply).success).toBe(valid);
+    expect(responseGuards.listApprovalRequests(reply)).toBe(valid);
   });
 
   it('measures depth with the root at 0', () => {

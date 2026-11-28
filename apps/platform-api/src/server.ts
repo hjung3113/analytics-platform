@@ -1021,6 +1021,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
 
   // Saved views share the platform prefix with the platform port; the sub-paths do not overlap (#1105, ADR-0099).
   await app.register(platformSavedViewRoutes, {
+    menuSpaces: opts.menuSpaces,
     prefix: PLATFORM_PORT_PREFIX,
     sessionService,
     checkService,

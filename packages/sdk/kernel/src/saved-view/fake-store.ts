@@ -202,7 +202,15 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
       rows.set(id, view);
       return { ok: true, value: entry(view) };
     },
-    async listApprovalRequests(key) { return key.kind === 'custom-group' ? [] : fake.requests.filter(request => rows.get(request.viewId)?.kind !== 'custom-group'); },
+    async listApprovalRequests(key) {
+      if (key.kind === 'custom-group') return [];
+      return fake.requests.filter(request => {
+        const view = rows.get(request.viewId);
+        if (!view) return true;
+        if (view.kind === 'custom-group') return false;
+        return (view.kind === 'menu-view' ? view.menuId : null) === key.menuId;
+      });
+    },
     async listGroups() { return fake.groups; },
     async createGroup(input) {
       fake.calls.push('createGroup');

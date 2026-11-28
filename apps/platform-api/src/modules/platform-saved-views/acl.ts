@@ -65,6 +65,14 @@ export interface ActorContext {
   workspaceId: string;
   /** `console:access` (workspace.admin mapping), judged by the server, never by the client. */
   approver: boolean;
+  approvesMenu?: (menuId: string) => boolean;
+}
+
+export const hasApprovalAuthority = (actor: ActorContext, menuId: string | null): boolean =>
+  actor.approver || (menuId !== null && actor.approvesMenu?.(menuId) === true);
+
+export function mayApproveView(view: ViewRecord, actor: ActorContext, options: { revoking?: boolean } = {}): boolean {
+  return hasApprovalAuthority(actor, view.menuId) && (actor.approver || options.revoking === true || view.ownerId !== actor.id);
 }
 
 export interface GroupStanding {
@@ -94,7 +102,7 @@ export interface Shown {
 /** The owner and an approver see the proposed change; everyone else the approved copy. */
 export function shownTo(view: ViewRecord, actor: ActorContext): Shown {
   const owner = view.ownerId === actor.id;
-  if (view.pending && (owner || actor.approver)) {
+  if (view.pending && (owner || mayApproveView(view, actor))) {
     return {
       name: view.pending.name,
       content: view.pending.content,
@@ -128,7 +136,7 @@ export function isPersonallyReachable(view: ViewRecord, actor: ActorContext, sta
 /** Reachable by any path, including publication or a pending application. */
 export function isReachable(view: ViewRecord, actor: ActorContext, standings: Standings): boolean {
   return isPersonallyReachable(view, actor, standings) || view.visibilityKind === 'official'
-    || (actor.approver && (view.approval === 'pending' || view.pending?.approval === 'pending'));
+    || (mayApproveView(view, actor) && (view.approval === 'pending' || view.pending?.approval === 'pending'));
 }
 
 export function capabilitiesOf(
@@ -147,9 +155,9 @@ export function capabilitiesOf(
     canCopy: true,
     canEdit,
     canShare: (owner || manager) && !official,
-    canApprove: view.kind !== 'custom-group' && actor.approver && canTransition(shown.approval, 'approve'),
+    canApprove: view.kind !== 'custom-group' && mayApproveView(view, actor) && canTransition(shown.approval, 'approve'),
     canWithdraw: view.kind !== 'custom-group' && owner && shown.approval === 'pending',
-    canRevoke: view.kind !== 'custom-group' && actor.approver && official && canTransition(view.approval, 'revoke'),
+    canRevoke: view.kind !== 'custom-group' && mayApproveView(view, actor, { revoking: true }) && official && canTransition(view.approval, 'revoke'),
     ...(canEdit
       ? {}
       : {
@@ -160,7 +168,7 @@ export function capabilitiesOf(
   };
 }
 
-/** What the viewer may learn of the audience: the owner, group managers and approvers see it all; others only their own part. */
+/** What the viewer may learn of the audience: the owner, shared-group managers and workspace administrators see it all; others only their own part. */
 export function visibilityOut(
   view: ViewRecord,
   actor: ActorContext,
