@@ -1,6 +1,6 @@
 import { optionSamples, referenceSelectionPorts } from './selection-ports.test-support';
 import { describe, expect, it, vi } from 'vitest';
-import { UPLOAD_FILE_MAX_BYTES, defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type GroupMember, type JsonValue, type Notice, type PreferencesSnapshot, type UploadedFile, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type SavedView, type SavedViewListItem, type SavedViewStore, type Session, type Trust, type UsageEvent, type UsageNextQuery, type UsageNextScreens, type UsageRange, type UsageSummary, type ViewCapabilities, menuPermission, spaceId } from '@ap/contracts';
+import { PANE_USAGE_VIAS, UPLOAD_FILE_MAX_BYTES, USAGE_VIAS, defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type GroupMember, type JsonValue, type Notice, type PreferencesSnapshot, type UploadedFile, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type SavedView, type SavedViewListItem, type SavedViewStore, type Session, type Trust, type UsageEvent, type UsageNextQuery, type UsageNextScreens, type UsageRange, type UsageSummary, type ViewCapabilities, menuPermission, spaceId } from '@ap/contracts';
 import { describeServerConformance, planServerConformance, runServerConformance, type ActionCase, type ConformanceResult, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from '../index';
 import { SAVED_VIEW_PORT_METHODS } from '../plan/ports/saved-views';
 import { UNKNOWN_ENDPOINT } from '../helpers';
@@ -395,9 +395,9 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         && (breaks.has('usage-allows-query') ? !/[#&\s]/.test(v) : !/[?#&\s]/.test(v));
       const invalid = (e: UsageEvent) => {
         const allowed = e.name === 'dwell' ? [...USAGE_KEYS, 'dwellMs', 'enteredAt', 'source', 'stayId'] : [...USAGE_KEYS, 'source', 'stayId', 'via', 'fromMenuId'];
-        // #605: via/fromMenuId belong to an entry only; `via` is a closed set split by source: a main entry takes the old values, a board entry paneOpen/paneReplace ('usage-accepts-bad-via' lets any string through).
-        const MAIN_VIA = ['sidebar', 'switcher', 'palette', 'board', 'return', 'crossLink', 'drill', 'history', 'direct', 'link'];
-        const VIA = e.source === 'board' ? ['paneOpen', 'paneReplace'] : MAIN_VIA;
+        // #605: via/fromMenuId belong to an entry only; `via` is a closed set split by source: a main entry takes the main-screen values, a board entry paneOpen/paneReplace ('usage-accepts-bad-via' lets any string through).
+        const paneVias: readonly string[] = PANE_USAGE_VIAS;
+        const VIA: readonly string[] = e.source === 'board' ? paneVias : USAGE_VIAS.filter(via => !paneVias.includes(via));
         const badNavigation = (e.via !== undefined && !breaks.has('usage-accepts-bad-via') && !VIA.includes(e.via))
           || (e.via !== undefined && typeof e.via !== 'string')
           || (e.fromMenuId !== undefined && e.fromMenuId !== null && !(breaks.has('usage-accepts-path-from-menu') ? token(e.fromMenuId, 80) : typeof e.fromMenuId === 'string' && /^[^\s?#&/=\p{C}]{1,80}$/u.test(e.fromMenuId)));

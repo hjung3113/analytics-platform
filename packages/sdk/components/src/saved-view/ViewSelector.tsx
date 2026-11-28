@@ -59,6 +59,9 @@ export type ViewSelectorProps = {
   /** Control and anchor the selector when it opens from an existing toolbar action. */
   picker?: { open: boolean; onOpenChange(open: boolean): void; anchorRef: RefObject<HTMLButtonElement | null>; note?: ReactNode };
   onRevert?: () => void;
+  /** An external request to choose a view via the same save/discard interaction as a list row. */
+  selectionRequest?: { take: () => string | null; focusOrigin?: () => void; onSelect?: (id: string) => void };
+  onToggleMyMenu?: (id: string) => void;
   onMakeDefault?: (id: string | null) => void;
   onDelete?: (id: string) => void;
   onManage?: () => void;
@@ -88,7 +91,8 @@ export function ViewSelector(props: ViewSelectorProps) {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const deleteReturn = useRef<{ id: string; index: number } | null>(null);
-  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ id: string; request?: ViewSelectorProps['selectionRequest'] } | null>(null);
+  const pendingFocus = useRef<(() => void) | undefined>(undefined);
   const localTrigger = useRef<HTMLButtonElement>(null);
   const trigger = props.picker?.anchorRef ?? localTrigger;
   const interactedOutside = useRef(false);
@@ -130,23 +134,33 @@ export function ViewSelector(props: ViewSelectorProps) {
 
   const discards = props.discardsChanges ?? state !== 'clean';
   const close = () => { setOpen(false); setDetailId(null); lastRow.current = null; };
-  const choose = (id: string) => {
-    if (id === currentId) { close(); trigger.current?.focus(); return; }
+  const focusTrigger = () => trigger.current?.focus();
+  const choose = (id: string, request?: ViewSelectorProps['selectionRequest']) => {
+    const focus = request?.focusOrigin ?? focusTrigger;
     close();
-    if (discards) setPendingId(id);
-    else { props.onSelect(id); trigger.current?.focus(); }
+    if (id === currentId) { focus(); return; }
+    if (discards) {
+      pendingFocus.current = request?.focusOrigin;
+      setPending({ id, request });
+    } else { (request?.onSelect ?? props.onSelect)(id); focus(); }
   };
+  useLayoutEffect(() => {
+    if (selectionDisabled || loading || error) return;
+    const id = props.selectionRequest?.take();
+    if (id != null) choose(id, props.selectionRequest);
+  });
   const settlePending = async (save: boolean) => {
     if (save && saveBlock) return;
-    const id = pendingId;
-    setPendingId(null);
-    if (id === null) return;
+    if (!pending) return;
+    const { id, request } = pending;
+    const focus = request?.focusOrigin ?? focusTrigger;
+    setPending(null);
     if (save) {
       const result = await (pendingSave === 'current' ? props.onSave?.() : props.onSaveAs?.());
-      if (result === false) { trigger.current?.focus(); return; }
+      if (result === false) { focus(); return; }
     }
-    props.onSelect(id);
-    trigger.current?.focus();
+    (request?.onSelect ?? props.onSelect)(id);
+    focus();
   };
 
   const moveRow = (event: KeyboardEvent<HTMLElement>) => {
@@ -264,7 +278,7 @@ export function ViewSelector(props: ViewSelectorProps) {
                           </span>
                         </span>
                       </button>
-                      <RowMenu item={item} isDefault={item.view.id === defaultId} onDetails={() => { setDetailId(item.view.id); focusAfter.current = { kind: 'back' }; }} onMakeDefault={props.onMakeDefault} onDelete={props.onDelete ? () => { lastRow.current = { id: item.view.id, index: shown.indexOf(item) }; deleteReturn.current = lastRow.current; setDeleteId(item.view.id); } : undefined} />
+                      <RowMenu item={item} isDefault={item.view.id === defaultId} onDetails={() => { setDetailId(item.view.id); focusAfter.current = { kind: 'back' }; }} onToggleMyMenu={props.onToggleMyMenu} onMakeDefault={props.onMakeDefault} onDelete={props.onDelete ? () => { lastRow.current = { id: item.view.id, index: shown.indexOf(item) }; deleteReturn.current = lastRow.current; setDeleteId(item.view.id); } : undefined} />
                     </li>
                   ))}
                 </ul>
@@ -299,15 +313,20 @@ export function ViewSelector(props: ViewSelectorProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={pendingId !== null} onOpenChange={next => { if (!next) { setPendingId(null); trigger.current?.focus(); } }}>
-        <DialogContent closeLabel={t('close')} onCloseAutoFocus={event => { event.preventDefault(); trigger.current?.focus(); }}>
+      <Dialog open={pending !== null} onOpenChange={next => { if (!next) { setPending(null); (pendingFocus.current ?? focusTrigger)(); } }}>
+        <DialogContent closeLabel={t('close')} onCloseAutoFocus={event => {
+          event.preventDefault();
+          const focus = pendingFocus.current ?? focusTrigger;
+          pendingFocus.current = undefined;
+          focus();
+        }}>
           <DialogHeader>
             <DialogTitle>{m('svDiscardTitle')}</DialogTitle>
             <DialogDescription>{m('svDiscardBody')}</DialogDescription>
           </DialogHeader>
           {pendingSave && saveBlock && <SaveBlockNotice id={pendingBlockId} block={saveBlock} />}
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => { setPendingId(null); trigger.current?.focus(); }}>{t('cancel')}</Button>
+            <Button type="button" variant="ghost" onClick={() => { setPending(null); (pendingFocus.current ?? focusTrigger)(); }}>{t('cancel')}</Button>
             <Button type="button" variant="secondary" disabled={selectionDisabled} onClick={() => { void settlePending(false); }}>{m('svDiscardDrop')}</Button>
             {pendingSave && <Button
               type="button" disabled={!saveBlock && selectionDisabled} aria-disabled={saveBlock ? true : undefined} aria-describedby={saveBlock ? pendingBlockId : undefined}
@@ -320,9 +339,9 @@ export function ViewSelector(props: ViewSelectorProps) {
   );
 }
 
-function RowMenu({ item, isDefault, onDetails, onMakeDefault, onDelete }: {
+function RowMenu({ item, isDefault, onDetails, onToggleMyMenu, onMakeDefault, onDelete }: {
   item: Extract<SavedViewListItem, { denied?: false }>; isDefault: boolean;
-  onDetails: () => void; onMakeDefault?: (id: string | null) => void; onDelete?: () => void;
+  onDetails: () => void; onToggleMyMenu?: (id: string) => void; onMakeDefault?: (id: string | null) => void; onDelete?: () => void;
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const canDelete = onDelete && item.capabilities.canEdit;
@@ -334,6 +353,7 @@ function RowMenu({ item, isDefault, onDetails, onMakeDefault, onDelete }: {
       <DropdownMenuContent align="end">
         <DropdownMenuItem onSelect={onDetails}>{m('svDetails')}</DropdownMenuItem>
         {onMakeDefault && <DropdownMenuItem onSelect={() => onMakeDefault(isDefault ? null : item.view.id)}>{m(isDefault ? 'svClearDefault' : 'svMakeDefault')}</DropdownMenuItem>}
+        {onToggleMyMenu && item.capabilities.canEdit && item.view.kind === 'menu-view' && <DropdownMenuItem onSelect={() => onToggleMyMenu(item.view.id)}>{m(item.view.myMenu ? 'svRemoveFromMyMenus' : 'svAddToMyMenus')}</DropdownMenuItem>}
         {canDelete && <DropdownMenuItem onSelect={onDelete}>{m('svRemove')}</DropdownMenuItem>}
       </DropdownMenuContent>
     </DropdownMenu>

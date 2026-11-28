@@ -1,7 +1,7 @@
 import { useId, useRef, useState, type RefObject } from 'react';
 import type { Result, SavedViewContext, SavedViewKind } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, RadioGroup, RadioGroupItem } from '@ap/ui';
+import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, RadioGroup, RadioGroupItem } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { failureText, panelBadgeText, summarizeContext } from './text';
 import { VisibilityOptionsPicker } from './VisibilityOptionsPicker';
@@ -9,7 +9,7 @@ import { SaveBlockNotice, type SaveBlock } from './SaveBlockNotice';
 
 /** What this dialog saves: views only. Custom groups (`custom-group`) are saved from the target dialog (ADR-0164). */
 type ViewUnit = Exclude<SavedViewKind, 'custom-group'>;
-export type SaveViewSubmit = { mode: 'new' | 'update'; unit: ViewUnit; name: string; visibility: string };
+export type SaveViewSubmit = { mode: 'new' | 'update'; unit: ViewUnit; name: string; visibility: string; myMenu?: true };
 export type SaveViewDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -19,6 +19,8 @@ export type SaveViewDialogProps = {
   updatable?: { name: string; unit?: ViewUnit };
   initialMode?: 'new' | 'update';
   initialName?: string;
+  /** The host store can list My Menus entries. */
+  showMyMenus?: boolean;
   /** The applied conditions that will be saved. */
   context: SavedViewContext;
   /** A query draft exists: only the applied conditions are saved. */
@@ -43,13 +45,15 @@ export function SaveViewDialog(props: SaveViewDialogProps) {
   );
 }
 
-function DialogBody({ units, updatable, initialMode, initialName = '', context, hasDraft, panels, visibilityOptions = [], onSubmit, onOpenChange, returnFocusRef, saveBlock, lang, opener }: SaveViewDialogProps & { lang: 'ko' | 'en'; opener: RefObject<HTMLElement | null> }) {
+function DialogBody({ units, updatable, initialMode, initialName = '', showMyMenus, context, hasDraft, panels, visibilityOptions = [], onSubmit, onOpenChange, returnFocusRef, saveBlock, lang, opener }: SaveViewDialogProps & { lang: 'ko' | 'en'; opener: RefObject<HTMLElement | null> }) {
   const { t, tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const [mode, setMode] = useState<'new' | 'update'>(updatable && initialMode !== 'new' ? 'update' : 'new');
   const [unit, setUnit] = useState<ViewUnit>(units[0] ?? 'menu-view');
   const [name, setName] = useState(initialName);
   const [visibility, setVisibility] = useState(visibilityOptions[0]?.value ?? '');
+  const [myMenu, setMyMenu] = useState(true);
+  const myMenuId = useId();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
@@ -59,13 +63,14 @@ function DialogBody({ units, updatable, initialMode, initialName = '', context, 
   const summary = summarizeContext(context, lang);
   const savedUnit = updating ? updatable?.unit ?? unit : unit;
   const withPanels = savedUnit === 'menu-view';
+  const offerMyMenu = showMyMenus && !updating && withPanels;
 
   const submit = async () => {
     if (saveBlock || busy) return;
     setTouched(true);
     if (nameMissing) return;
     setBusy(true); setFailure(null);
-    const result = await onSubmit({ mode, unit, name: updating ? updatable?.name ?? name : name.trim(), visibility });
+    const result = await onSubmit({ mode, unit, name: updating ? updatable?.name ?? name : name.trim(), visibility, ...(offerMyMenu && myMenu ? { myMenu: true } : {}) });
     setBusy(false);
     if (result.ok) onOpenChange(false);
     else setFailure(failureText(result, tx) + (result.detail ? ` (${result.detail})` : ''));
@@ -109,6 +114,12 @@ function DialogBody({ units, updatable, initialMode, initialName = '', context, 
             <Label htmlFor="save-view-name">{m('svName')}</Label>
             <Input id="save-view-name" value={name} aria-invalid={touched && nameMissing ? true : undefined} aria-describedby={touched && nameMissing ? 'save-view-name-error' : undefined} onChange={event => setName(event.target.value)} />
             {touched && nameMissing && <p id="save-view-name-error" role="alert" className="text-xs text-text-danger-label">{m('svNameRequired')}</p>}
+          </div>
+        )}
+        {offerMyMenu && (
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2"><Checkbox id={myMenuId} aria-describedby={`${myMenuId}-hint`} checked={myMenu} onCheckedChange={value => setMyMenu(value === true)} /><Label htmlFor={myMenuId}>{m('svAddToMyMenus')}</Label></div>
+            <p id={`${myMenuId}-hint`} className="pl-6 text-caption text-text-muted">{m('svMyMenusHint')}</p>
           </div>
         )}
         {!updating && visibilityOptions.length > 0 && (

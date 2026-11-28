@@ -45,6 +45,11 @@ describe('parseUsageBatch', () => {
     ]);
   });
 
+  it('parses My Menus as a main navigation entry', () => {
+    expect(parseUsageBatch({ events: [{ ...entry, via: 'my-menus', fromMenuId: 'home' }] }))
+      .toMatchObject([{ source: 'main', via: 'my-menus', fromMenuId: 'home' }]);
+  });
+
   it('parses pane via and fromMenuId on a board entry, each optional', () => {
     const parsed = parseUsageBatch({
       events: [

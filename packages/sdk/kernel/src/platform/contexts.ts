@@ -6,6 +6,7 @@ import type { MenuEntry } from '../registry/registry';
 import type { DraftStore } from '../query/draft-state';
 import type { QueryEngine } from '../query/query-engine';
 import { PANE_USAGE_VIAS, type MainUsageVia, type Pair, type SpaceDef } from '@ap/contracts';
+import type { createSavedViewChanges } from '../saved-view/my-menus';
 import type { SupportRegistry } from '../saved-view/useSavedViewSupport';
 import type { createViewSlotStore } from '../saved-view/table-slots';
 import type { HostPlatform, Recent, Toast } from './types';
@@ -41,6 +42,7 @@ export type AppInternal = {
   enters: (menu: MenuEntry) => boolean;
   usageSessionId: string;
   /** Saved View support the screens declare (`useSavedViewSupport`), read by the host hook `useSavedViews`. */
+  savedViewChanges: ReturnType<typeof createSavedViewChanges>;
   savedViewSupports: SupportRegistry;
   savedViewSlots: ReturnType<typeof createViewSlotStore>;
   userIdRef: { readonly current: string };
@@ -102,6 +104,10 @@ export type ScreenAddress = {
 
 /** What the screen state hook needs from its owner: where the URL lives and how a write or a navigation lands. */
 export type ScreenSource = ScreenAddress & {
+  /** Fresh for each accepted My Menus visit, even if its source menu is already open. */
+  myMenuVisit?: number;
+  /** The explicit sidebar pick owns the saved-view decision for this arrival. */
+  myMenuArrival?: boolean;
   origin?: OriginRecord;
   mintCarry?: (href: string, carried: CarriedSelection, scopeId: string | null) => CarryProof;
   draftStore?: DraftStore;

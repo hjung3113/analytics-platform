@@ -1,14 +1,18 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { hasDotSegment, isAppPath } from '../context/location';
 import { readHiddenState, sameHidden, splitHidden, validateHidden, withHiddenState } from '../context/hiddenState';
+import { stripDetailExpansion } from '../links/detail-expansion';
 import { isImplementedMenu, routeParamNames, withPagePreset } from '../registry/registry';
 import { incompleteMetricPair, menuPermissions, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, type SpaceId } from '@ap/contracts';
 import { readSpaceLast, sameParams, writeSpaceLast } from './preferences';
 import { MainBoundContext, ScreenContext, type AppValue, type CommitOptions, type MainBound, type ScreenSource } from './contexts';
 import { useScreenState } from './useScreenState';
+import { createMyMenuPick, MyMenuPickContext, type MyMenuPick, type OpenMyMenu } from '../saved-view/my-menus';
 import { ScreenSavedViews } from '../saved-view/useSavedViews';
 import { createOriginHistory, originPosition, recordOrigin, type OriginRecord } from './return-origin';
 import { readHistoryIdx, readHistorySeg, withHistoryIdx } from './navigationGuard';
+
+type MainCommitOptions = CommitOptions & { myMenuPick?: MyMenuPick };
 
 const editableTarget = 'input, textarea, select, [role="textbox"], [role="combobox"]';
 const openOverlay = 'dialog[open], [role="dialog"]:not([aria-modal="false"]):not([data-state="closed"]), [role="menu"][data-state="open"], [role="listbox"][data-state="open"]';
@@ -46,13 +50,15 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     return { url: raw, hidden: fromState.filter(([key]) => keys.includes(key)), rewrite: false };
   }, [hiddenKeysFor]);
   const originHistory = useMemo(() => createOriginHistory(registry, isCurrentGeneration), [registry, isCurrentGeneration]);
-  const [{ arrival, url, hidden }, setView] = useState(() => {
+  const [{ arrival, url, hidden, pick: storedPick, myMenuVisit }, setView] = useState(() => {
     const arrival: ReturnType<typeof arrive> & { generation: symbol; origin?: { history: typeof originHistory; record: OriginRecord } }
       = { ...arrive(initialUrl, readHiddenState(location.readState?.())), generation: Symbol() };
-    return { arrival, url: arrival.url, hidden: arrival.hidden };
+    return { arrival, url: arrival.url, hidden: arrival.hidden, pick: undefined as MyMenuPick | undefined, myMenuVisit: 0 };
   });
   // Writes and traversals publish here before React renders. A newer arrival also supersedes a pending rewrite.
   const latestArrival = useRef(arrival);
+  const activePick = useRef<MyMenuPick | undefined>(undefined);
+  const pick = storedPick?.generation === isCurrentGeneration ? storedPick : undefined;
   const readAddress = useCallback(() => latestArrival.current, []);
   // Unsaved-edit guard (ADR-0115). `idxRef`: this entry's position in the Kernel's own writes (`apIdx`), null where the boundary keeps no state.
   const [bootIdx] = useState(() => readHistoryIdx(location.readState?.()));
@@ -63,7 +69,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   const selectionSteps = useRef(new Map<number, string>());
   const selectionUndoPending = useRef(false);
   const stamping = location.readState !== undefined;
-  const commitRef = useRef<((next: string, how: 'push' | 'replace', options?: CommitOptions) => boolean) | null>(null);
+  const commitRef = useRef<((next: string, how: 'push' | 'replace', options?: MainCommitOptions) => boolean) | null>(null);
   // Refusals raised before the reporter is wired (a child's first layout effect runs before this provider's) wait here and are delivered once.
   const reportRef = useRef<((error: unknown) => string) | null>(null);
   const pendingRef = useRef<unknown[]>([]);
@@ -74,7 +80,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     location.replace(arrival.url, { keepFragment: true, state: withHiddenState(location.readState?.(), arrival.hidden) });
   }, [arrival, location, pageNavigation]);
 
-  const commit = useCallback((next: string, how: 'push' | 'replace', options: CommitOptions = {}) => {
+  const commit = useCallback((next: string, how: 'push' | 'replace', options: MainCommitOptions = {}) => {
     if (options.redirect) { // a write that landed before this effect ran keeps its query: only the path is ours
       const current = location.read() ?? '';
       const q = current.indexOf('?');
@@ -112,6 +118,11 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       }
     }
     // The host's own step (#2061): after any confirmed leave and before the write, so a cancelled leave never runs it; it may still refuse.
+    if (options.myMenuPick && (!options.myMenuPick.generation() || !canOpen(options.myMenuPick.menuId))) {
+      usageNav.current.via = null;
+      pageNavigation.cancel();
+      return false;
+    }
     if (options.run && !options.run({ from: location.read() ?? '', to: split.url })) { pageNavigation.cancel(); return false; }
     // An accepted write changes the origin the pending request was made from (a replace, a Scope change, a confirmed replay): that request is stale (F3).
     guard.dropRequest();
@@ -177,10 +188,17 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     if (keepStep) selectionSteps.current.set(here, writtenUrl);
     const committed = { url: writtenUrl, hidden: nextHidden, rewrite: false, generation: Symbol(), origin: record ? { history: originHistory, record } : undefined };
     latestArrival.current = committed;
-    setView({ arrival: committed, url: writtenUrl, hidden: nextHidden });
+    const presentationOnly = how === 'replace' && sameHidden(nextHidden, previousHidden)
+      && stripDetailExpansion(departure) === stripDetailExpansion(writtenUrl);
+    const keepsPick = !scopeChanged && (options.materialize || options.redirect || presentationOnly);
+    if (options.myMenuPick || !keepsPick) {
+      activePick.current = options.myMenuPick;
+    }
+    const committedPick = activePick.current;
+    setView(current => ({ ...current, arrival: committed, url: writtenUrl, hidden: nextHidden, pick: committedPick }));
     if (how === 'push') document.getElementById('platform-main')?.scrollTo({ top: 0 });
     return true;
-  }, [pageNavigation, location, hiddenKeysFor, menuFor, guard, usageNav, stamping, registry, originHistory]);
+  }, [pageNavigation, location, hiddenKeysFor, menuFor, guard, usageNav, stamping, registry, originHistory, canOpen]);
   useLayoutEffect(() => { commitRef.current = commit; }, [commit]);
   const go = useCallback<ScreenSource['go']>((next, options) => commit(next, options?.replace ? 'replace' : 'push', {
     focus: options?.focus, restoreHidden: options?.restoreHidden, guard: options?.guard, run: options?.run, carryProof: options?.carryProof,
@@ -189,9 +207,34 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   const origin = arrival.origin?.history === originHistory ? arrival.origin.record : undefined;
   const mintCarry = useCallback<NonNullable<ScreenSource['mintCarry']>>((href, carried, scopeId) =>
     originHistory.mintCarry({ href, departure: arrival.url, scopeId, generation: arrival.generation }, carried), [originHistory, arrival]);
-  const source: ScreenSource = { origin, mintCarry, mode: 'main', paneId: null, paneLabel: null, url, hidden, readAddress, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
+  const source: ScreenSource = { origin, mintCarry, myMenuVisit, myMenuArrival: pick?.kind === 'arrival', mode: 'main', paneId: null, paneLabel: null, url, hidden, readAddress, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
   const { screen, sidebarSpace, resolveEntryLink, initialSavedView } = useScreenState(app, source);
   const { pathname, route, contractError, navigate, currentSpace } = screen;
+  const openMyMenu = useCallback<OpenMyMenu>((menuId, viewId, href, options) => {
+    if (!isCurrentGeneration() || !canOpen(menuId)) return;
+    const sameMenu = route?.menu.id === menuId && !route.viaAlias;
+    const request: MyMenuPick = createMyMenuPick({
+      menuId, viewId, kind: sameMenu ? 'current' : 'arrival', generation: isCurrentGeneration,
+      isCurrent: () => activePick.current === request && isCurrentGeneration() && canOpen(menuId),
+      ...(sameMenu ? {
+        focusOrigin: options?.focusOrigin,
+        accept: () => {
+          if (!isCurrentGeneration() || !canOpen(menuId)) return;
+          usageNav.current.via = 'my-menus';
+          setView(current => ({ ...current, myMenuVisit: current.myMenuVisit + 1 }));
+        },
+      } : { onOutcome: options?.onOutcome }),
+    });
+    if (sameMenu) {
+      activePick.current = request;
+      setView(current => ({ ...current, pick: request }));
+      return;
+    }
+    const prior = usageNav.current.via;
+    usageNav.current.via = 'my-menus';
+    if (!commit(href, 'push', { focus: 'page', myMenuPick: request })) usageNav.current.via = prior;
+  }, [route, isCurrentGeneration, canOpen, usageNav, commit]);
+  const myMenus = useMemo(() => ({ pick, open: openMyMenu }), [pick, openMyMenu]);
   useLayoutEffect(() => {
     const steps = selectionSteps.current;
     return () => { steps.clear(); selectionUndoPending.current = false; };
@@ -232,8 +275,9 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       guard.dropRequest(); // an accepted arrival ends any request made from the entry we left (F3)
       const traversed = { url: next, hidden: arrived.hidden, rewrite: false, generation: Symbol(), origin };
       latestArrival.current = traversed;
+      activePick.current = undefined;
       guard.traversed();
-      setView({ arrival: traversed, url: next, hidden: arrived.hidden });
+      setView(current => ({ ...current, arrival: traversed, url: next, hidden: arrived.hidden, pick: undefined }));
     };
     const onPop = () => {
       selectionUndoPending.current = false;
@@ -360,6 +404,6 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   // Stable while the five members are: an unrelated main Scope update must not re-render every pane consumer.
   const mainBound = useMemo<MainBound>(() => ({ visibleMenus, sidebarSpace, spaceResume, spaceEntry, switchSpace }), [visibleMenus, sidebarSpace, spaceResume, spaceEntry, switchSpace]);
   return <MainBoundContext.Provider value={mainBound}><ScreenContext.Provider value={screen}>
-    <ScreenSavedViews initial={initialSavedView}>{children}</ScreenSavedViews>
+    <MyMenuPickContext.Provider value={myMenus}><ScreenSavedViews initial={initialSavedView}>{children}</ScreenSavedViews></MyMenuPickContext.Provider>
   </ScreenContext.Provider></MainBoundContext.Provider>;
 });

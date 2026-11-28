@@ -5,6 +5,7 @@ import { badgeCountText } from '@ap/components';
 import { type MenuEntry, PlatformLink, useI18n, useMessages, useRecentVisits } from '@ap/kernel';
 import { isImplementedMenu, useHostPlatform } from '@ap/kernel/host';
 import { navRowVariants, NavCurrentMarker, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { MyMenusSection } from './MyMenusSection';
 import { ScopeSelector } from '../context/ScopeSelector';
 import { SHELL_MESSAGES } from '../messages';
 import { ShellBoundary } from './ShellBoundary';
@@ -55,7 +56,7 @@ export function AppSidebar({ onToggle }: { onToggle: () => void }) {
         </TooltipTrigger><TooltipContent side="right">{t('collapse')} ([)</TooltipContent></Tooltip>
       </div>
       <SidebarScope />
-      <div data-sidebar-scroll className={hasHierarchy ? 'shell-scroll min-h-0 flex-1 overflow-hidden px-2 py-2' : 'shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2'}>
+      <div data-sidebar-scroll className={hasHierarchy ? 'shell-scroll min-h-0 flex-1 overflow-hidden px-2 py-2 has-[>[data-my-menus]]:overflow-y-auto' : 'shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2'}>
         <UndeclaredBoundary>{undeclared => <CountsBoundary key={`counts:${slotSpaceId}`} spaceId={slotSpaceId} menu={slotMenu ?? null}>{counts => <nav id="platform-nav" aria-label={m('primaryNav')}>
           {grouped.map(g => ({ ...g, rows: withUndeclared(g.items, g.group.id, undeclared, registry.menus, registryOrder) })).filter(g => g.rows.length > 0).map(({ group, items, rows }, index) => <div key={group.id} role="group" aria-label={tx(group.label)}>
             {systems === null && !(group.hideLabelWhenSingle && rows.length === 1) && <p className={cn(SIDEBAR_GROUP_TITLE, index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</p>}
@@ -72,6 +73,7 @@ export function AppSidebar({ onToggle }: { onToggle: () => void }) {
             {items.filter(menu => menu.navTree && canOpen(menu.id)).map(menu => <SidebarHierarchy key={menu.id} menu={menu} />)}
           </div>)}
         </nav>}</CountsBoundary>}</UndeclaredBoundary>
+        <ShellBoundary fallback={null}><MyMenusSection /></ShellBoundary>
         {slotSpaceId !== null && <ShellBoundary key={`section:${slotSpaceId}`}><SpaceNavSectionSlot spaceId={slotSpaceId} menu={slotMenu ?? null} /></ShellBoundary>}
         {/* An empty list keeps its guidance (07 §3 empty state). */}
         <section aria-label={t('favorites')}>

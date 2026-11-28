@@ -13,6 +13,7 @@ import { type PlatformActor, holdsPlatformPermission } from './permissions.js';
 /** `UsageVia` of the root `packages/sdk/contracts/src/adapter.ts`; `usage-vocabulary.test.ts` pins it. */
 export const PLATFORM_USAGE_VIA = [
   'sidebar',
+  'my-menus',
   'switcher',
   'palette',
   'board',

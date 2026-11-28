@@ -138,6 +138,7 @@ export const ADMIN_MESSAGES = {
   usageNextScreensInScreenLinks: { ko: '화면 안 연결', en: 'In-screen links' },
   usageNextScreensAnalysisBoard: { ko: '분석 보드', en: 'Analysis board' },
   usageNextScreensOther: { ko: '기타', en: 'Other' },
+  usageNextScreensMyMenus: { ko: '내 메뉴', en: 'My Menus' },
   usageNextScreensSidebar: { ko: '사이드바', en: 'Sidebar' },
   usageNextScreensSwitcher: { ko: '전환기', en: 'Switcher' },
   usageNextScreensMenuSearch2: { ko: '메뉴 검색', en: 'Menu search' },

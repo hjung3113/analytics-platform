@@ -1,7 +1,8 @@
+import { useSavedViewPickWarning } from './useSavedViewPickWarning';
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { PEOPLE_LOOKUP_MAX, type ApprovalRequestInfo, type GroupMember, type SavedViewSupport, type Result, type SavedView, type SavedViewListItem, type SavedViewStore, type ViewVisibility } from '@ap/contracts';
 import { CONTEXT_LABELS, diagnoseSavedView, useEquipmentAxes, useI18n, useMessages, type SavedViewDiagnosis } from '@ap/kernel';
-import { captureApplied, useAnalysisSelectionLabels, useHostPlatform, useSavedViews, type SavedViews, type SelectOutcome } from '@ap/kernel/host';
+import { captureApplied, useAnalysisSelectionLabels, useHostPlatform, useMyMenus, useSavedViews, type SavedViews } from '@ap/kernel/host';
 import { DirtyConfirmation } from '@ap/ui';
 import { failureText, SaveViewDialog, ShareTargetPicker, ViewManagement, ViewSelector, type SaveViewDialogProps, type ShareGroupsState, type ShareTargetDraft, type ViewFilter, type ViewSelectorState } from '@ap/components';
 import { SHELL_MESSAGES } from '../messages';
@@ -38,7 +39,7 @@ const generationKey = (generation: object): number => {
   return key;
 };
 
-type Pending = { unit: 'condition-set' | 'menu-view'; name: string };
+type Pending = { unit: 'condition-set' | 'menu-view'; name: string; myMenu?: true };
 const entriesOf = (items: readonly SavedViewListItem[]) => items.flatMap(item => item.denied ? [] : [item]);
 const sameIds = (a: readonly string[], b: readonly string[]) => a.length === b.length && [...a].sort().join('\n') === [...b].sort().join('\n');
 /** Whether the stored view already holds what the share step asks for: the same people or groups, or an official request on its way or granted. */
@@ -50,8 +51,9 @@ function shareApplied(view: SavedView, official: boolean, wanted: ViewVisibility
   return false;
 }
 
-function Ready({ views, store, support }: { views: SavedViews; store: Pick<SavedViewStore, 'get' | 'listGroups' | 'listApprovalRequests' | 'searchPeople'>; support: SavedViewSupport }) {
+function Ready({ views, store, support }: { views: SavedViews; store: Pick<SavedViewStore, 'get' | 'listGroups' | 'listApprovalRequests' | 'searchPeople' | 'listMyMenus'>; support: SavedViewSupport }) {
   const host = useHostPlatform();
+  const { selectionRequest } = useMyMenus();
   const selectionLabel = useAnalysisSelectionLabels(host);
   const tools = useContext(QueryBarTools);
   const external = tools?.folded ? tools : null;
@@ -99,16 +101,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     if (result.ok) toast(done); else toast(result.code === 'blocked' ? blockedMessage : fail(result.reason), { tone: 'warning' });
     return result.ok;
   };
-  const pickFailed = (outcome: SelectOutcome) => {
-    if (outcome.ok || outcome.reason === 'held' || outcome.reason === 'cancelled') return;
-    const keys = {
-      'wrong-menu': 'savedViewWrongMenu',
-      'stale-schema': 'savedViewStaleSchema',
-      unavailable: 'savedViewUnavailable',
-      denied: 'savedViewDenied',
-    } as const;
-    toast(m(keys[outcome.reason]), { tone: 'warning' });
-  };
+  const pickFailed = useSavedViewPickWarning(toast);
 
   // Focus goes back to the selector after a surface that has no trigger of its own; deferred so it lands after the dialog's own cleanup.
   const [returnFocus, setReturnFocus] = useState(0);
@@ -226,8 +219,8 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     if (saveBlock) return { ok: false, reason: 'invalid', detail: blockedMessage };
     let result: Awaited<ReturnType<SavedViews['saveAs']>>;
     if (input.mode === 'update') { if (views.crossScopeSave && !(await confirmScope())) return { ok: false, reason: 'unavailable' }; result = await views.saveToSelected(); }
-    else if (input.visibility === 'share') { pending.current = { unit: input.unit, name: input.name }; setHandoff(true); return { ok: true, value: null }; }
-    else result = await views.saveAs({ name: input.name, kind: input.unit });
+    else if (input.visibility === 'share') { pending.current = { unit: input.unit, name: input.name, myMenu: input.myMenu }; setHandoff(true); return { ok: true, value: null }; }
+    else result = await views.saveAs({ name: input.name, kind: input.unit, myMenu: input.myMenu });
     if (!result.ok && 'code' in result) return { ...result, detail: blockedMessage };
     if (result.ok) { toast(input.mode === 'update' ? m('savedViewUpdated') : m('savedViewSavedAs', { name: input.name })); if (saveAsDone.current) saveAsDone.current.ok = true; }
     return result;
@@ -248,7 +241,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     };
     try {
       if (!created.current) {
-        const saved = await views.saveAs({ name: made.name, kind: made.unit });
+        const saved = await views.saveAs({ name: made.name, kind: made.unit, myMenu: made.myMenu });
         if (!alive.current) return false;
         if (!saved.ok) return 'code' in saved ? false : refused(saved.reason, false);
         created.current = { id: saved.value.view.id, version: saved.value.view.version };
@@ -328,12 +321,22 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       picker={picker}
       views={items} currentId={selected?.view.id ?? null} defaultId={views.defaultId} state={state} discardsChanges={discards}
       selectionDisabled={host.queryPolicy.autoApplyingDefault === true}
+      selectionRequest={selectionRequest && {
+        ...selectionRequest,
+        onSelect: id => { void views.select(id, { via: 'my-menus' }).then(pickFailed); },
+      }}
       loading={views.status === 'loading'} error={views.status === 'unavailable'} onRetry={views.refresh}
       groups={groups.entries.map(entry => ({ id: entry.group.id, name: entry.group.name }))} query={query} onQuery={setQuery} filter={filter} onFilter={setFilter} userId={userId} ownerLabel={ownerName} staleIds={staleIds} panelCount={panelCount}
       onSelect={id => { void views.select(id).then(pickFailed); }}
       onSave={saveCurrent} onSaveAs={() => openSave('new')} saveTriggerRef={saveTrigger}
       saveBlock={saveBlock}
       onRevert={() => { void views.revertToSaved().then(pickFailed); }}
+      onToggleMyMenu={store.listMyMenus ? async id => {
+        const item = entriesOf(items).find(entry => entry.view.id === id);
+        if (item?.view.kind !== 'menu-view' || !item.capabilities.canEdit) return;
+        const result = await views.update(id, { myMenu: !item.view.myMenu }, { expectedVersion: item.view.version });
+        if (!result.ok) toast(fail(result.reason), { tone: 'warning' });
+      } : undefined}
       onMakeDefault={id => { void views.setDefault(id).then(result => report(result, id === null ? m('savedViewDefaultCleared') : m('savedViewDefaultSet'))); }}
       onDelete={id => { void views.remove(id).then(result => report(result, m('savedViewDeleted'))); }}
       onManage={() => setManageOpen(true)}
@@ -343,6 +346,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       key={saveMode} open={saveOpen} onOpenChange={closeSave} units={['menu-view', 'condition-set']} {...(updatable ? { updatable } : {})} initialMode={saveMode}
       context={captureApplied({ global: host.global, page: [] }, support).context} hasDraft={unapplied} returnFocusRef={external?.anchorRef ?? saveTrigger}
       visibilityOptions={[{ value: 'private', label: m('savedViewVisibilityPrivate') }, { value: 'share', label: m('savedViewVisibilityShare') }]}
+      showMyMenus={store.listMyMenus !== undefined}
       onSubmit={submit}
       saveBlock={saveBlock}
     />

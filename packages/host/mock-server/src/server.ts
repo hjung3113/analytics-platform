@@ -458,10 +458,10 @@ function invalidUsageProvenance(e: UsageEvent): boolean {
 }
 
 /** Closed `UsageVia` set; a Record keeps it complete (a new member fails typecheck until listed here, #605). */
-const USAGE_VIA_SET: Record<UsageVia, true> = { sidebar: true, switcher: true, palette: true, board: true, return: true, crossLink: true, drill: true, history: true, direct: true, link: true, paneOpen: true, paneReplace: true };
+const USAGE_VIA_SET: Record<UsageVia, true> = { sidebar: true, 'my-menus': true, switcher: true, palette: true, board: true, return: true, crossLink: true, drill: true, history: true, direct: true, link: true, paneOpen: true, paneReplace: true };
 const PANE_VIAS: readonly string[] = ['paneOpen', 'paneReplace'];
 
-/** `via`/`fromMenuId` (#605): entry only; main: an old `via`, board: `paneOpen`/`paneReplace` (each key optional); `fromMenuId` a menu id or null. */
+/** `via`/`fromMenuId` (#605): entry only; main: a main-screen `via`, board: `paneOpen`/`paneReplace` (each key optional); `fromMenuId` a menu id or null. */
 function invalidUsageNavigation(e: UsageEvent): boolean {
   if (!('via' in e) && !('fromMenuId' in e)) return false;
   if (e.name !== 'entry') return true;

@@ -148,6 +148,15 @@ describe('UsageOverview next screens (#605)', () => {
     expect(within(screen.getByRole('list', { name: '전체 이동 방식' })).getAllByRole('listitem').map(row => row.textContent)).toEqual(['링크20건']);
     expect(screen.getAllByText('방식별 분포는 3명 미만 구간이 있어 숨겼습니다')).toHaveLength(1);
   });
+  it('shows My Menus as menu navigation in the usage breakdown', async () => {
+    setup('/admin/usage?focus=admin-audit', async () => ok(nextData({ next: [
+      { menuId: 'admin-roles', count: 20, distinctUsers: 3, vias: { 'my-menus': 20 } },
+    ] })));
+    const breakdown = await screen.findByRole('list', { name: '전체 이동 방식' });
+    expect(within(breakdown).getByText('내 메뉴', { exact: true }).textContent).toBe('내 메뉴');
+    const destinations = screen.getByRole('list', { name: '다음으로 간 화면 순위' });
+    expect(within(destinations).getByText('방문 사용자 3명 · 메뉴 탐색 20').textContent).toContain('메뉴 탐색 20');
+  });
   it('explains that the no-move summary also includes suppressed small movements', async () => {
     setup('/admin/usage?focus=admin-audit');
     const trigger = await screen.findByRole('button', { name: '이후 메뉴 이동 없음' });

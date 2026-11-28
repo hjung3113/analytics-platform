@@ -92,6 +92,7 @@ PlatformLink | function | function PlatformLink({ href, children, className, onN
 PlatformLocation | type | type PlatformLocation = { absoluteUrl: (url: string) => string; go?: (delta: number) => void; href: (url: string) => string; push: (url: string, state?: unknown) => void; read: () => null | string; readState?: () => unknown; replace: (url: string, options?: { keepFragment?: boolean; state?: unknown; }) => void; }
 PlatformMenuEntry | type | type PlatformMenuEntry = @ap/contracts#MenuMeta & { component?: LazyExoticComponent<ComponentType<@ap/kernel#PageProps>>; icon: LucideIcon; module?: undefined; moduleScreen?: undefined; navTree?: { Source: ComponentType<{ children: (source: @ap/contracts#HierarchySource) => ReactNode; }>; currentNodeId?: (location: { menuId: string; page: (key: string) => null | string; params: Record<string, string>; }) => null | string; label: @ap/contracts#Text; levelIcon?: (kind: string) => ComponentType<{ className?: string; }> | undefined; mode?: 'drill' | 'tree'; }; savedViewSupport?: @ap/contracts#SavedViewSupport; }
 PlatformProvider | function | function PlatformProvider({ adapter, registry, location, slots, equipmentAxes, queryHistory, savedViews, spaceIdMigrations, serverPreferences, children }: { adapter: @ap/contracts#PlatformAdapter; children: ReactNode; equipmentAxes?: readonly @ap/contracts#EquipmentAxisDescriptor[]; location?: @ap/kernel#PlatformLocation; queryHistory?: @ap/contracts#QueryHistoryStore; registry: @ap/kernel#Registry; savedViews?: @ap/contracts#SavedViewStore; serverPreferences?: boolean; slots?: @ap/kernel#PlatformSlots; spaceIdMigrations?: Readonly<Record<string, string>>; }): import("react").JSX.Element
+PlatformQueryOptions | type | type PlatformQueryOptions = { enabled?: boolean; identity?: 'context' | 'session'; pageInputs?: unknown; refreshEpoch?: number; }
 PlatformSlots | type | type PlatformSlots = { accessRequest?: @ap/kernel#AccessRequestSlot; analysisActions?: @ap/kernel#AnalysisActionsSlot; boardEntry?: ReactNode; contextBar?: ReactNode; features?: @ap/kernel#FeatureSlot; homeTodo?: @ap/kernel#HomeTodoSlot; navCounts?: @ap/kernel#NavCountsSlot; notifications?: @ap/kernel#NotificationsSlot; plannedSpaces?: readonly @ap/kernel#PlannedSpace[]; scopeControl?: @ap/kernel#ScopeControlSlot; sidebarNotice?: ReactNode; spaceNavSection?: @ap/kernel#SpaceNavSectionSlot; topBarTools?: ReactNode; undeclaredMenus?: @ap/kernel#UndeclaredMenusSlot; vocCompose?: @ap/kernel#VocComposeSlot; }
 PortContext | type | type PortContext = { condition: @ap/contracts#Condition | null; lineNames: @ap/contracts#IdSet; membershipBasis: 'asOf' | null; period: @ap/contracts#MembershipPeriod | null; prcGroups: @ap/contracts#IdSet; roomNames: @ap/contracts#IdSet; scopeId: string; }
 PortFailure | type | type PortFailure = { code: @ap/contracts#PortErrorCode | null; message: string; retryable: boolean; }
@@ -130,7 +131,7 @@ TimeNotation | type | type TimeNotation = { feed(at: Instant, options?: @ap/kern
 TimeNotationOptions | type | type TimeNotationOptions = { now?: number; timeZone?: string; }
 Toast | type | type Toast = { action?: @ap/kernel#ToastAction; detail?: string; id: number; text: string; tone: 'danger' | 'info' | 'warning'; }
 ToastAction | type | type ToastAction = { label: string; onAction: () => void; }
-ToastOptions | type | type ToastOptions = { action?: @ap/kernel#ToastAction; durationMs?: number; }
+ToastOptions | type | type ToastOptions = { action?: @ap/kernel#ToastAction; detail?: string; durationMs?: number; tone?: @ap/kernel#Toast['tone']; }
 UNDO_WINDOW_MS | const | const UNDO_WINDOW_MS: 8000
 UndeclaredMenu | type | type UndeclaredMenu = { menuId: string; permission: string; }
 UndeclaredMenusSlot | type | type UndeclaredMenusSlot = { Read: ComponentType<{ children: (list: readonly @ap/kernel#UndeclaredMenu[]) => ReactNode; }>; }
@@ -204,7 +205,7 @@ useMenuQuery | function | function useMenuQuery<P, T>(spec: @ap/contracts#Endpoi
 useMessages | function | function useMessages<K extends string>(messages: Readonly<Record<K, @ap/contracts#Text>>): (key: K, params?: @ap/kernel#TextParams) => string
 usePlatform | function | function usePlatform(): @ap/kernel#MenuPlatform
 usePlatformOptional | function | function usePlatformOptional(): @ap/kernel#MenuPlatform | null
-usePlatformQuery | function | function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<@ap/contracts#ApiResponse<T>>, pageInputs?: unknown, enabled?: boolean, identity?: 'context' | 'session', refreshEpoch?: number): @ap/kernel#QueryState<T>
+usePlatformQuery | function | function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<@ap/contracts#ApiResponse<T>>, options?: @ap/kernel#PlatformQueryOptions): @ap/kernel#QueryState<T>
 usePreferenceController | function | function usePreferenceController(): @ap/kernel#PreferenceController | null
 usePreferenceState | function | function usePreferenceState(controller: @ap/kernel#PreferenceController | null): @ap/kernel#PreferenceState
 useQueryContext | function | function useQueryContext(): @ap/contracts#GlobalContext

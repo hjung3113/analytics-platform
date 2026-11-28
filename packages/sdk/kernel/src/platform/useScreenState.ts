@@ -122,7 +122,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const { registry, location, adapter, session, user, can, canOpen, toast, accessibleSpaces, defaultRangeTo, equipmentAxes, isCurrentGeneration } = app.pub;
   const { enters, usageSessionId, userIdRef, usageNav } = app.internal;
   const { matchRoute, menuById, safeReturnTo } = registry;
-  const { url: visibleUrl, hidden, readAddress, navigation: pageNavigation, commit, go, mode, paneId, origin, mintCarry } = source;
+  const { url: visibleUrl, hidden, readAddress, navigation: pageNavigation, commit, go, mode, paneId, origin, mintCarry, myMenuVisit } = source;
   const url = useMemo(() => fullAddress({ url: visibleUrl, hidden }), [visibleUrl, hidden]);
   const paneLabel = source.paneLabel ?? null;
   const { t, lang } = useI18n();
@@ -543,7 +543,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     settle: () => setSettledSavedView(savedViewEntry),
     materialize: href => materializer.current(href),
   }), [savedViewEntry]);
-  const waitingForSavedView = eligible && entryKind === 'bare' && savedViewEnabled && settledSavedView !== savedViewEntry;
+  const waitingForSavedView = eligible && entryKind === 'bare' && savedViewEnabled && !source.myMenuArrival && settledSavedView !== savedViewEntry;
   if (newEntry || entry.kind !== entryKind || entry.pendingDefault !== waitingForSavedView || entry.traversal !== traversal) {
     setEntry({ route: autoApplyRoute, paneId, kind: entryKind, pendingDefault: waitingForSavedView, traversal });
   }
@@ -594,7 +594,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // blocks. Admission is `${userId}\0${menu.id}\0${pathname}` (a pane adds its paneId, so two panes with the same
   // menu each count) and requires the menu gate; a space menu also
   // needs space entry, while a global utility menu does not (06 §9.1). Query-only changes (setGlobal/setPage,
-  // default-period replace) never re-admit. `path` is the manifest route pattern, never the concrete pathname,
+  // default-period replace) never re-admit. An accepted in-place My Menus choice starts a new stay. `path` is the manifest route pattern, never the concrete pathname,
   // search or Context values. A pane's events carry `source: 'board'` and one opaque `stayId` per stay (ADR-0049).
   const lastAdmitted = useRef<string | null>(null);
   // A pane's own trail (#605): never shared with the main `usageNav` or another pane, never persisted, starts over when the pane id changes.
@@ -617,6 +617,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const admitKey = `${userId}\0${paneId ?? ''}\0${route.menu.id}\0${pathname}`;
     if (lastAdmitted.current === admitKey) return;
     lastAdmitted.current = admitKey;
+    const fromMyMenus = mode === 'main' && usageNav.current.via === 'my-menus';
     const admitUser = userId;
     const menu = route.menu;
     const spaceId = registry.spaceOf(menu)?.id ?? null;
@@ -643,7 +644,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const timer = setTimeout(() => {
       if (userIdRef.current !== admitUser) return;
       enteredAt = Date.now();
-      record({ name: 'entry', menuId: menu.id, spaceId, path: menu.path, at: enteredAt, sessionId: usageSessionId, ...provenance, ...(mode === 'main' ? takeNavigation(usageNav.current, admitUser, menu.id) : takePaneNavigation(paneTrailFor(paneTrail, paneId), admitUser, menu.id)) });
+      record({ name: 'entry', menuId: menu.id, spaceId, path: menu.path, at: enteredAt, sessionId: usageSessionId, ...provenance, ...(mode === 'main' ? takeNavigation(usageNav.current, admitUser, menu.id) : takePaneNavigation(paneTrailFor(paneTrail, paneId), admitUser, menu.id)), ...(fromMyMenus ? { via: 'my-menus' as const } : {}) });
       document.addEventListener('visibilitychange', onHidden);
     }, 0);
     return () => {
@@ -652,7 +653,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       lastAdmitted.current = null;
       sendDwell();
     };
-  }, [countsUsage, route, routeContractError, pathname, userId, can, enters, registry, adapter, usageSessionId, userIdRef, usageNav, paneId, mode]);
+  }, [countsUsage, route, routeContractError, pathname, userId, can, enters, registry, adapter, usageSessionId, userIdRef, usageNav, paneId, mode, myMenuVisit]);
 
   const pageParam = useCallback((key: string) => page.find(([k]) => k === key)?.[1] ?? null, [page]);
   const pageParams = useCallback((key: string) => page.filter(([k]) => k === key).map(([, v]) => v), [page]);

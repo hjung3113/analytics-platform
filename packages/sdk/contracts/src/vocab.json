@@ -18,6 +18,7 @@
   ],
   "usageVias": [
     "sidebar",
+    "my-menus",
     "switcher",
     "palette",
     "board",

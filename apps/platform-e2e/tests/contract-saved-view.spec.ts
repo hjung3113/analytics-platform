@@ -357,3 +357,67 @@ test.describe('06 §21 저장된 뷰', () => {
     await evidence(page, testInfo, 'denied-and-stale');
   });
 });
+
+test.describe('My Menus saved-view sharing', () => {
+  test('opens a group-shared view in the recipient Scope and removes it after membership is revoked', async ({ page, context }, testInfo) => {
+    const name = 'E2E 내 메뉴 공유';
+    const group = 'E2E 내 메뉴 그룹';
+    const adminAnchor = 'E2E 관리자 내 메뉴';
+    const myMenus = (tab: Page) => tab.getByRole('region', { name: '내 메뉴', exact: true });
+    const sharePicker = async (viewName: string) => {
+      const dialog = await startSave(page, viewName);
+      await expect(dialog.getByRole('checkbox', { name: '내 메뉴에 올리기' })).toBeChecked();
+      await dialog.getByRole('radio', { name: /^공유 대상 지정/ }).click();
+      await dialog.getByRole('button', { name: '저장', exact: true }).click();
+      const picker = page.getByRole('dialog', { name: '공유 대상' });
+      await picker.getByRole('radio', { name: '그룹', exact: true }).click();
+      return picker;
+    };
+
+    await signInAs(page, 'engineer');
+    await openCycle(page);
+    const picker = await sharePicker(name);
+    await picker.getByRole('button', { name: '새 그룹 만들기' }).click();
+    const create = page.getByRole('dialog', { name: '새 그룹 만들기' });
+    await create.getByLabel('그룹 이름').fill(group);
+    await create.getByLabel('멤버 검색').fill('오세진');
+    await create.getByRole('checkbox', { name: /오세진/ }).check();
+    await create.getByRole('button', { name: '그룹 만들기', exact: true }).click();
+    await expect(picker.getByRole('checkbox', { name: new RegExp(group) })).toBeChecked();
+    await picker.getByRole('button', { name: '공유 대상 저장' }).click();
+    await expect(toast(page, `"${name}" 뷰를 저장하고 공유 대상을 정했습니다.`)).toBeVisible();
+    await expect(picker).toHaveCount(0);
+    await expect(myMenus(page).getByRole('group', { name: '내가 만든 것' }).getByRole('link', { name: new RegExp(name) })).toBeVisible();
+
+    const recipient = await context.newPage();
+    await signInAs(recipient, 'admin');
+    await openCycle(recipient, `/analytics/cycle-time?v=1&scopeId=FDRY&${PERIOD}`);
+    await savePrivate(recipient, adminAnchor);
+    await recipient.goto(`/analytics/productivity?v=1&scopeId=FDRY&${PERIOD}`);
+    const sharedLink = myMenus(recipient).getByRole('group', { name: '공유받음' }).getByRole('link', { name: new RegExp(`${name}.*공정 엔지니어`) });
+    await expect(sharedLink).toBeVisible();
+    await evidence(recipient, testInfo, 'my-menus-shared');
+    await sharedLink.click();
+    await expect(mainHeading(recipient)).toHaveText('사이클타임 상세');
+    await expandQueryBar(recipient);
+    await expect(trigger(recipient)).toHaveAccessibleName(`저장된 뷰: ${name}`);
+    expect(query(recipient).get('scopeId')).toBe('FDRY');
+    expect(query(recipient).has('savedViewToken')).toBe(false);
+
+    await openCycle(page);
+    const editPicker = await sharePicker('E2E 공유 변경 확인');
+    await editPicker.getByRole('button', { name: `${group} 편집` }).click();
+    const edit = page.getByRole('dialog', { name: '그룹 편집' });
+    await edit.getByRole('button', { name: /오세진.*제거/ }).click();
+    await edit.getByRole('button', { name: '변경 저장' }).click();
+    await expect(edit).toHaveCount(0);
+    await editPicker.getByRole('button', { name: '취소', exact: true }).click();
+
+    await recipient.reload();
+    await expect(myMenus(recipient).getByRole('link', { name: new RegExp(adminAnchor) })).toBeVisible();
+    // The owned anchor and shared count come from the same completed sidebar list read.
+    await expect(myMenus(recipient).getByRole('button', { name: '공유받음 0', exact: true })).toBeVisible();
+    await expect(sharedLink).toHaveCount(0);
+    await evidence(recipient, testInfo, 'my-menus-membership-revoked');
+  });
+});
