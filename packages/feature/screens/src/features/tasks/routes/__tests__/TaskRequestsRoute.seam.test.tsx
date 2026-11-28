@@ -1,37 +1,37 @@
-import { ApiError } from '../../../lib/api/types';
-import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
-import { type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
-import type { HostSearch } from '../../../lib/host/search';
-import { taskRequestPage } from '../../../test/task-request-pages';
+import { ApiError } from '../../../../lib/api/types';
+import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reasons';
+import { type HostSeam, HostSeamProvider } from '../../../../lib/host/host-seam';
+import type { HostSearch } from '../../../../lib/host/search';
+import { taskRequestPage } from '../../../../test/task-request-pages';
 import type { TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TaskRequestsScreen } from './TaskRequestsScreen';
-import type { TaskRequestPanelParts } from './task-requests/TaskRequestPanelParts';
+import { TaskRequestsScreen } from '../TaskRequestsScreen';
+import type { TaskRequestPanelParts } from '../task-requests/TaskRequestPanelParts';
 
 // TaskRequestsScreen under a bare HostSeamProvider, with no router mocked or mounted: the bridge's situation (#763 q2).
 const api = vi.hoisted(() => ({ fetchTaskRequests: vi.fn(), getTaskRequest: vi.fn() }));
 
-vi.mock('../../../lib/api/task-requests', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/task-requests')>()),
+vi.mock('../../../../lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/task-requests')>()),
   fetchTaskRequests: api.fetchTaskRequests,
   getTaskRequest: api.getTaskRequest,
 }));
-vi.mock('../../../lib/api/me', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/me')>()),
+vi.mock('../../../../lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/me')>()),
   useMeBridge: () => ({ data: { actor: { id: 'actor', role_level: 'admin' } } }),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({ items: [] })),
 }));
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
-vi.mock('./task-requests/TaskRequestPanelParts', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./task-requests/TaskRequestPanelParts')>();
+vi.mock('../task-requests/TaskRequestPanelParts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../task-requests/TaskRequestPanelParts')>();
   const TaskRequestPanelBody = ({
     item,
     onDecisionComplete,

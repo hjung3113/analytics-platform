@@ -1,9 +1,9 @@
-import { fetchTaskRequests } from '../../../lib/api';
-import * as barrel from '../../../lib/api';
-import { ApiError } from '../../../lib/api/types';
-import { useMe } from '../../../lib/auth/useMe';
-import { TaskRequestsRoute } from '../../../test/screen-host/features/tasks/routes/TaskRequestsRoute';
-import { taskRequestPage } from '../../../test/task-request-pages';
+import { fetchTaskRequests } from '../../../../lib/api';
+import * as barrel from '../../../../lib/api';
+import { ApiError } from '../../../../lib/api/types';
+import { useMe } from '../../../../lib/auth/useMe';
+import { TaskRequestsRoute } from '../../../../test/screen-host/features/tasks/routes/TaskRequestsRoute';
+import { taskRequestPage } from '../../../../test/task-request-pages';
 import type { ListTaskRequestsQuery } from '@ap/feature-shared';
 import type { TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -53,8 +53,8 @@ vi.mock('@ap/ui', async () => {
     ),
   };
 });
-vi.mock('../../../ui/index', async () => {
-  const actual = await vi.importActual<typeof import('../../../ui/index')>('../../../ui/index');
+vi.mock('../../../../ui/index', async () => {
+  const actual = await vi.importActual<typeof import('../../../../ui/index')>('../../../../ui/index');
   return {
     ...actual,
     useDetailPanelSlot: (node: import('react').ReactNode) => {
@@ -66,7 +66,7 @@ vi.mock('../../../ui/index', async () => {
   };
 });
 
-vi.mock('../../findings/public', () => ({
+vi.mock('../../../findings/public', () => ({
   useFindingDetail: () => ({
     data: {
       id: '40000000-0000-0000-0000-000000000004',
@@ -76,7 +76,7 @@ vi.mock('../../findings/public', () => ({
     },
   }),
 }));
-vi.mock('../../findings/hooks/useFindingDetail', () => ({
+vi.mock('../../../findings/hooks/useFindingDetail', () => ({
   useFindingDetail: () => ({
     data: {
       id: '40000000-0000-0000-0000-000000000004',
@@ -87,12 +87,12 @@ vi.mock('../../findings/hooks/useFindingDetail', () => ({
   }),
 }));
 
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
 
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [] })),
   fetchManagedSystems: vi.fn(async () => ({
     items: [{ id: '30000000-0000-0000-0000-000000000003', name: 'Billing Ops' }],
@@ -128,7 +128,7 @@ const { taskRequest } = vi.hoisted(() => ({
   } as TaskRequestDto,
 }));
 
-vi.mock('../../../lib/api', () => ({
+vi.mock('../../../../lib/api', () => ({
   approveTaskRequest: vi.fn(),
   convertTaskRequest: vi.fn(),
   fetchMe: vi.fn(async () => ({
@@ -158,8 +158,8 @@ vi.mock('../../../lib/api', () => ({
   })),
 }));
 // The hooks import the module paths; forward at call time so the barrel fakes above still apply.
-vi.mock('../../../lib/api/task-requests', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/task-requests')>()),
+vi.mock('../../../../lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/task-requests')>()),
   fetchTaskRequests: (...args: Parameters<typeof barrel.fetchTaskRequests>) =>
     barrel.fetchTaskRequests(...args),
   getTaskRequest: (...args: Parameters<typeof barrel.getTaskRequest>) =>
@@ -172,26 +172,26 @@ vi.mock('../../../lib/api/task-requests', async (importOriginal) => ({
     ...args: Parameters<typeof barrel.requestMoreEvidenceForTaskRequest>
   ) => barrel.requestMoreEvidenceForTaskRequest(...args),
 }));
-vi.mock('../../../lib/api/tasks', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/tasks')>()),
+vi.mock('../../../../lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/tasks')>()),
   convertTaskRequest: (...args: Parameters<typeof barrel.convertTaskRequest>) =>
     barrel.convertTaskRequest(...args),
   linkExistingTask: (...args: Parameters<typeof barrel.linkExistingTask>) =>
     barrel.linkExistingTask(...args),
   listTasks: (...args: Parameters<typeof barrel.listTasks>) => barrel.listTasks(...args),
 }));
-vi.mock('../../../lib/api/actors', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/actors')>()),
+vi.mock('../../../../lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/actors')>()),
   resolveActors: (...args: Parameters<typeof barrel.resolveActors>) =>
     barrel.resolveActors(...args),
 }));
-vi.mock('../../../lib/api/permission-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/permission-reads')>()),
+vi.mock('../../../../lib/api/permission-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/permission-reads')>()),
   fetchPermissionCheckViaClient: (...args: Parameters<typeof barrel.fetchPermissionCheck>) =>
     barrel.fetchPermissionCheck(...args),
 }));
-vi.mock('../../../lib/api/me', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/me')>()),
+vi.mock('../../../../lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/me')>()),
   useMeBridge: () => useMe(),
 }));
 
