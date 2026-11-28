@@ -19,7 +19,7 @@ export function ApprovalReviewPanel({ requester, requestedAt, audience, groupNam
   const { lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const section = 'space-y-1 border-t border-border-subtle pt-3';
-  return <div className="space-y-4 break-words text-sm">
+  return <div className="space-y-4 break-keep text-sm [overflow-wrap:anywhere]">
     <p className="flex flex-wrap gap-x-2 text-text-muted"><span>{requester}</span>{requestedAt !== undefined && <span>· {formatListTime(requestedAt)}</span>}</p>
     <dl className="flex flex-wrap gap-x-2"><dt className="text-text-muted">{m('svReviewAudience')}</dt><dd>{visibilityText(audience, lang, groupNames)}</dd></dl>
     {changes && <section className={section}>
@@ -32,6 +32,6 @@ export function ApprovalReviewPanel({ requester, requestedAt, audience, groupNam
     <section className={section}>
       <h2 className="font-semibold">{m('svReviewStage')}</h2><p>{approverSpaceName ? m('svReviewSpaceApprover', { space: approverSpaceName }) : m('svReviewApprover')}</p>
     </section>
-    {approved && <Button type="button" size="sm" variant="secondary" aria-pressed={approved.shown} onClick={approved.toggle}>{m('svReviewApproved')}</Button>}
+    {approved && <Button type="button" size="toolbar" variant="secondary" aria-pressed={approved.shown} onClick={approved.toggle}>{m('svReviewApproved')}</Button>}
   </div>;
 }

@@ -351,6 +351,96 @@ test.describe('06 §21 저장된 뷰', () => {
     const toggle = adminPage.getByRole('button', { name: '승인본 화면 보기' });
     await expect(toggle).toHaveAttribute('aria-pressed', 'false');
     await captureCycleCopy(adminPage, testInfo, '2765-after-proposal', proposal, '주');
+    await test.step('검토 도구 모음 아래에서 제목과 문맥에 접근할 수 있다 (#3258 A1)', async () => {
+      const heading = proposal.getByRole('heading', { name: '사이클타임 상세', exact: true });
+      await expect(heading).toBeVisible();
+      const toolbarBottom = await comparison.evaluate(node => node.getBoundingClientRect().bottom);
+      for (const element of [heading, proposal.locator('[data-page-scope-chip]'), proposal.locator('[data-breadcrumb-system]'), proposal.locator('[data-breadcrumb-section]')]) {
+        await expect.soft(element).toBeVisible();
+        expect.soft(await element.evaluate((node, bottom) => {
+          const rect = node.getBoundingClientRect();
+          return rect.top >= bottom && node.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+        }, toolbarBottom)).toBe(true);
+      }
+      const reject = comparison.getByRole('button', { name: '반려…' });
+      await reject.focus();
+      await adminPage.keyboard.press('Tab');
+      expect.soft(await proposal.evaluate(node => node.contains(document.activeElement))).toBe(true);
+    });
+    await test.step('숨은 조회 조건을 읽기 전용으로 열 수 있다 (#3258 A2)', async () => {
+      const lane = proposal.locator('[data-context-chip-lane]');
+      const overflow = lane.getByRole('button', { name: /^\+\d+$|^조건 \d+개 더 보기$/ });
+      await expect(overflow).toBeVisible();
+      const count = Number((await overflow.innerText()).slice(1));
+      const expected = (await lane.locator('[data-context-chip-measure] > span').filter({ hasNotText: /^\+0+$/ }).allTextContents()).slice(-count);
+      const state = await savedReviewState(adminPage);
+      await expect(overflow).toBeEnabled();
+      await overflow.press('Enter');
+      const disclosure = adminPage.getByRole('dialog', { name: '나머지 조건' });
+      await expect(disclosure).toBeVisible();
+      const summaries = disclosure.getByRole('listitem').getByRole('group');
+      await expect(summaries).toHaveCount(count);
+      for (const [index, label] of expected.entries()) await expect(summaries.nth(index)).toHaveAccessibleName(label);
+      await expect(disclosure.getByRole('button')).toHaveCount(0);
+      await expect(disclosure).toHaveCSS('opacity', '1');
+      await evidence(adminPage, testInfo, '3258-overflow');
+      await adminPage.keyboard.press('Escape');
+      await expect(overflow).toBeFocused();
+      await overflow.click();
+      await expect(disclosure).toBeVisible();
+      await adminPage.keyboard.press('Escape');
+      await expect(disclosure).toBeHidden();
+
+      for (const key of ['Tab', 'Shift+Tab']) {
+        await test.step(`패널을 닫고 ${key} 순서를 이어 간다 (#3258 C4)`, async () => {
+          await overflow.focus();
+          await adminPage.keyboard.press(key);
+          const destination = await adminPage.locator(':focus').elementHandle();
+          await overflow.press('Enter');
+          await expect(disclosure).toBeFocused();
+          await adminPage.keyboard.press(key);
+          await expect.soft(disclosure).toBeHidden({ timeout: 2_000 });
+          const focus = await destination.evaluate(node => ({
+            matched: node === document.activeElement,
+            expected: node.outerHTML.slice(0, 200),
+            actual: document.activeElement?.outerHTML.slice(0, 200),
+          }));
+          expect.soft(focus.matched, `${key} from +N: expected ${focus.expected}, focused ${focus.actual}`).toBe(true);
+          if (await disclosure.isVisible()) await adminPage.keyboard.press('Escape');
+        });
+      }
+
+      await test.step('미리보기 제목을 누르면 패널이 닫힌다 (#3258 C2)', async () => {
+        await overflow.press('Enter');
+        await expect(disclosure).toBeVisible();
+        const heading = proposal.getByRole('heading', { name: '사이클타임 상세', exact: true });
+        // Keep the browser from moving focus to an ancestor so this click tests pointer dismissal.
+        await heading.evaluate(node => node.addEventListener('mousedown', event => event.preventDefault(), { once: true }));
+        await heading.click();
+        await expect.soft(disclosure).toBeHidden({ timeout: 2_000 });
+        if (await disclosure.isVisible()) await adminPage.keyboard.press('Escape');
+      });
+
+      await test.step('모든 조건이 펼쳐지면 검토 화면에 포커스가 남는다 (#3258 C1)', async () => {
+        const viewport = adminPage.viewportSize()!;
+        for (const focusDisclosure of [false, true]) {
+          await overflow.focus();
+          if (focusDisclosure) {
+            await overflow.press('Enter');
+            await expect(disclosure).toBeFocused();
+          }
+          await adminPage.setViewportSize({ ...viewport, width: 2560 });
+          await expect(overflow).toHaveCount(0);
+          await expect.soft(adminPage.getByRole('main')).toBeFocused({ timeout: 2_000 });
+          await adminPage.setViewportSize(viewport);
+          await expect(overflow).toBeVisible();
+        }
+      });
+
+      await expect(proposal.getByRole('button', { name: PHOTO_CHIP, exact: true })).toBeDisabled();
+      await expect(adminPage).toHaveURL(comparisonAddress);
+      expect(await savedReviewState(adminPage)).toEqual(state);
+    });
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');
     await expect(comparison.getByText('현재 화면: 승인본', { exact: true })).toBeVisible();

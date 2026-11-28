@@ -32,17 +32,32 @@ const refuseWrite = async (): Promise<ApiResponse<never>> => ({
 const stop = (event: SyntheticEvent) => event.stopPropagation();
 const block = (event: SyntheticEvent) => { event.preventDefault(); stop(event); };
 
-type PreviewTabHandler = (target: Element, key?: string) => boolean;
-const PreviewTabs = createContext<WeakMap<Element, PreviewTabHandler> | null>(null);
+type PreviewGestureHandler = (target: Element, key?: string) => boolean;
+type PreviewDisclosureDismissal = (target: Node) => void;
+const PreviewInteractions = createContext<{
+  gestures: WeakMap<Element, PreviewGestureHandler>;
+  disclosureDismissals: Set<PreviewDisclosureDismissal>;
+} | null>(null);
 
-/** Shared dock integration. Review dispatches display gestures without forwarding the original event. */
-export function useReadOnlyPreviewTabs() { return useContext(PreviewTabs); }
+/** SDK-only display controls register local gestures without receiving the blocked preview event. */
+export function useReadOnlyPreviewGestures() { return useContext(PreviewInteractions)?.gestures ?? null; }
+export const useReadOnlyPreviewTabs = useReadOnlyPreviewGestures;
 
-function dispatchTabGesture(tabs: WeakMap<Element, PreviewTabHandler>, event: SyntheticEvent, key?: string): boolean {
+/** An open SDK disclosure can dismiss itself on a pointer-down intercepted by the read-only fieldset. */
+export function useReadOnlyPreviewDisclosureDismissal(dismiss: PreviewDisclosureDismissal | null) {
+  const dismissals = useContext(PreviewInteractions)?.disclosureDismissals;
+  useLayoutEffect(() => {
+    if (!dismissals || !dismiss) return;
+    dismissals.add(dismiss);
+    return () => { dismissals.delete(dismiss); };
+  }, [dismissals, dismiss]);
+}
+
+function dispatchPreviewGesture(gestures: WeakMap<Element, PreviewGestureHandler>, event: SyntheticEvent, key?: string): boolean {
   const target = event.target;
   if (!(target instanceof Element) || !event.currentTarget.contains(target)) return false;
   for (let node: Element | null = target; node && node !== event.currentTarget; node = node.parentElement) {
-    const handler = tabs.get(node);
+    const handler = gestures.get(node);
     if (handler) return handler(target, key);
   }
   return false;
@@ -51,7 +66,7 @@ function dispatchTabGesture(tabs: WeakMap<Element, PreviewTabHandler>, event: Sy
 type SavedViewPreviewProps = {
   view: MenuView;
   href: string;
-  /** Keep screen content readable and allow local dock tab selection while blocking edits, navigation and platform writes. */
+  /** Keep content readable and allow local dock tabs and condition disclosure while blocking edits, navigation and platform writes. */
   readOnly?: boolean;
   children: ReactNode;
 };
@@ -69,7 +84,11 @@ function PreviewScreen({ view, href, readOnly = false, children }: SavedViewPrev
   const [url, setUrl] = useState(href);
   const latest = useRef(href);
   const [slots] = useState(createViewSlotStore);
-  const [tabs] = useState(() => new WeakMap<Element, PreviewTabHandler>());
+  const [interactions] = useState(() => ({
+    gestures: new WeakMap<Element, PreviewGestureHandler>(),
+    disclosureDismissals: new Set<PreviewDisclosureDismissal>(),
+  }));
+  const { gestures, disclosureDismissals } = interactions;
   const [guard] = useState(createNavigationGuard);
   const [supports] = useState(createSupportRegistry);
   const { adapter, user, revision } = app.pub;
@@ -103,18 +122,25 @@ function PreviewScreen({ view, href, readOnly = false, children }: SavedViewPrev
     slots.screen(JSON.stringify([view.menuId, scopeId])).apply(view.id, { tables: view.tables });
     slots.screen(JSON.stringify([view.menuId, scopeId, PANELS_SLOT])).apply(view.id, { [PANELS_SLOT]: savedPanelsSlot(view, scopeId) });
   }, [slots, scopeId, view]);
-  const content = readOnly ? <PreferenceContext.Provider value={readOnlyPreferences}><PreviewTabs.Provider value={tabs}>
+  const content = readOnly ? <PreferenceContext.Provider value={readOnlyPreferences}><PreviewInteractions.Provider value={interactions}>
     <fieldset disabled style={{ height: '100%', minWidth: 0, margin: 0, padding: 0, border: 0 }}
-      onClickCapture={event => { block(event); if (event.button === 0) dispatchTabGesture(tabs, event); }}
+      onClickCapture={event => { block(event); if (event.button === 0) dispatchPreviewGesture(gestures, event); }}
       onAuxClickCapture={block} onContextMenuCapture={block} onSubmitCapture={block}
-      onPointerDownCapture={stop} onPointerUpCapture={stop} onDragStartCapture={block} onBeforeInputCapture={block}
+      onPointerDownCapture={event => {
+        stop(event);
+        const target = event.target;
+        // Portaled children also reach this fieldset through React's event tree.
+        if (target instanceof Node && event.currentTarget.contains(target)) {
+          for (const dismiss of disclosureDismissals) dismiss(target);
+        }
+      }} onPointerUpCapture={stop} onDragStartCapture={block} onBeforeInputCapture={block}
       onWheelCapture={stop} onKeyDownCapture={event => {
         if (event.key === 'Tab') return;
         stop(event);
-        if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && dispatchTabGesture(tabs, event, event.key)) event.preventDefault();
+        if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && dispatchPreviewGesture(gestures, event, event.key)) event.preventDefault();
       }} onKeyUpCapture={stop}>
       {children}
     </fieldset>
-  </PreviewTabs.Provider></PreferenceContext.Provider> : children;
+  </PreviewInteractions.Provider></PreferenceContext.Provider> : children;
   return <AppContext.Provider value={preview}><ScreenContext.Provider value={screen}>{content}</ScreenContext.Provider></AppContext.Provider>;
 }
