@@ -1,1 +1,1 @@
-{"extends":"@ap/tsconfig/base.json","include":["src","vitest.config.ts"]}
+{"extends":"@ap/tsconfig/base.json","compilerOptions":{"noUncheckedIndexedAccess":true},"include":["src","vitest.config.ts"]}

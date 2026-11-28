@@ -7,6 +7,7 @@ import { useHostPlatform, useLeaveRequest, useSavedViews, type HostPlatform } fr
 import { canonicalHistoryQuery } from '../../query/query-history';
 import { decodeRecent, readSpaceLast, spaceLastKey } from '../preferences';
 import { createFakeSavedViewStore, memoryStorage, noContext, testAdapter, testSavedView, testSession, testSpace, testScreen } from '../../testing';
+import { at } from '../../test-support';
 
 const group = { id: groupId('g'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') };
 const base = { group: group.id, icon: House, component: testScreen, label: group.label, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'overview' as const, pageKeys: ['q', 'focus', 'returnTo'], features: { export: false, savedView: false, annotate: false, compare: false } };
@@ -26,7 +27,10 @@ const endpoint = defineEndpoint<{}, null>({ id: 'fixture.expansion', menuId: 'ap
 function HistoryQuery() { useMenuQuery(endpoint, {}); return null; }
 function Probe() {
   host = useHostPlatform();
-  useSavedViewSupport(supports[host.route?.menu.id ?? 'home']);
+  const menuId = host.route?.menu.id ?? 'home';
+  const support = supports[menuId];
+  if (support === undefined) throw new Error(`missing item ${menuId}`);
+  useSavedViewSupport(support);
   views = useSavedViews(); leave = useLeaveRequest();
   useUnsavedGuard(host.pageParam('focus') !== null, { leaves: 'address' });
   return host.route?.menu.id === 'apply' ? <HistoryQuery /> : null;
@@ -113,7 +117,9 @@ describe('host-only detail expansion', () => {
   it('strips old preference addresses and explicit return origins, and favorites start clean', () => {
     sessionStorage.setItem(spaceLastKey(session.user.id), JSON.stringify({ mars: '/mars/home?v=1&expand=1' }));
     expect(readSpaceLast(session.user.id).mars).not.toContain('expand');
-    expect(decodeRecent([{ menuId: 'home', url: '/mars/home?v=1&expand=1', at: 1 }])?.[0].url).not.toContain('expand');
+    const recents = decodeRecent([{ menuId: 'home', url: '/mars/home?v=1&expand=1', at: 1 }]);
+    if (recents === undefined) throw new Error('missing recents');
+    expect(at(recents, 0).url).not.toContain('expand');
     mount('/mars/home?v=1&expand=1&returnTo=' + encodeURIComponent('/mars/other?v=1&expand=1'));
     expect(host.returnOrigin().href).not.toContain('expand');
     expect(host.resolveLink('other', { page: { returnTo: '/mars/home?v=1&expand=1' } }).href).not.toContain('expand');
@@ -131,7 +137,7 @@ describe('host-only detail expansion', () => {
     { hiddenPageKeys: ['expand'] },
     { navViews: [{ id: 'v', label: group.label, page: { expand: '1' } }] },
   ])('rejects platform key declarations: %j', patch => {
-    expect(() => createRegistry({ spaces: [testSpace()], groups: [group], menus: [{ ...menus[0], carrySet: undefined, ...patch }] })).toThrow(/expand.*reserved/);
+    expect(() => createRegistry({ spaces: [testSpace()], groups: [group], menus: [{ ...at(menus, 0), carrySet: undefined, ...patch }] })).toThrow(/expand.*reserved/);
   });
   it('rejects expand in carry sets', () => {
     expect(() => createRegistry({ spaces: [testSpace()], groups: [group], menus, carrySets: [{ id: carrySetId('set'), pageKeys: ['expand'] }] })).toThrow(/expand.*reserved/);

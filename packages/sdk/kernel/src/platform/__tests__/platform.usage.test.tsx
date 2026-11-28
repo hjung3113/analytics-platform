@@ -6,6 +6,7 @@ import { I18nProvider } from '../../i18n';
 import { PlatformLink, PlatformProvider, usePlatform } from '../platform';
 import { createRegistry } from '../../registry/registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { at } from '../../test-support';
 import { groupId, spaceId, type PlatformAdapter, type Session, type SpaceDef, type UsageEvent } from '@ap/contracts';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
@@ -99,11 +100,11 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
     const events = mountAt('/equipment/E-123?scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00', ADMIN);
     await settle();
     expect(events).toHaveLength(1);
-    expect(events[0].name).toBe('entry');
-    expect(events[0].menuId).toBe('equipment-detail');
-    expect(events[0].spaceId).toBe('mars');
-    expect(events[0].path).toBe('/mars/equipment-detail/:equipmentId');
-    expect(events[0].sessionId).toEqual(expect.any(String));
+    expect(at(events, 0).name).toBe('entry');
+    expect(at(events, 0).menuId).toBe('equipment-detail');
+    expect(at(events, 0).spaceId).toBe('mars');
+    expect(at(events, 0).path).toBe('/mars/equipment-detail/:equipmentId');
+    expect(at(events, 0).sessionId).toEqual(expect.any(String));
     // No concrete id, no Context value, no search in the wire format.
     expect(JSON.stringify(events)).not.toContain('E-123');
     expect(JSON.stringify(events)).not.toContain('MEM');
@@ -129,10 +130,10 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
     expect(events.map(e => `${e.name}:${e.menuId}`)).toEqual([
       'entry:equipment', 'dwell:equipment', 'entry:admin-roles', 'dwell:admin-roles', 'entry:equipment',
     ]);
-    expect(events[1].enteredAt).toBe(events[0].at);
-    expect(events[1].dwellMs).toBeGreaterThanOrEqual(0);
-    expect(events[3].enteredAt).toBe(events[2].at);
-    expect(events[4].at).toBeGreaterThanOrEqual(events[0].at);
+    expect(at(events, 1).enteredAt).toBe(at(events, 0).at);
+    expect(at(events, 1).dwellMs).toBeGreaterThanOrEqual(0);
+    expect(at(events, 3).enteredAt).toBe(at(events, 2).at);
+    expect(at(events, 4).at).toBeGreaterThanOrEqual(at(events, 0).at);
   });
 
   it('hidden emits exactly one dwell with the exact enteredAt and dwellMs; after unmount the listener is gone', async () => {
@@ -173,7 +174,7 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
     const events = mountAt('/equipment?v=1&scopeId=MEM', ADMIN, true);
     await settle();
     expect(events).toHaveLength(1);
-    expect(events[0].name).toBe('entry');
+    expect(at(events, 0).name).toBe('entry');
   });
 
   it('a space-denied direct URL emits zero calls', async () => {

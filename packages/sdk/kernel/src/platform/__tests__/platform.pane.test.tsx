@@ -12,6 +12,7 @@ import { useQueryContext } from '../../query/condition-preset';
 import { useMenuFetch, useMenuQuery } from '../../query/query';
 import { createRegistry } from '../../registry/registry';
 import { noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { at as elementAt } from '../../test-support';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const apply = { ...noContext, time: 'apply' as const };
@@ -838,14 +839,19 @@ describe('selection metadata screen ownership', () => {
     const tree = mount(ui(true), f.adapter);
     await flush(); await flush();
     expect(calls.sort()).toEqual(['A', 'B', 'MEM']);
-    expect(values.get('main')!.items[0].equipmentId).toBe('MEM');
-    expect(values.get('a')!.items[0].equipmentId).toBe('A');
-    expect(values.get('a-bar')!.items).toBe(values.get('a')!.items);
-    expect(values.get('b')!.items[0].equipmentId).toBe('B');
+    const search = (id: string) => {
+      const value = values.get(id);
+      if (value === undefined) throw new Error(`missing item ${id}`);
+      return value;
+    };
+    expect(elementAt(search('main').items, 0).equipmentId).toBe('MEM');
+    expect(elementAt(search('a').items, 0).equipmentId).toBe('A');
+    expect(search('a-bar').items).toBe(search('a').items);
+    expect(elementAt(search('b').items, 0).equipmentId).toBe('B');
     await act(async () => at('b').setGlobal({ scopeId: 'B2' }));
     await flush();
-    expect(values.get('b')!.items[0].equipmentId).toBe('B2');
-    expect(values.get('a')!.items[0].equipmentId).toBe('A');
+    expect(elementAt(search('b').items, 0).equipmentId).toBe('B2');
+    expect(elementAt(search('a').items, 0).equipmentId).toBe('A');
     tree.rerender(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}>{ui(false)}</PlatformProvider></I18nProvider>);
     await flush();
     tree.rerender(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}>{ui(true)}</PlatformProvider></I18nProvider>);
@@ -906,7 +912,7 @@ it.each(['scope', 'generation'])('clears shared availability on reporter removal
 
 it('shares history initialization between the two pane providers but keeps another same-menu pane independent', async () => {
   const applyMenu = { ...entry('history', '/history'), primary: true, query: { mode: 'apply' as const }, context: apply };
-  const chosen = createRegistry({ spaces: [testSpace({ homeMenuId: 'history' })], groups: [registry.groups[0]], menus: [applyMenu] });
+  const chosen = createRegistry({ spaces: [testSpace({ homeMenuId: 'history' })], groups: [elementAt(registry.groups, 0)], menus: [applyMenu] });
   const session = testSession(['platform:view']);
   const list = vi.fn(async () => [{ id: 'last', query: `?v=1&${window1}&tab=last`, schemaVersion: 1 as const, lastAppliedAt: 1, count: 1 }]);
   const record = vi.fn(async () => {});

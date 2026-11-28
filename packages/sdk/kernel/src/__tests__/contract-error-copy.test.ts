@@ -42,7 +42,9 @@ describe('contractErrorSentence (ADR-0034, #397)', () => {
     'membershipBasis', 'lineNames', 'lineSelection', 'prcGroups', 'prcGroupSelection',
     'roomSelection', 'equipmentSelection', 'lotSelection', 'recipeSelection',
   ])('field map names %s in both languages without contract vocabulary', key => {
+    expect(URL_FIELD_NAMES).toHaveProperty(key);
     const name = URL_FIELD_NAMES[key];
+    if (name === undefined) throw new Error(`missing item ${key}`);
     expect(name.ko).toBeTruthy();
     expect(name.en).toBeTruthy();
     expect(`${name.ko}${name.en}`).not.toMatch(/=|URL|§/);

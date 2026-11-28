@@ -6,6 +6,7 @@ import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform } from '../../platform/platform';
 import { createRegistry } from '../../registry/registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { at } from '../../test-support';
 
 const registry = createRegistry({
   spaces: [testSpace()],
@@ -38,7 +39,7 @@ it.each([false, true])('finishes the pending screen Scope check across a same-sn
   expect(screen.getByTestId('scope')).toHaveTextContent('validating:SITE-B:');
   act(() => listeners.forEach(listener => listener()));
   expect(validateScope).toHaveBeenCalledTimes(1);
-  expect(validateScope.mock.calls[0][1]?.aborted).toBe(false);
+  expect(at(validateScope.mock.calls, 0)[1]?.aborted).toBe(false);
   expect(screen.getByTestId('scope')).toHaveTextContent('validating:SITE-B:');
   await act(async () => { resolveScope({ status: 'valid', grantedRooms: ['RB1'] }); });
   expect(screen.getByTestId('scope')).toHaveTextContent('valid:SITE-B:RB1');

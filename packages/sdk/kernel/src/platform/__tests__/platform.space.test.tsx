@@ -6,6 +6,7 @@ import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform, useRecentVisits, useToastList } from '../platform';
 import { createRegistry } from '../../registry/registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '../../testing';
+import { at } from '../../test-support';
 import { groupId, spaceId, type Session, type SpaceDef } from '@ap/contracts';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
@@ -203,9 +204,9 @@ describe('module grants are not platform grants (ADR-0053)', () => {
 it.each([false, true])('uses the first openable implemented destination after considering resume (%s)', resumed => {
   const declared = ['equipment', 'admin-roles', 'admin-child'].map(id => registry.menuById(id));
   const rawMenu = (m: typeof declared[number], path: string) => ({ ...m, path, aliases: undefined });
-  const equipment = rawMenu(declared[0], '/equipment');
-  const home = rawMenu(declared[1], '/admin/roles');
-  const child = rawMenu(declared[2], '/admin/child');
+  const equipment = rawMenu(at(declared, 0), '/equipment');
+  const home = rawMenu(at(declared, 1), '/admin/roles');
+  const child = rawMenu(at(declared, 2), '/admin/child');
   const plannedRegistry = createRegistry({
     spaces,
     groups: registry.groups,

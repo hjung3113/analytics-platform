@@ -15,6 +15,7 @@ import { queryMissingRequired } from '../../query/draft-state';
 import { disabledReason, projectDisplayInputs, projectQueryInputs } from '../../registry/panel-inputs';
 import { createRegistry, type MenuEntry } from '../../registry/registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { at } from '../../test-support';
 
 const title = { ko: '추세', en: 'Trend' };
 const setKey = 'equipmentSet';
@@ -218,7 +219,7 @@ const invalidEntries = [
 ] as const;
 it.each(invalidEntries)('keeps a panel unavailable when its availability override requires invalid %s', (key, values) => {
   const { current: platform } = mount(usePlatform, '&' + new URLSearchParams(values.map(value => [key, value])));
-  const receiver = { ...panels[1], availability: { requires: [{ anyOf: [key] }], disabledReason: title } };
+  const receiver = { ...at(panels, 1), availability: { requires: [{ anyOf: [key] }], disabledReason: title } };
   expect(disabledReason(receiver, { [rangeKey]: platform.pageParam(rangeKey), [setKey]: platform.pageParams(setKey) })).toEqual(title);
 });
 
@@ -226,7 +227,7 @@ it.each(invalidEntries)('omits invalid URL values for %s from projections and re
   const query = new URLSearchParams(values.map(value => [key, value]));
   const { current: platform } = mount(usePlatform, `&${query}`);
   const inputs = { [rangeKey]: platform.pageParam(rangeKey), [setKey]: platform.pageParams(setKey) };
-  const receiver = panels[1];
+  const receiver = at(panels, 1);
   expect.soft(projectQueryInputs(receiver, inputs)).not.toHaveProperty(setKey);
   expect.soft(projectDisplayInputs(receiver, inputs)).not.toHaveProperty(rangeKey);
   const menu = { ...platform.route!.menu, query: { mode: 'apply', required: { page: [{ key, label: title }] } } } as const;
@@ -315,8 +316,8 @@ const chipPanels: PanelDeclaration[] = [
     outputs: [{ key: lastKey, action: 'pick', selection: { shape: 'set', dimension: 'operation' } }] },
   { ...panel, id: 'middle', displayInputs: { page: [{ key: setKey, selection: 'filter' }, { key: rangeKey, selection: 'highlight' }] },
     outputs: [{ key: middleKey, action: 'pick', selection: { shape: 'set', dimension: 'module' } }] },
-  panels[0],
-  { ...panels[3], outputs: [{ key: setKey, action: 'pick', selection: { shape: 'set', dimension: 'equipment', label: equipmentLabel } }] },
+  at(panels, 0),
+  { ...at(panels, 3), outputs: [{ key: setKey, action: 'pick', selection: { shape: 'set', dimension: 'equipment', label: equipmentLabel } }] },
 ];
 const chipKeys = [lastKey, middleKey, setKey, rangeKey];
 const chipRegistry = createRegistry({
@@ -423,7 +424,7 @@ it.each(['clear', 'clearAll'] as const)('proposes a single board pane write for 
   expect(result.current.chips.map(chip => chip.key)).toEqual([setKey, middleKey, lastKey, rangeKey]);
   act(() => expect(result.current[action](middleKey)).toBe(true));
   expect(propose).toHaveBeenCalledTimes(1);
-  const [[next, how]] = propose.mock.calls;
+  const [next, how] = at(propose.mock.calls, 0);
   expect(how).toBe('push');
   const page = new URLSearchParams(next.query);
   expect(page.has(middleKey)).toBe(false);
@@ -486,7 +487,7 @@ it('edits only the proposing board pane', () => {
   const result = mount(useAnalysisSelectionChips, '&equipmentSet=main', Board);
   act(() => expect(result.current.editor?.replace(setKey, b)).toBe(true));
   expect(propose).toHaveBeenCalledOnce();
-  expect(new URLSearchParams(propose.mock.calls[0][0].query).getAll(setKey)).toEqual(['B']);
+  expect(new URLSearchParams(at(propose.mock.calls, 0)[0].query).getAll(setKey)).toEqual(['B']);
   expect(sibling).not.toHaveBeenCalled();
   expect(search().get(setKey)).toBe('main');
 });
