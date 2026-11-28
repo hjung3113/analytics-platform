@@ -7,6 +7,10 @@
 
 ## 13. Shared Component Layers
 
+| 컴포넌트 | 역할 |
+| --- | --- |
+| `ApprovalReviewPanel` (`@ap/components`, #2765) | 신청자·시간·공유 대상, 승인본과의 차이, 저장된 지표 버전, 시스템 승인 단계, 승인본 전환을 그린다. `ApprovalReviewFrame` (`@ap/shell`)은 검토 머리와 승인·반려·신청 거두기를 맡는다. [진입·복원 계약](kernel.md#21-saved-view-contract). |
+
 ### 페이지 조건 레이어 (Candidate, #2339)
 
 `PageConditionLayer`는 `PageConditionCategories`의 선언 순서·범주별 「지우기」·section 접기를 담는 비모달 편집 표면이다. 제목은 「페이지 조건」이며 전역 Context(기간·Scope·Condition·Selection 등)는 읽기 전용 요약과 「조회 조건에서 바꾸기」 진입으로만 제공한다. 전역 편집은 기존 Context 바에서 한다. body overlay의 위치·폭·쌓임은 [Layout §8](layout.md#8-shell-slots)이 소유한다. 적용 모드에서 층이 열려 있는 동안 조회 줄의 「적용」은 같은 자리에서 비활성이 되고(`QueryBarExtension.applyHint`, 툴팁·보조 설명) 층 바닥 「적용」이 하나뿐인 적용 동작으로 남는다(같은 draft·같은 `apply`). 층 머리의 전역 Context 요약은 적용 대기 중인 조회 조건 변경 건수를 함께 알린다. 둘 다 시안 단계의 Candidate이며 소유자 확인으로 되돌릴 수 있다.

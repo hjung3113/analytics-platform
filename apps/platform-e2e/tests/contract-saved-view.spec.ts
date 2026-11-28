@@ -9,6 +9,7 @@ import { expectAppliedChip, queryEditor, shareQueryConditions, pickTargetRoom, c
 const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
 const PHOTO_CHIP = '공정 PHOTO';
 const trigger = (page: Page) => page.getByRole('button', { name: /^저장된 뷰:/ });
+const reviewScreen = (page: Page) => page.getByRole('region', { name: '검토 본문', exact: true });
 const modifiedBadge = (page: Page) => trigger(page).getByText('수정됨');
 const toast = (page: Page, text: RegExp | string) => page.getByText(text).first();
 async function openCycle(page: Page, url = CYCLE) {
@@ -101,6 +102,35 @@ async function openManagement(page: Page) {
   await expect(dialog).toBeVisible();
   return dialog;
 }
+
+async function openApprovalReview(page: Page, name: string) {
+  await closeQueryEditor(page);
+  await openFoldedViewPicker(page);
+  const dialog = await openManagement(page);
+  await dialog.getByRole('radio', { name: '승인 대기' }).click();
+  await dialog.getByRole('button', { name: new RegExp(`^${name}`) }).click();
+  await dialog.getByRole('button', { name: '검토 열기' }).click();
+  const review = page.getByRole('region', { name: '승인 검토' });
+  await expect(reviewScreen(page).getByRole('heading', { name: '사이클타임 상세', exact: true })).toBeVisible();
+  return review;
+}
+
+async function captureCycleCopy(page: Page, testInfo: Parameters<typeof evidence>[1], name: string, body: Locator, granularity: '일' | '주') {
+  await expect(body.locator('[data-context-chip-measure]')).toContainText(/공정\s*PHOTO/);
+  await expect(body.locator('[data-context-chip-measure]')).toContainText(new RegExp(`집계\\s*${granularity}`));
+  const trend = body.getByRole('region', { name: '사이클타임 추세', exact: true });
+  await expect(trend).toBeVisible();
+  await expect.poll(() => trend.locator('canvas').evaluateAll(canvases => canvases.some(canvas => {
+    const { width, height } = canvas as HTMLCanvasElement;
+    const pixels = (canvas as HTMLCanvasElement).getContext('2d')?.getImageData(0, 0, width, height).data;
+    return pixels?.some((value, index) => index % 4 === 3 && value > 0) ?? false;
+  }))).toBe(true);
+  await evidence(page, testInfo, name);
+}
+
+const savedReviewState = (page: Page) => page.evaluate(() => Object.keys(localStorage).sort()
+  .filter(key => /^platform:(saved-views|workspace):/.test(key))
+  .map(key => [key, localStorage.getItem(key)]));
 
 test.describe('HW Time saved views and shared conditions', () => {
   test('restores source-table column groups and shares the applied conditions', async ({ page }) => {
@@ -242,9 +272,11 @@ test.describe('06 §21 저장된 뷰', () => {
     await expect(modifiedBadge(page)).toHaveCount(0);
   });
 
-  test('그룹에 공유하고 공식을 신청하면 관리자가 승인하고, 승인 전후 상태가 서로 다른 필드로 보인다', async ({ page, context }, testInfo) => {
+  test('승인 검토 #2765: 공식 신청을 관리자가 검토하고 승인한다', async ({ page, context }, testInfo) => {
+    // One stored-view history across two roles: first request, owner withdrawal of an edit, and the edited proposal's comparison and panel access. Measured 32 s on the CI shard against the 30 s default.
+    test.slow();
     await signInAs(page, 'engineer');
-    await openCycle(page);
+    await openCycle(page, `${CYCLE}&granularity=day`);
     await saveShared(page, 'E2E 그룹 공유', { groups: ['포토공정1팀 (3명)', '주간 리뷰 모임 (3명)'] });
     await expect(toast(page, /"E2E 그룹 공유" 뷰를 저장하고 공유 대상을 정했습니다/)).toBeVisible();
     await saveShared(page, 'E2E 공식 신청', { official: true });
@@ -260,22 +292,138 @@ test.describe('06 §21 저장된 뷰', () => {
     // Each role gets its own page of the same browser context (the stored views are shared, the role script is installed once per page).
     const adminPage = await context.newPage();
     await signInAs(adminPage, 'admin');
-    await adminPage.goto(CYCLE);
-    await expect(mainHeading(adminPage)).toHaveText('사이클타임 상세');
-    await openFoldedViewPicker(adminPage);
-    const dialog = await openManagement(adminPage);
-    await dialog.getByRole('radio', { name: '승인 대기' }).click();
-    await dialog.getByRole('button', { name: /E2E 공식 신청/ }).click();
-    await evidence(adminPage, testInfo, 'approval-pending');
-    await dialog.getByRole('button', { name: '승인', exact: true }).click();
-    await expect(dialog.getByRole('status').filter({ hasText: 'E2E 공식 신청: 승인했습니다.' })).toBeVisible();
-    await adminPage.close();
+    await adminPage.goto(`${CYCLE}&granularity=week`);
+    await captureCycleCopy(adminPage, testInfo, '2765-before', adminPage.getByRole('main'), '주');
+    const before = adminPage.url();
+    const review = await openApprovalReview(adminPage, 'E2E 공식 신청');
+    expect(adminPage.url()).toBe(before);
+    await expect(review).toContainText('승인본 → 신청본');
+    await expect(review.getByText('현재 화면: 신청본', { exact: true })).toBeVisible();
+    const proposal = reviewScreen(adminPage);
+    await expect(proposal.getByRole('button', { name: PHOTO_CHIP, exact: true })).toBeDisabled();
+    const metadata = adminPage.getByRole('complementary', { name: '승인 검토' });
+    await expect(metadata.getByText('승인 후 공개 대상', { exact: true })).toBeVisible();
+    await expect(metadata.getByText('공식', { exact: true })).toBeVisible();
+    await expect(adminPage.getByRole('button', { name: '승인본 화면 보기' })).toHaveCount(0);
+    await captureCycleCopy(adminPage, testInfo, '2765-after-first-request', proposal, '일');
+    await review.getByRole('button', { name: '승인', exact: true }).click();
+    await expect(review).toHaveCount(0);
+    await expectAppliedChip(adminPage, '집계 주');
 
     await openCycle(page);
     const after = await openList(page);
     await expect(rowOf(after, 'E2E 공식 신청')).toContainText('공식');
     await expect(rowOf(after, 'E2E 공식 신청')).not.toContainText('승인 대기');
+    await page.keyboard.press('Escape');
+
+    // The UI disables editing an approved copy. Seed the mock store's pending-edit shape from the approved record.
+    await page.evaluate(() => {
+      const key = (owner: string) => 'platform:saved-views:v1:' + JSON.stringify([1, owner, 'cycle-time']);
+      const bucket = JSON.parse(localStorage.getItem(key('engineer')) ?? '{}');
+      const view = bucket.views?.find((row: { name: string }) => row.name === 'E2E 공식 신청');
+      if (!view) throw new Error('Approved view fixture was not found');
+      view.version += 1;
+      const copy = { ...view, id: 'u-seojia|cycle-time|2765', ownerId: 'u-seojia', name: 'E2E 이전 승인본' };
+      view.pending = { ...view, approval: 'pending', page: [['granularity', 'week']] };
+      localStorage.setItem(key('engineer'), JSON.stringify(bucket));
+      // A different owner lets the engineer exercise the MARS Space approver's list.
+      const pending = { ...view.pending, id: copy.id, ownerId: copy.ownerId, name: 'E2E 수정 후' };
+      localStorage.setItem(key(copy.ownerId), JSON.stringify({ schemaVersion: 1, views: [{ ...copy, pending }] }));
+    });
+    await openCycle(page);
+    const ownerReview = await openApprovalReview(page, 'E2E 공식 신청');
+    await expect(reviewScreen(page).locator('[data-context-chip-measure]')).toContainText(/집계\s*주/);
+    await ownerReview.getByRole('button', { name: '신청 거두기' }).click();
+    await expect(ownerReview).toHaveCount(0);
+    await openCycle(page, `${CYCLE}&granularity=week`);
+    const restored = await openList(page);
+    const restoredRow = rowOf(restored, 'E2E 공식 신청');
+    await expect(restoredRow).toContainText('공식');
+    await expect(restoredRow).not.toContainText('승인 대기');
+    await restoredRow.getByRole('button').first().click();
+    await expectAppliedChip(page, '집계 일');
+
+    await adminPage.goto(CYCLE);
+    await expect(adminPage.getByRole('tab', { name: '사이클타임 추세', selected: true })).toBeVisible();
+    const comparisonAddress = adminPage.url();
+    const comparison = await openApprovalReview(adminPage, 'E2E 수정 후');
+    await expect(comparison.getByText('현재 화면: 신청본', { exact: true })).toBeVisible();
+    const toggle = adminPage.getByRole('button', { name: '승인본 화면 보기' });
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await captureCycleCopy(adminPage, testInfo, '2765-after-proposal', proposal, '주');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(comparison.getByText('현재 화면: 승인본', { exact: true })).toBeVisible();
+    await captureCycleCopy(adminPage, testInfo, '2765-after-approved', proposal, '일');
+    const savedState = await savedReviewState(adminPage);
+    const summary = proposal.getByRole('tab', { name: '사이클타임 요약', exact: true });
+    const slow = proposal.getByRole('tab', { name: '느린 실행', exact: true });
+    await expect(summary).toHaveAttribute('aria-selected', 'false');
+    await expect(slow).toHaveAttribute('aria-selected', 'false');
+    await summary.click();
+    await expect(summary).toHaveAttribute('aria-selected', 'true');
+    await expect(proposal.getByText('실행 수', { exact: true })).toBeVisible();
+    await expect(summary).toBeFocused();
+    await adminPage.keyboard.press('End');
+    await expect(slow).toBeFocused();
+    await expect(slow).toHaveAttribute('aria-selected', 'true');
+    const executions = proposal.getByRole('grid', { name: '느린 실행 목록' });
+    await expect(executions.getByRole('columnheader', { name: 'Equipment', exact: true })).toBeVisible();
+    await expect(executions.getByRole('gridcell', { name: 'PHOTO', exact: true }).first()).toBeVisible();
+    await expect(adminPage).toHaveURL(comparisonAddress);
+    expect(await savedReviewState(adminPage)).toEqual(savedState);
+    await adminPage.getByRole('button', { name: '검토 닫기' }).click();
+    await expect(comparison).toHaveCount(0);
+    await expect(adminPage.getByRole('tab', { name: '사이클타임 추세', selected: true })).toBeVisible();
+    await expect(adminPage).toHaveURL(comparisonAddress);
+    expect(await savedReviewState(adminPage)).toEqual(savedState);
+    await openCycle(page, `${CYCLE}&granularity=day`);
+    const approverList = await openList(page);
+    const pendingRow = rowOf(approverList, 'E2E 수정 후');
+    await expect(pendingRow).toContainText('승인 대기');
+    await expect(rowOf(approverList, 'E2E 이전 승인본')).toHaveCount(0);
+    await pendingRow.getByRole('button').first().click();
+    await expectAppliedChip(page, '집계 주');
   });
+
+  for (const action of ['reject', 'withdraw'] as const) {
+    test(`승인 검토 #2765: ${action}`, async ({ page, context }, testInfo) => {
+      const name = `E2E ${action}`;
+      const rejectionReason = '조회 기간 확인 필요';
+      await signInAs(page, 'engineer');
+      await openCycle(page, `${CYCLE}&granularity=day`);
+      await saveShared(page, name, { official: true });
+      const reviewer = action === 'reject' ? await context.newPage() : page;
+      if (action === 'reject') { await signInAs(reviewer, 'admin'); await reviewer.goto(CYCLE); }
+      const review = await openApprovalReview(reviewer, name);
+      if (action === 'reject') {
+        await review.getByRole('button', { name: '반려…' }).click();
+        const dialog = reviewer.getByRole('dialog', { name: '반려' });
+        const submit = dialog.getByRole('button', { name: '반려', exact: true });
+        await expect(submit).toBeDisabled();
+        await dialog.getByRole('textbox', { name: '반려 이유' }).fill(rejectionReason);
+        await submit.click();
+      } else {
+        await expect(reviewer.getByRole('heading', { name: '이전 승인본과 차이' })).toHaveCount(0);
+        await captureCycleCopy(page, testInfo, '2765-owner-withdraw', reviewScreen(page), '일');
+        await review.getByRole('button', { name: '신청 거두기' }).click();
+      }
+      await expect(review).toHaveCount(0);
+      await openCycle(page);
+      const row = rowOf(await openList(page), name);
+      await expect(row).toBeVisible();
+      await expect(row).not.toContainText('승인 대기');
+      if (action === 'reject') {
+        const management = await openManagement(page);
+        const savedViews = management.getByRole('list', { name: '저장한 뷰', exact: true });
+        const rejected = rowOf(savedViews, name);
+        await expect(rejected.getByText('반려됨', { exact: true })).toBeVisible();
+        await rejected.getByRole('button', { name: new RegExp(`^${name}`) }).click();
+        const receipt = management.getByRole('region', { name, exact: true });
+        await expect(receipt.getByText(rejectionReason, { exact: true })).toBeVisible();
+      }
+    });
+  }
 
   test('새로고침은 선택한 뷰와 조건을 그대로 두고, 복사한 주소는 같은 조건을 연다', async ({ page, context }, testInfo) => {
     await signInAs(page, 'engineer');

@@ -9,6 +9,7 @@ import { PaneQueryDraftProvider, PaneScreenProvider, useHostPlatform, useLeaveRe
 import { ToastProbe, createFakeSavedViewStore as createFakeViewStore, memoryStorage, noContext, testAdapter, testSavedView as viewOf, testSession, testSpace, testViewCapabilities as ALL, useTestSavedViewTableSlots, type FakeSavedViewStore as FakeViewStore } from '@ap/kernel/testing';
 import { AppSidebar } from '../../frame/AppSidebar';
 import { GlobalContextBar } from '../../context/GlobalContextBar';
+import { AppShell } from '../../frame/AppShell';
 
 // Passes through to the real diagnosis; one test swaps in a stale view whose migration throws when applied.
 vi.mock('@ap/kernel', async importOriginal => {
@@ -27,12 +28,13 @@ const registry = createRegistry({
 });
 const session = testSession(['platform:view']);
 let platform: ReturnType<typeof useHostPlatform>;
+function Conditions() { return <p>{useHostPlatform().global.roomNames?.join(',') ?? '기존 화면'}</p>; }
 function Probe() { useSavedViewSupport(support); platform = useHostPlatform(); return null; }
 const L1 = viewOf({ id: 'l1', name: '포토 뷰', kind: 'menu-view', menuId: 'home', menuSchemaVersion: 1, page: [], chartOptions: {}, layout: null, panels: [{ id: 'p' }], context: { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', roomNames: ['PHOTO'] } } as never);
 
-function mount(store: FakeViewStore | undefined, url = '/', body = <GlobalContextBar />) {
+function mount(store: FakeViewStore | undefined, url = '/', body = <GlobalContextBar />, screenRegistry = registry, adapter = testAdapter({ session: () => session })) {
   window.history.replaceState(null, '', `/${url.replace(/^\//, '')}`);
-  return render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })} savedViews={store}><Probe />{body}<ToastProbe /></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider registry={screenRegistry} adapter={adapter} savedViews={store}><Probe />{body}<ToastProbe /></PlatformProvider></I18nProvider>);
 }
 const row = (name: string) => ({ name: new RegExp(`^${name}(?! 동작)`) });
 // Switching away from unsaved conditions asks first; the tests drop them.
@@ -745,6 +747,161 @@ describe('the selection survives folding the query bar (C5)', () => {
         await user.keyboard('{Escape}');
       }
     }
+  });
+});
+
+describe('approval review', () => {
+  const frame = () => screen.queryByRole('region', { name: '승인 검토' });
+
+  function setup({ requester = 'u9', schema = 1 } = {}) {
+    const user = userEvent.setup();
+    if (L1.kind !== 'menu-view') throw new Error('Expected menu view fixture');
+    const approved = { ...L1, id: 'request', ownerId: requester, approval: 'approved' as const };
+    const waiting = { ...approved, name: '공식 신청', approval: 'pending' as const, menuSchemaVersion: schema,
+      context: { ...L1.context, roomNames: ['CVD'] }, version: approved.version + 1 };
+    const store = createFakeViewStore([L1, waiting]);
+    store.caps.set(waiting.id, { ...ALL, canApprove: requester !== 'u1' });
+    store.requests = requester === 'u1' ? [] : [{ viewId: waiting.id, requestedBy: requester, requestedAt: 1, targetVersion: waiting.version, changes: [], approvedCopy: approved }];
+    const reviewRegistry = createRegistry({ spaces: registry.spaces, groups: registry.groups,
+      menus: [menu('home', '/', { component: Conditions }), menu('live', '/live', { requiresScope: false })] });
+    let currentSession = session;
+    let notify = () => {};
+    const adapter = testAdapter({ session: () => currentSession, subscribe: listener => { notify = listener; return () => {}; } });
+    mount(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`, <AppShell><Conditions /><GlobalContextBar /></AppShell>, reviewRegistry, adapter);
+    const replaceSession = () => {
+      currentSession = currentSession === session ? testSession(['platform:view'], { user: { id: 'u2' } }) : session;
+      notify();
+    };
+    async function reviewButton(filter = '승인 대기') {
+      await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
+      await user.click(await screen.findByRole('button', { name: '뷰 관리' }));
+      const dialog = within(await screen.findByRole('dialog', { name: '뷰 관리' }));
+      await user.click(dialog.getByRole('radio', { name: filter }));
+      await user.click(await dialog.findByRole('button', row(waiting.name)));
+      return dialog.getByRole('button', { name: '검토 열기' });
+    }
+    async function open(filter?: string) {
+      await user.click(await reviewButton(filter));
+      return within(await screen.findByRole('region', { name: '승인 검토' }));
+    }
+    return { user, store, waiting, open, reviewButton, replaceSession };
+  }
+
+  it('previews both copies at the same address and keeps the selection and unapplied draft on close', async () => {
+    const { user, open } = setup();
+    await waitFor(() => expect(platform.scope.status).toBe('valid'));
+    await user.click(selector());
+    await pick(user, L1.name);
+    await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰'));
+    act(() => platform.queryDraft.setDraftGlobal({ roomNames: ['ETCH'] }));
+    const address = window.location.href;
+
+    const review = await open();
+    const body = within(screen.getByRole('region', { name: '검토 본문' }));
+    expect(body.getByText('CVD')).toBeVisible();
+    expect(review.getByText('현재 화면: 신청본')).toBeVisible();
+    const toggle = screen.getByRole('button', { name: '승인본 화면 보기', pressed: false });
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(body.getByText('PHOTO')).toBeVisible();
+    expect(review.getByText('현재 화면: 승인본')).toBeVisible();
+    expect(window.location.href).toBe(address);
+    expect(screen.getByText('승인 후 공개 대상')).toBeVisible();
+    expect(screen.getByText('공식', { exact: true })).toBeVisible();
+
+    await user.click(review.getByRole('button', { name: '검토 닫기' }));
+    expect(window.location.href).toBe(address);
+    expect(platform.queryDraft.draft.global.roomNames).toEqual(['ETCH']);
+    // Closing hands focus to the main region on the next frame; opening the selector before that would lose the list.
+    await waitFor(() => expect(document.getElementById('platform-main')).toHaveFocus());
+    await user.click(selector());
+    expect(await screen.findByRole('button', { ...row(L1.name), current: true })).toBeVisible();
+  });
+
+  it.each([['반려', '승인 대기', 'u9'], ['거두기', '전체', 'u1'], ['반려', '낡음·권한 부족', 'u9']] as const)(
+    'allows %s from %s when the menu schema cannot restore the proposal', async (action, filter, requester) => {
+      const { user, store, waiting, open } = setup({ requester, schema: 99 });
+      const review = await open(filter);
+      expect(screen.getByRole('region', { name: '검토 본문' })).toHaveTextContent('메뉴 화면 버전이 달라');
+      if (action === '반려') {
+        expect(review.getByRole('button', { name: '승인' })).toBeDisabled();
+        await user.click(review.getByRole('button', { name: '반려…' }));
+        const dialog = within(screen.getByRole('dialog', { name: '반려' }));
+        await user.type(dialog.getByRole('textbox', { name: '반려 이유' }), '화면 버전 갱신 필요');
+        await user.click(dialog.getByRole('button', { name: '반려' }));
+      } else await user.click(review.getByRole('button', { name: '신청 거두기' }));
+      await waitFor(() => expect(frame()).toBeNull());
+      expect(store.rows.get(waiting.id)?.approval).toBe(action === '반려' ? 'rejected' : 'none');
+    },
+  );
+
+  it.each(['fresh version', 'denied', 'not readable', 'no longer pending', 'other owner', 'no withdrawal right'] as const)(
+    'rechecks an owner withdrawal without queue metadata after %s', async change => {
+      const { user, store, waiting, open } = setup({ requester: 'u1' });
+      const withdraw = vi.spyOn(store, 'withdraw');
+      const review = await open();
+      expect(screen.queryByRole('heading', { name: '이전 승인본과 차이' })).not.toBeInTheDocument();
+      expect(review.queryByRole('button', { name: '승인' })).not.toBeInTheDocument();
+      const latest = { ...waiting, version: waiting.version + 1 };
+      store.rows.set(waiting.id, change === 'no longer pending' ? { ...latest, approval: 'none' }
+        : change === 'other owner' ? { ...latest, ownerId: 'u9' } : latest);
+      if (change === 'denied') store.denied.add(waiting.id);
+      if (change === 'not readable') store.caps.set(waiting.id, { ...ALL, canView: false });
+      if (change === 'no withdrawal right') vi.spyOn(store, 'get').mockResolvedValueOnce({ view: latest, capabilities: { ...ALL, canWithdraw: false } });
+      await user.click(review.getByRole('button', { name: '신청 거두기' }));
+      if (change === 'fresh version') {
+        await waitFor(() => expect(frame()).toBeNull());
+        expect(withdraw).toHaveBeenCalledExactlyOnceWith(waiting.id, { expectedVersion: latest.version });
+        expect(store.rows.get(waiting.id)?.approval).toBe('none');
+      } else {
+        expect(await review.findByRole('alert')).toBeVisible();
+        expect(withdraw).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it.each(['menu', 'Scope', 'session'] as const)('closes review when %s changes and stays closed after returning', async change => {
+    const { open, replaceSession, store } = setup();
+    await open();
+    const original = platform.appliedUrl;
+    Object.defineProperty(document.getElementById('platform-main')!, 'scrollTo', { configurable: true, value: () => {} });
+    const leave = change === 'session' ? replaceSession
+      : () => { platform.navigate(change === 'menu' ? '/live' : original.replace('scopeId=MEM', 'scopeId=FDRY')); };
+    act(leave);
+    await waitFor(() => expect(frame()).toBeNull());
+    if (change === 'session') expect(platform.user.id).toBe('u2');
+    else expect(platform.appliedUrl).not.toBe(original);
+    act(change === 'session' ? replaceSession : () => { platform.navigate(original); });
+    await waitFor(() => {
+      expect(platform.user.id).toBe('u1');
+      expect(platform.appliedUrl).toBe(original);
+      expect(platform.scope.status).toBe('valid');
+    });
+    expect(frame()).toBeNull();
+    expect(store.calls).toEqual([]);
+  });
+
+  it.each(['denied', 'version mismatch'] as const)('keeps review closed and sends no write after a fresh read reports %s', async failure => {
+    const { user, store, waiting, reviewButton } = setup();
+    const button = await reviewButton();
+    if (failure === 'denied') store.denied.add(waiting.id);
+    else store.rows.set(waiting.id, { ...waiting, version: waiting.version + 1 });
+    await user.click(button);
+    await waitFor(() => expect(screen.getByText('뷰를 불러오지 못했습니다.', { selector: 'li' })).toBeInTheDocument());
+    expect(frame()).toBeNull();
+    expect(store.calls).toEqual([]);
+  });
+
+  it('shows a conflict and preserves the newer request if the version changes during review', async () => {
+    const { user, store, waiting, open } = setup();
+    const decide = vi.spyOn(store, 'decide');
+    const review = await open();
+    const newer = { ...waiting, version: waiting.version + 1 };
+    store.rows.set(waiting.id, newer);
+    await user.click(review.getByRole('button', { name: '승인' }));
+    expect(await review.findByRole('alert')).toHaveTextContent('다른 곳에서 먼저 바뀌었습니다.');
+    expect(decide).toHaveBeenCalledWith(waiting.id, 'approve', undefined, { expectedVersion: waiting.version });
+    expect(store.rows.get(waiting.id)).toEqual(newer);
   });
 });
 

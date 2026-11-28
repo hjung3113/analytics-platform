@@ -538,6 +538,20 @@ it('C3: editing an official copy keeps readers on the approved content until re-
   expect(again).toMatchObject({ view: { name: '공식 (수정)', approval: 'rejected' } });
 });
 
+it('includes the approved copy only when the reviewer can read its rooms', async () => {
+  const id = `${ENG}|${MENU}|9`;
+  const published = { ...byName(await store().list(key(ENG)), '공식 생산성 일일 점검').view, ownerId: ENG, id };
+  const pending = { ...published, approval: 'pending', version: published.version + 1 };
+  const review = async (room: string) => {
+    storage.setItem(savedViewsStorageKey(ENG, MENU), JSON.stringify({ schemaVersion: 1, views: [{ ...published, pending, context: { roomNames: [room] } }] }));
+    return (await store().listApprovalRequests(key(ADMIN))).find(row => row.viewId === id);
+  };
+  as('admin');
+  expect(await review('PHOTO')).toMatchObject({ approvedCopy: { id, approval: 'approved' } });
+  expect(await review('FORBIDDEN')).toMatchObject({ viewId: id, targetVersion: pending.version });
+  expect(await review('FORBIDDEN')).not.toHaveProperty('approvedCopy');
+});
+
 it('clears legacy panels in a proposal while readers still see the approved copy', async () => {
   const s = store();
   const { view: saved } = ok(await s.save(draft()));

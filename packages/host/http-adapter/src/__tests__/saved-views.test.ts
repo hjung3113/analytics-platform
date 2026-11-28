@@ -81,6 +81,22 @@ async function open(handler: Handler = () => json(null)) {
 }
 
 describe('HTTP saved-view store (#1105)', () => {
+  const request = { viewId: 'v1', requestedBy: 'u1', requestedAt: 1, targetVersion: 2, changes: [] };
+  const approvedCopy = { ...view, visibility: { kind: 'official' }, approval: 'approved' };
+
+  it.each([
+    ['omitted', request, true],
+    ['valid', { ...request, approvedCopy }, true],
+    ['malformed', { ...request, approvedCopy: { ...approvedCopy, page: 'invalid' } }, false],
+  ] as const)('validates an %s approved copy in the approval response', async (_case, item, accepted) => {
+    const response = [item];
+    const { store } = await open(() => json(response));
+    const result = store.listApprovalRequests(key);
+    if (accepted) await expect(result).resolves.toEqual(response);
+    else await expect(result).rejects.toMatchObject({ message: 'invalid_response' });
+    expect(savedViewResponseSchemas.listApprovalRequests.safeParse(response).success).toBe(accepted);
+  });
+
   it('transports custom-group drafts and kind keys without leaking the actor', async () => {
     const draft = { schemaVersion: 1, kind: 'custom-group', name: 'Targets', savedScopeId: 'S', target: { fixed: ['e1'] } } as const;
     const customEntry = { view: { ...draft, id: 'g', ownerId: 'u1', version: 1, updatedAt: 1, visibility: { kind: 'private' }, approval: 'none' }, capabilities: caps };

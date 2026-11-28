@@ -8,3 +8,4 @@ export { AppRail } from './frame/AppRail';
 export { OpenInBoardAction } from './board/OpenInBoardAction';
 
 export { QueryBar, type QueryBarProps } from './context/QueryBar';
+export { ApprovalReviewFrame, type ApprovalReviewFrameProps, type ReviewAction } from './saved-view/ApprovalReviewFrame';

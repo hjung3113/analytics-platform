@@ -27,8 +27,9 @@ import './dock.css';
 export type DockEngineProps = Pick<DockLayoutProps, 'panels' | 'layout' | 'onLayoutChange' | 'renderTab' | 'renderGroupActions' | 'renderGroupTabsEnd' | 'tabA11y' | 'separatorLabel' | 'canDropAt'> & {
   /** What the engine shows: `layout`, or the one-group stack of the narrow display. */
   display: DockNode;
-  /** False in the narrow display: no drag and drop, nothing reported. */
+  /** False in the narrow display or preview: no drag and drop or dock layout reports. */
   interactive: boolean;
+  readOnly: boolean;
   /** Effective maximized panel (null in the narrow display). */
   maximizedPanelId: string | null;
   /** Panels whose content is on screen; everything else is inert and its overlays are closed. */
@@ -264,7 +265,7 @@ function readEngine(api: DockviewApi, stored: DockNode): { tree: DockNode; measu
 }
 
 export default function DockEngine({
-  panels, layout, display, interactive, maximizedPanelId, visible, minPanelSize, onLayoutChange, onActivate, renderTab, renderGroupActions, renderGroupTabsEnd, mergeChartHead, tabA11y, separatorLabel, canDropAt,
+  panels, layout, display, interactive, readOnly, maximizedPanelId, visible, minPanelSize, onLayoutChange, onActivate, renderTab, renderGroupActions, renderGroupTabsEnd, mergeChartHead, tabA11y, separatorLabel, canDropAt,
   containerRef, instanceId, rows, floating,
 }: DockEngineProps) {
   const [api, setApi] = useState<DockviewApi | null>(null);
@@ -397,6 +398,7 @@ export default function DockEngine({
     // A sash drag is measured and reported when it ends, not on every frame of it.
     const sashDrag = dragging.current && !released.current;
     if (!sashDrag) scheduleMeasure();
+    if (readOnly) return;
     const current = live.current;
     const shown = canonicalDockTree(current.layout);
     if (current.floating && !target.hasMaximizedGroup()) {
@@ -423,7 +425,7 @@ export default function DockEngine({
     if (resized && sashDrag) { deferred.current = true; return; }
     // Only a sash drag brings the engine's sizes along; any other change keeps the stored shares (the engine's px are rounded and clamped).
     report(resized ? read.tree : keepStoredSizes(read.tree, shown));
-  }, [scheduleMeasure, endDrag, report]);
+  }, [scheduleMeasure, endDrag, report, readOnly]);
   useEffect(() => {
     if (!api) return;
     const subscriptions = [api.onDidLayoutChange(() => { check(api); }), api.onDidActivePanelChange(() => { check(api); }), api.onDidMovePanel(() => { setMoves(value => value + 1); check(api); })];

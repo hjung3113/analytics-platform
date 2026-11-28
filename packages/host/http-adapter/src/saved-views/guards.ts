@@ -189,10 +189,11 @@ const { context: _context, ...groupRecord } = record;
 void _context;
 const menuViewFields = { ...record, kind: lit('menu-view'), menuId: id, menuSchemaVersion: int, page, chartOptions, layout, panels: responsePanels };
 const menuViewOptions = { ...approvalNote, savedScopeId, panelsUnreadable: lit(true), tables: isTableViewStates };
+const menuView = strict(menuViewFields, { ...menuViewOptions, myMenu: lit(true) });
 const savedView: Guard = anyOf(
   strict({ ...groupRecord, kind: lit('custom-group'), savedScopeId, target, approval: lit('none'), visibility: anyOf(strict({ kind: lit('private') }), strict({ kind: lit('groups'), groupIds: textList })) }, approvalNote),
   strict({ ...record, kind: lit('condition-set') }, { ...approvalNote, savedScopeId }),
-  strict(menuViewFields, { ...menuViewOptions, myMenu: lit(true) }),
+  menuView,
 );
 const entryOptions = { denied: lit(false) };
 const entry = strict({ view: savedView, capabilities }, entryOptions);
@@ -202,7 +203,7 @@ const myMenuEntry = strict({
 }, entryOptions);
 const denied = strict({ id, denied: lit(true), reason: str });
 const listItem = anyOf(entry, denied);
-const approvalRequest = strict({ viewId: id, requestedBy: str, requestedAt: num, targetVersion: int, changes: strings }, { approverSpace: id, rejectReason: str });
+const approvalRequest = strict({ viewId: id, requestedBy: str, requestedAt: num, targetVersion: int, changes: strings }, { approverSpace: id, rejectReason: str, approvedCopy: menuView });
 const member = strict({ userId: str, displayName: str, affiliation: str });
 const groupEntry = strict({
   group: strict({ id, kind: oneOf('org-team', 'custom'), name: str, memberCount: int }, { managerIds: strings }),

@@ -88,7 +88,7 @@ const AUTO_APPLY_DEFAULT_WAIT_MS = 3000;
 const NO_ITEMS: readonly SavedViewListItem[] = [];
 type RestorableEntry = SavedViewEntry & { view: Exclude<SavedViewEntry['view'], { kind: 'custom-group' }> };
 /** The panels a view hands to the screen in `scopeId`: in another Scope its held sets follow instead (#2862). */
-function savedPanelsSlot(view: MenuView, scopeId: string | null): Record<string, SavedViewPanelsOutcome> {
+export function savedPanelsSlot(view: MenuView, scopeId: string | null): Record<string, SavedViewPanelsOutcome> {
   return { [PANELS_SLOT]: view.panelsUnreadable ? 'unreadable' : panelsInScope(view, scopeId).panels };
 }
 const NO_UNSUPPORTED: readonly Unsupported[] = [];

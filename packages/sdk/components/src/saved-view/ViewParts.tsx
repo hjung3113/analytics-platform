@@ -68,14 +68,16 @@ export function ViewRow({ entry, selected, diagnosis, reasonsOpen, onSelect, onT
 }
 
 /** Detail of one entry. Approve / reject / revoke exist only while the store's capabilities and the state allow them. */
-export function ViewDetail({ entry, request, diagnosis, personName, groupName, describeView, formatTime, onDecide, onRevoke, onMigrate, onClose, onDone }: {
+export function ViewDetail({ entry, currentUserId, request, diagnosis, personName, groupName, describeView, formatTime, onOpenReview, onDecide, onRevoke, onMigrate, onClose, onDone }: {
   entry: SavedViewEntry;
+  currentUserId: string;
   request?: ApprovalRequestInfo;
   diagnosis?: ViewDiagnosis;
   personName: (id: string) => string;
   groupName: (id: string) => string;
   describeView?: (view: SavedView) => readonly string[];
   formatTime: (ms: number) => string;
+  onOpenReview?: (id: string) => void;
   onDecide?: ViewDecideHandler;
   onRevoke?: ViewRevokeHandler;
   onMigrate?: (id: string) => void;
@@ -89,7 +91,9 @@ export function ViewDetail({ entry, request, diagnosis, personName, groupName, d
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const noteId = useId();
-  const canDecide = view.approval === 'pending' && capabilities.canApprove && canTransition(view.approval, 'approve') && onDecide !== undefined;
+  const canReview = onOpenReview && view.kind === 'menu-view' && view.approval === 'pending'
+    && (view.ownerId === currentUserId ? capabilities.canWithdraw : view.ownerId === request?.requestedBy && capabilities.canApprove);
+  const canDecide = !(onOpenReview && view.kind === 'menu-view') && view.approval === 'pending' && capabilities.canApprove && canTransition(view.approval, 'approve') && onDecide !== undefined;
   const canRevoke = view.approval === 'approved' && capabilities.canRevoke && canTransition(view.approval, 'revoke') && onRevoke !== undefined;
   const groupNames = view.visibility.kind === 'groups' ? Object.fromEntries(view.visibility.groupIds.map(id => [id, groupName(id)])) : {};
 
@@ -138,7 +142,8 @@ export function ViewDetail({ entry, request, diagnosis, personName, groupName, d
       <label htmlFor={noteId} className="block text-xs text-text-muted">{m('svPartRejectNote')}</label>
       <Textarea id={noteId} value={note} disabled={busy} onChange={event => setNote(event.target.value)} />
     </div>}
-    {!canDecide && view.approval === 'pending' && <p className="text-sm text-text-muted">{capabilities.reason ?? m('svPartNoRight')}</p>}
+    {canReview && <Button type="button" size="sm" onClick={() => onOpenReview(view.id)}>{m('svReviewOpen')}</Button>}
+    {!canReview && !canDecide && view.approval === 'pending' && <p className="text-sm text-text-muted">{capabilities.reason ?? m('svPartNoRight')}</p>}
     {(canDecide || canRevoke) && <div className="flex gap-2">
       {canDecide && <Button type="button" size="sm" disabled={busy} onClick={() => void run('approve', () => onDecide(view.id, 'approve', note.trim() || undefined, view.version))}>{m('svPartApprove')}</Button>}
       {canDecide && <Button type="button" size="sm" variant="destructive" disabled={busy || note.trim() === ''} onClick={() => void run('reject', () => onDecide(view.id, 'reject', note.trim(), view.version))}>{m('svPartReject')}</Button>}

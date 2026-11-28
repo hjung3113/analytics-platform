@@ -1,12 +1,13 @@
-import { useSavedViewPickWarning } from './useSavedViewPickWarning';
+import { PICK_FAILURE_KEYS, useSavedViewPickWarning, type PickFailure } from './useSavedViewPickWarning';
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { PEOPLE_LOOKUP_MAX, type ApprovalRequestInfo, type GroupMember, type SavedViewSupport, type Result, type SavedView, type SavedViewListItem, type SavedViewStore, type ViewVisibility } from '@ap/contracts';
 import { CONTEXT_LABELS, diagnoseSavedView, useEquipmentAxes, useI18n, useMessages, type SavedViewDiagnosis } from '@ap/kernel';
-import { captureApplied, useAnalysisSelectionLabels, useHostPlatform, useMyMenus, useSavedViews, type SavedViews } from '@ap/kernel/host';
+import { captureApplied, prepareSavedViewPreview, useAnalysisSelectionLabels, useHostPlatform, useMyMenus, useSavedViews, type SavedViews } from '@ap/kernel/host';
 import { DirtyConfirmation } from '@ap/ui';
 import { failureText, SaveViewDialog, ShareTargetPicker, ViewManagement, ViewSelector, type SaveViewDialogProps, type ShareGroupsState, type ShareTargetDraft, type ViewFilter, type ViewSelectorState } from '@ap/components';
 import { SHELL_MESSAGES } from '../messages';
 import { QueryBarTools } from '../context/queryBarTools';
+import { OpenApprovalReview } from './approvalReview';
 
 /**
  * The Saved View selector of the query tool row (06 §21): current view, `수정됨`, the save menu and the requested `뷰 관리` surface.
@@ -55,6 +56,8 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const host = useHostPlatform();
   const { selectionRequest } = useMyMenus();
   const selectionLabel = useAnalysisSelectionLabels(host);
+  const openReview = useContext(OpenApprovalReview);
+  const reviewAttempt = useRef(0);
   const tools = useContext(QueryBarTools);
   const external = tools?.folded ? tools : null;
   const axes = useEquipmentAxes();
@@ -63,7 +66,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const userId = host.user.id;
   // False once this surface was replaced or unmounted: its pending writes may finish, but nothing of theirs reaches the screen, the toasts or the parent.
   const alive = useRef(true);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  useLayoutEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const toast = (text: string, options?: Parameters<typeof host.toast>[1]) => { if (alive.current) host.toast(text, options); };
   const wrapper = useRef<HTMLSpanElement>(null);
   const saveTrigger = useRef<HTMLButtonElement>(null);
@@ -102,6 +105,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     return result.ok;
   };
   const pickFailed = useSavedViewPickWarning(toast);
+  const pickFailureText = (reason: PickFailure) => m(PICK_FAILURE_KEYS[reason]);
 
   // Focus goes back to the selector after a surface that has no trigger of its own; deferred so it lands after the dialog's own cleanup.
   const [returnFocus, setReturnFocus] = useState(0);
@@ -133,7 +137,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     return result;
   }, [items, support, axes]);
 
-  // What a waiting application changes comes from the store, for the requester or an approver only; read when 뷰 관리 opens or the list changes.
+  // The queue supplies actionable applications and rejection receipts when 뷰 관리 opens or the list changes.
   useEffect(() => {
     if (!manageOpen) return;
     let live = true;
@@ -172,6 +176,57 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
 
   const { modified, unsaved, unapplied } = views.state;
   const ownerName = (id: string) => (id === userId ? host.user.name : people.get(id) ?? id);
+  const readPending = async (id: string) => {
+    const item = await store.get(id);
+    if (!item || item.denied || !item.capabilities.canView || item.view.id !== id || item.view.kind !== 'menu-view'
+      || item.view.menuId !== support.menuId || item.view.approval !== 'pending') return null;
+    return { view: item.view, capabilities: item.capabilities };
+  };
+  const startReview = async (id: string) => {
+    if (!openReview) return;
+    const attempt = ++reviewAttempt.current;
+    const unavailable = { ok: false, reason: 'unavailable' } as const;
+    const current = () => alive.current && reviewAttempt.current === attempt && host.isCurrentGeneration();
+    try {
+      const item = await readPending(id);
+      if (!current()) return;
+      if (!item) { pickFailed(unavailable); return; }
+      const ownRequest = item.view.ownerId === userId;
+      // Owners can review from the view read alone. Any queue metadata already loaded for them is display-only.
+      const metadata = ownRequest ? requests[id] : (await store.listApprovalRequests({ userId, menuId: support.menuId })).find(info => info.viewId === id);
+      if (!current()) return;
+      const request = metadata?.targetVersion === item.view.version && metadata.requestedBy === item.view.ownerId ? metadata : undefined;
+      if (ownRequest ? !item.capabilities.canWithdraw : !request || !item.capabilities.canApprove) { pickFailed(unavailable); return; }
+      const proposal = prepareSavedViewPreview(item.view, support, host);
+      const canApprove = 'href' in proposal;
+      const copy = request?.approvedCopy;
+      const previous = copy?.id === id && copy.approval === 'approved' ? prepareSavedViewPreview(copy, support, host) : null;
+      const scope = host.session.scopes.find(option => option.id === host.scope.scopeId)?.label ?? host.scope.scopeId ?? t('scopeNone');
+      openReview({ proposal: canApprove
+        ? { view: item.view, href: proposal.href }
+        : { view: item.view, reason: pickFailureText(proposal.reason) },
+        ...(copy && previous && 'href' in previous ? { approved: { view: copy, href: previous.href } } : {}),
+        ...(request && { request }),
+        requester: ownerName(item.view.ownerId),
+        frame: { scope, canDecide: !ownRequest, canApprove, canWithdraw: ownRequest, onAction: async (action, reason) => {
+          if (!current()) return unavailable;
+          let result: Result<unknown>;
+          if (action === 'withdraw') {
+            if (!ownRequest) return unavailable;
+            const latest = await readPending(id).catch(() => null);
+            if (!current() || !latest || latest.view.ownerId !== userId || !latest.capabilities.canWithdraw) return unavailable;
+            result = await views.withdraw(id, { expectedVersion: latest.view.version });
+          } else {
+            if (ownRequest || !request || (action === 'approve' && !canApprove)) return unavailable;
+            result = await views.decide(id, action, reason, { expectedVersion: request.targetVersion });
+          }
+          if (result.ok) toast(m('savedViewReviewDone'));
+          return result;
+        } },
+      });
+      setManageOpen(false);
+    } catch { if (current()) pickFailed(unavailable); }
+  };
   const staleIds = useMemo(() => new Set(Object.entries(diagnoses).flatMap(([id, found]) => (found.status === 'stale' ? [id] : []))), [diagnoses]);
   const state: ViewSelectorState = modified ? 'modified' : unsaved ? 'unsaved' : unapplied ? 'unapplied' : 'clean';
   const selected = views.selected;
@@ -359,7 +414,8 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       saveBlock={saveBlock}
     />
     <ViewManagement
-      open={manageOpen} onOpenChange={next => { setManageOpen(next); if (!next) setReturnFocus(n => n + 1); }} entries={items} diagnoses={diagnoses} requests={requests} currentUserId={userId} personName={id => people.get(id) ?? id} groupName={id => groupNames.get(id) ?? id}
+      open={manageOpen} onOpenChange={next => { setManageOpen(next); if (!next) { reviewAttempt.current += 1; setReturnFocus(n => n + 1); } }} entries={items} diagnoses={diagnoses} requests={requests} currentUserId={userId} personName={id => people.get(id) ?? id} groupName={id => groupNames.get(id) ?? id}
+      onOpenReview={openReview ? id => { void startReview(id); } : undefined}
       onDecide={async (id, decision, noteText, expectedVersion) => { return views.decide(id, decision, noteText, { expectedVersion }); }}
       onRevoke={async (id, expectedVersion) => { return views.revoke(id, { expectedVersion }); }}
       onMigrate={id => { void migrate(id); }}
