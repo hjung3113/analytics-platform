@@ -26,7 +26,7 @@ export function useConceptMappings(filter: ConceptMappingsParams, enabled: boole
       rows.push(...response.data.rows);
       if (filter.page !== undefined || rows.length >= response.data.total || response.data.rows.length === 0) return { ...response, data: { rows, total: response.data.total } };
     }
-  }, [filter.modelId, filter.conceptId, filter.reviewState, filter.kind, filter.page, filter.pageSize, epoch], enabled);
+  }, { pageInputs: [filter.modelId, filter.conceptId, filter.reviewState, filter.kind, filter.page, filter.pageSize, epoch], enabled });
 }
 
 /** The similarity proposals of one model (`proposal: true`, never an equivalence); `data.truncated` = the list is incomplete. */
@@ -40,7 +40,7 @@ export function useConceptSuggestions(modelId: string, kind: ConceptKind | undef
       rows.push(...response.data.rows);
       if (pageNumber !== undefined || rows.length >= response.data.total || !response.data.rows.length) return { ...response, data: { ...response.data, rows } };
     }
-  }, [modelId, kind, epoch, pageNumber], enabled);
+  }, { pageInputs: [modelId, kind, epoch, pageNumber], enabled });
 }
 
 /** The three concept writes. `confirm` / `reject` take the row's `version` as `expectedVersion`; a `conflict` answer means re-read first. */

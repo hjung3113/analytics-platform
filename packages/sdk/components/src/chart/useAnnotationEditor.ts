@@ -23,7 +23,7 @@ export function useAnnotationEditor({ chartId, scopeId, canAnnotate, axisKind, f
   const { adapter, toast } = usePlatform();
   const target = canAnnotate && scopeId !== null ? { chartId, scopeId } : null;
   // A row belongs to one site: the Scope is part of the query identity, so a site switch hides the previous site's notes.
-  const query = usePlatformQuery(signal => adapter.listAnnotations({ chartId, scopeId, axisKind, from, to }, signal), [chartId, scopeId, axisKind, from, to], target !== null, 'session');
+  const query = usePlatformQuery(signal => adapter.listAnnotations({ chartId, scopeId, axisKind, from, to }, signal), { pageInputs: [chartId, scopeId, axisKind, from, to], enabled: target !== null, identity: 'session' });
   return useEditorState(target, { query, adapter, toast });
 }
 

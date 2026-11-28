@@ -21,7 +21,7 @@ export function NoticesScreen({ clock }: { clock: () => string }) {
   const m = useMessages(NOTICE_VOC_MESSAGES);
   const { lang } = useI18n();
   const { adapter, can, session, pageParam, setPage } = usePlatform();
-  const query = usePlatformQuery<NoticeListPage>(signal => adapter.listNotices(signal), null, true, 'session');
+  const query = usePlatformQuery<NoticeListPage>(signal => adapter.listNotices(signal), { identity: 'session' });
   const [openDialog, setDialog] = useState<Dialog | null>(null);
   const [expiredOpen, setExpiredOpen] = useState<boolean | null>(null);
   const canWrite = can('console:access');

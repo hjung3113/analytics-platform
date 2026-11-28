@@ -54,7 +54,7 @@ export default function UsageNextScreens({ menuId }: { menuId: string }) {
   const [expanded, setExpanded] = useState(false);
   const switchId = useId();
   const listId = useId();
-  const query = usePlatformQuery<NextScreens>(signal => adapter.usageNextScreens({ menuId, includeBack }, signal), { menuId, includeBack }, true, 'session');
+  const query = usePlatformQuery<NextScreens>(signal => adapter.usageNextScreens({ menuId, includeBack }, signal), { pageInputs: { menuId, includeBack }, identity: 'session' });
   return <div className="flex min-w-0 flex-col gap-4">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h3 className="t-card-title">{m('usageNextScreensNextScreens')}</h3>

@@ -106,7 +106,7 @@ export default function KnowledgeSearch() {
       items: [...targets.items].flatMap(target => { const detail = items.get(target.id); return detail ? [detail] : []; }),
       models: rankedIds.flatMap(id => { const profile = profiles.get(id); return profile ? [profile] : []; }),
     }, assessments: [], trust: null, correlationId: 'recent-knowledge' } as ApiResponse<RecentOverview>;
-  }, targetKey, !address.active && !keys.invalid && hasHistoryTargets);
+  }, { pageInputs: targetKey, enabled: !address.active && !keys.invalid && hasHistoryTargets });
   const [draft, setDraft] = useState({ applied: q, text: q }), [filtersOpen, setFiltersOpen] = useState(false), [orderOpen, setOrderOpen] = useState(false);
   const ime = useImeEnterGuard();
   if (draft.applied !== q) setDraft({ applied: q, text: q });

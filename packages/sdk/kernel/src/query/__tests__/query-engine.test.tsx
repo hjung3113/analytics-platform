@@ -317,7 +317,7 @@ describe('Kernel query engine (ADR-0086)', () => {
   it('A11a: usePlatformQuery instances with equal pageInputs and different run never share data', async () => {
     const ok = (data: string) => ({ outcome: 'ok' as const, data, assessments: [], trust: null, correlationId: data });
     const runs = { a: vi.fn(async () => ok('A')), b: vi.fn(async () => ok('B')) };
-    function Platform({ id }: { id: 'a' | 'b' }) { const query = usePlatformQuery(runs[id], 'same'); useLayoutEffect(() => { seen.set(id, query as never); }); return null; }
+    function Platform({ id }: { id: 'a' | 'b' }) { const query = usePlatformQuery(runs[id], { pageInputs: 'same' }); useLayoutEffect(() => { seen.set(id, query as never); }); return null; }
     render(tree(harness().adapter, <><Platform id="a" /><Platform id="b" /></>));
     await flush();
     expect(runs.a).toHaveBeenCalledTimes(1);
@@ -358,7 +358,7 @@ describe('Kernel query engine (ADR-0086)', () => {
     const h = harness();
     let disabled!: QueryState<unknown>;
     const run = vi.fn(async () => ({ outcome: 'ok' as const, data: 1, assessments: [], trust: null, correlationId: 'x' }));
-    function Disabled({ epoch }: { epoch: number }) { disabled = usePlatformQuery(run, null, false, 'context', epoch); return null; }
+    function Disabled({ epoch }: { epoch: number }) { disabled = usePlatformQuery(run, { enabled: false, refreshEpoch: epoch }); return null; }
     const view = render(tree(h.adapter, <Disabled epoch={0} />));
     await flush();
     act(() => disabled.refetch());
@@ -545,7 +545,7 @@ describe('Kernel query engine (ADR-0086)', () => {
       const same = { outcome: 'ok' as const, data: 1, assessments: [], trust: null, correlationId: 'same' };
       const run = vi.fn(async () => same);
       let current!: QueryState<number>;
-      function Probe({ enabled }: { enabled: boolean }) { current = usePlatformQuery<number>(run, null, enabled); return null; }
+      function Probe({ enabled }: { enabled: boolean }) { current = usePlatformQuery<number>(run, { enabled }); return null; }
       const { adapter } = harness();
       const view = render(tree(adapter, <Probe enabled />));
       await flush();
