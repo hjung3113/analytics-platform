@@ -3455,6 +3455,9 @@ importers:
       react:
         specifier: ^19.3.1
         version: 19.3.1
+      react-docgen-typescript:
+        specifier: 2.4.0
+        version: 2.4.0(typescript@5.9.3)
       react-dom:
         specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
@@ -3470,6 +3473,9 @@ importers:
       vite:
         specifier: ^7.3.8
         version: 7.3.8(@types/node@26.6.3)(jiti@2.7.0)(lightningcss@1.33.0)(yaml@2.9.1)
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.33.0)(yaml@2.9.1)
 
   tooling/tsconfig: {}
 
