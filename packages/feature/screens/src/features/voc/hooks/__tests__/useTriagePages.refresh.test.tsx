@@ -2,10 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { expect, it, vi } from 'vitest';
-import { useTriagePages } from './useTriagePages';
+import { useTriagePages } from '../useTriagePages';
 
 const apiClient = vi.hoisted(() => vi.fn());
-vi.mock('../../../lib/api/client', () => ({ apiClient }));
+vi.mock('../../../../lib/api/client', () => ({ apiClient }));
 
 it('refreshes appended pages after a triage mutation invalidates VOC reads', async () => {
   let processed = false;

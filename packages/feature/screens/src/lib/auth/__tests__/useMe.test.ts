@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MeRequestError } from '../api/auth';
-import { ME_QUERY_KEY, ensureMe } from './useMe';
+import { MeRequestError } from '../../api/auth';
+import { ME_QUERY_KEY, ensureMe } from '../useMe';
 
 const ME = {
   actor: {

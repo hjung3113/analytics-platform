@@ -5,8 +5,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AttachmentDropzone } from './create/AttachmentDropzone';
-import { ComposerAttachmentDropzone } from './detail/ComposerAttachmentDropzone';
+import { AttachmentDropzone } from '../create/AttachmentDropzone';
+import { ComposerAttachmentDropzone } from '../detail/ComposerAttachmentDropzone';
 
 vi.mock('sonner', () => ({
   toast: { error: vi.fn(), warning: vi.fn(), info: vi.fn(), success: vi.fn() },

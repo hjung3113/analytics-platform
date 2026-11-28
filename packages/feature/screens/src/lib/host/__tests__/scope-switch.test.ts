@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { findingsSearchSchema } from '../../features/findings/routes/findings-search';
+import { findingsSearchSchema } from '../../../features/findings/routes/findings-search';
 import {
   evidenceSearchSchema,
   integrationCoverageSearchSchema,
   integrationDashboardSearchSchema,
   integrationLinksSearchSchema,
-} from '../../features/integration/routes/integration-search';
-import { tasksSearchSchema } from '../../features/tasks/routes/task-search';
-import { vocSearchSchema } from '../../features/voc/routes/voc-search';
+} from '../../../features/integration/routes/integration-search';
+import { tasksSearchSchema } from '../../../features/tasks/routes/task-search';
+import { vocSearchSchema } from '../../../features/voc/routes/voc-search';
 
-import { scopeSwitchClears } from './scope-switch';
+import { scopeSwitchClears } from '../scope-switch';
 
 const SYSTEM = '11111111-1111-4111-8111-111111111111';
 

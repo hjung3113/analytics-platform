@@ -1,9 +1,9 @@
 import {
   validateSurveyDetailSearch,
   validateSurveysSearch,
-} from '../../features/surveys/routes/surveys-search';
-import { validateTasksSearch } from '../../features/tasks/routes/task-search';
-import { validateVocSearch } from '../../features/voc/routes/voc-search';
+} from '../../../features/surveys/routes/surveys-search';
+import { validateTasksSearch } from '../../../features/tasks/routes/task-search';
+import { validateVocSearch } from '../../../features/voc/routes/voc-search';
 import { describe, expect, it } from 'vitest';
 
 // #597: the standalone `platformReturn` search key (FO ADR-0071) is retired. The host search schemas are strict, so the key

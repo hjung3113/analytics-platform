@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isVocSearchValueValid, validateVocSearch } from '../../features/voc/routes/voc-search';
+import { isVocSearchValueValid, validateVocSearch } from '../../../features/voc/routes/voc-search';
 
 const UUID = '3f2b8a1e-5c4d-4e6f-8a9b-0c1d2e3f4a5b';
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TASK_REQUEST_COPY } from './task-requests';
+import { TASK_REQUEST_COPY } from '../task-requests';
 
 describe('Task conversion copy', () => {
   it.each([

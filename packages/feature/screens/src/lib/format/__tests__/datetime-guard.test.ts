@@ -3,7 +3,7 @@ import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const forbiddenPatterns = [
   /\btoLocaleString\s*\(/g,
   /\btoLocaleDateString\s*\(/g,

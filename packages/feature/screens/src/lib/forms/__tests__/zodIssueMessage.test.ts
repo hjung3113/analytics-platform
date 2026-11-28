@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { zodIssueMessage } from './zodIssueMessage';
+import { zodIssueMessage } from '../zodIssueMessage';
 
 function firstIssue(schema: z.ZodTypeAny, value: unknown) {
   const result = schema.safeParse(value);
