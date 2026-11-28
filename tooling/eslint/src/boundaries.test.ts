@@ -979,12 +979,14 @@ rows.push(
 );
 
 // #2180, #2181: production code of the packages whose preset has NON_NULL must narrow; tests may assert fixture invariants.
-for (const pkg of ['packages/sdk/kernel', 'packages/host/app-host', 'packages/host/http-adapter', 'apps/platform-web', 'packages/feature/bridge', 'packages/sdk/ui']) {
+for (const pkg of ['packages/sdk/kernel', 'packages/host/app-host', 'packages/host/http-adapter', 'apps/platform-web', 'packages/feature/bridge', 'packages/sdk/ui', 'platform/my-activity', 'platform/voc', 'menus/log-dev/log-models']) {
   rows.push(
     { file: `${pkg}/src/x.ts`, code: `const value: string | undefined = 'ok'; value!;`, rule: '@typescript-eslint/no-non-null-assertion' },
     { file: `${pkg}/src/x.test.ts`, code: `const value: string | undefined = 'ok'; value!;`, rule: '' },
   );
 }
+// A menu's mock fixtures are test data (#2181).
+rows.push({ file: 'menus/log-dev/log-models/src/mock/x.ts', code: `const value: string | undefined = 'ok'; value!;`, rule: '' });
 
 // #2181: instants and numbers print through the Kernel notation or the contracts formatters; the formatter sources are a file allow-list.
 const LOCALE = 'ap/no-direct-locale-format';

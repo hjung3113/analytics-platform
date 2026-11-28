@@ -13,7 +13,7 @@ import { FeatureBridge, canSurveyLink, SURVEY_ID, SurveyLink } from '@ap/feature
 export default function SurveyRespond({ params }: PageProps) {
   const m = useMessages(MY_ACTIVITY_MESSAGES);
   const { pageParam } = usePlatform();
-  const surveyId = params.surveyId!;
+  const surveyId = params.surveyId ?? '';
   if (!SURVEY_ID.test(surveyId)) {
     return <PlatformPage>
       <StateMessage icon={<SearchX className="size-4" aria-hidden />}

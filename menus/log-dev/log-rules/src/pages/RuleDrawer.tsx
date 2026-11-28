@@ -11,10 +11,10 @@ function RequirementIds({ rule, modelId, softwareId }: { rule: RuleDetail; model
   const membership = useRequirementKeys(modelId, softwareId, ids.length > 0);
   return <Section title="요구사항 ID">{ids.length === 0 ? <p className="text-xs text-text-muted">Validator가 요구사항 ID를 주지 않았습니다.</p> : <>
     {ids.map(id => {
-      const [module, event] = id.split('/');
+      const [module = '', event] = id.split('/');
       const known = membership.status === 'done' && membership.data !== null;
-      return <div key={id} className="grid min-w-0 gap-1">{known && membership.data!.has(id) && modelId
-        ? <PlatformLink className="text-xs text-accent-primary" href={linkTo('log-knowledge-spec', { params: { modelId }, page: { ...(softwareId ? { software: softwareId } : {}), module: module!, ...(event ? { event: `${module!.replace(/%/g, '%25').replace(/#/g, '%23')}/${event.replace(/%/g, '%25').replace(/#/g, '%23')}` } : {}) }, returnTo: true })}><span className="t-mono break-words">{id}</span><span> · 명세 보기</span></PlatformLink>
+      return <div key={id} className="grid min-w-0 gap-1">{known && membership.data?.has(id) && modelId
+        ? <PlatformLink className="text-xs text-accent-primary" href={linkTo('log-knowledge-spec', { params: { modelId }, page: { ...(softwareId ? { software: softwareId } : {}), module, ...(event ? { event: `${module.replace(/%/g, '%25').replace(/#/g, '%23')}/${event.replace(/%/g, '%25').replace(/#/g, '%23')}` } : {}) }, returnTo: true })}><span className="t-mono break-words">{id}</span><span> · 명세 보기</span></PlatformLink>
         : <><Original>{id}</Original>{known && <p className="text-xs text-text-warning-label">명세에 없는 요구사항 ID</p>}</>}</div>;
     })}
     {(membership.status !== 'done' || membership.data === null) && <p className="text-xs text-text-muted">{modelId ? '선택한 모델의 명세와 짝 여부를 아직 확인하지 못했습니다.' : '모델을 선택하면 명세 요구사항과 짝 여부를 확인합니다.'}</p>}

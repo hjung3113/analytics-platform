@@ -439,10 +439,11 @@ const BUILD_OUTPUT = { ignores: ['dist/**'] };
 const IME_ENTER_GUARD = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: { 'ap/ime-enter-guard': 'error' } };
 
 // #2180: asserting existence hides the missing-value case. Enabled preset by preset as their sites are fixed (#2181: the
-// per-preset counts are in issue #2181); on in contracts, ui, kernel, app-host, http-adapter, the app and the feature bridge so far. Tests may assert fixture invariants.
+// per-preset counts are in issue #2181); on in contracts, ui, kernel, app-host, http-adapter, the app, the feature bridge and
+// the bridge menus so far. Tests may assert fixture invariants, and so may a menu's `src/mock/**`: it is test data too (#2181).
 const NON_NULL = {
   files: ['**/*.{ts,tsx}'],
-  ignores: TEST_ENTRY_FILES,
+  ignores: [...TEST_ENTRY_FILES, 'src/mock/**'],
   plugins: { '@typescript-eslint': tsPlugin },
   rules: { '@typescript-eslint/no-non-null-assertion': 'error' },
 };
@@ -710,6 +711,7 @@ export const featureBridgeMenuPreset = [
   testEntryOverride(FEATURE_BRIDGE_RESTRICTION, [...ABOVE_COMPONENTS_TEST_ENTRIES, ...FEATURE_BRIDGE_TEST_SUBPATHS]),
   // Last, so the mock policy (contracts + mock-server only) also wins for tests under src/mock/**.
   menuMockOverride,
+  NON_NULL,
 ];
 
 /**
