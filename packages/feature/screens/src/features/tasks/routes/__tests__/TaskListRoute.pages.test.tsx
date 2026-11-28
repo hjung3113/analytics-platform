@@ -1,10 +1,10 @@
-import { useMe } from '../../../lib/auth/useMe';
-import { HOME_INBOX_COPY } from '../../../lib/copy/home';
-import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
-import { HostSeamProvider, useHostSeam } from '../../../lib/host/host-seam';
-import { TaskBoardRoute } from '../../../test/screen-host/features/tasks/routes/TaskBoardRoute';
-import { TaskListRoute } from '../../../test/screen-host/features/tasks/routes/TaskListRoute';
-import { TasksRouteView } from '../../../test/screen-host/routes/_authed/tasks';
+import { useMe } from '../../../../lib/auth/useMe';
+import { HOME_INBOX_COPY } from '../../../../lib/copy/home';
+import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reasons';
+import { HostSeamProvider, useHostSeam } from '../../../../lib/host/host-seam';
+import { TaskBoardRoute } from '../../../../test/screen-host/features/tasks/routes/TaskBoardRoute';
+import { TaskListRoute } from '../../../../test/screen-host/features/tasks/routes/TaskListRoute';
+import { TasksRouteView } from '../../../../test/screen-host/routes/_authed/tasks';
 import { type TaskDto, listTasksQuerySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -31,23 +31,23 @@ vi.mock('@ap/ui', async (importOriginal) => ({
   ),
   WorkbenchShell: ({ children }: { children: ReactNode }) => <main>{children}</main>,
 }));
-vi.mock('../../../lib/api/me', async (io) => ({
-  ...(await io<typeof import('../../../lib/api/me')>()),
+vi.mock('../../../../lib/api/me', async (io) => ({
+  ...(await io<typeof import('../../../../lib/api/me')>()),
   useMeBridge: () => useMe(),
 }));
-vi.mock('../../../lib/auth/useMe', () => ({
+vi.mock('../../../../lib/auth/useMe', () => ({
   useMe: () => ({
     data: { actor: { id: '20000000-0000-0000-0000-000000000002', role_level: 'admin' } },
   }),
 }));
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: async () => ({ items: [] }),
 }));
-vi.mock('../../../test/host-adapters/features/tasks/components/TaskDetailPanel', () => ({
+vi.mock('../../../../test/host-adapters/features/tasks/components/TaskDetailPanel', () => ({
   TaskDetailPanel: ({ taskId }: { taskId: string }) => (
     <section data-testid="selected-task">{taskId}</section>
   ),

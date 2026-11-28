@@ -1,11 +1,11 @@
-import { getTask, listTasks } from '../../../lib/api';
-import { ApiError } from '../../../lib/api/types';
-import { useMe } from '../../../lib/auth/useMe';
+import { getTask, listTasks } from '../../../../lib/api';
+import { ApiError } from '../../../../lib/api/types';
+import { useMe } from '../../../../lib/auth/useMe';
 import {
   parseAppSearch,
   stringifyAppSearch,
-} from '../../../test/host-adapters/lib/router/search-serialization';
-import { TasksRouteView, validateTasksSearch } from '../../../test/screen-host/routes/_authed/tasks';
+} from '../../../../test/host-adapters/lib/router/search-serialization';
+import { TasksRouteView, validateTasksSearch } from '../../../../test/screen-host/routes/_authed/tasks';
 import { type TaskDetailDto, listTasksQuerySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -28,33 +28,33 @@ vi.mock('@ap/ui', async (original) => ({
     </main>
   ),
 }));
-vi.mock('../../../lib/api', async (original) => ({
-  ...(await original<typeof import('../../../lib/api')>()),
+vi.mock('../../../../lib/api', async (original) => ({
+  ...(await original<typeof import('../../../../lib/api')>()),
   listTasks: vi.fn(),
   getTask: vi.fn(),
 }));
-vi.mock('../../../lib/api/tasks', async (io) => ({
-  ...(await io<typeof import('../../../lib/api/tasks')>()),
+vi.mock('../../../../lib/api/tasks', async (io) => ({
+  ...(await io<typeof import('../../../../lib/api/tasks')>()),
   listTasks: (...args: Parameters<typeof listTasks>) => listTasks(...args),
   getTask: (...args: Parameters<typeof getTask>) => getTask(...args),
 }));
-vi.mock('../../../lib/api/me', async (io) => ({
-  ...(await io<typeof import('../../../lib/api/me')>()),
+vi.mock('../../../../lib/api/me', async (io) => ({
+  ...(await io<typeof import('../../../../lib/api/me')>()),
   useMeBridge: () => useMe(),
 }));
-vi.mock('../../../lib/auth/useMe', () => ({
+vi.mock('../../../../lib/auth/useMe', () => ({
   useMe: () => ({
     data: { actor: { id: '20000000-0000-0000-0000-000000000002', role_level: 'admin' } },
   }),
 }));
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: async () => ({ items: [] }),
 }));
-vi.mock('../../../test/host-adapters/features/tasks/components/TaskDetailPanel', () => ({
+vi.mock('../../../../test/host-adapters/features/tasks/components/TaskDetailPanel', () => ({
   TaskDetailPanel: ({ taskId, onClose }: { taskId: string; onClose: () => void }) => (
     <section data-testid="detail">
       {taskId}
@@ -160,7 +160,7 @@ function expectNoSelectedRow() {
   expect(screen.queryByTestId('object-row-selected-bar')).not.toBeInTheDocument();
   expect(screen.queryByTestId('detail')).not.toBeInTheDocument();
 }
-vi.mock('../../../lib/useAnalyticsAreaFilterLabel', () => ({
+vi.mock('../../../../lib/useAnalyticsAreaFilterLabel', () => ({
   useAnalyticsAreaFilterLabel: (area: string | undefined) =>
     area === 'unset' ? '분석 영역: 미지정' : areaLabel,
 }));

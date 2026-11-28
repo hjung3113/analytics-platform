@@ -1,12 +1,12 @@
-import { getTask, listTasks } from '../../../lib/api';
-import { getMilestone } from '../../../lib/api/milestones';
-import { fetchManagedSystems } from '../../../lib/api/registry-reads';
-import { ApiError } from '../../../lib/api/types';
-import { TASK_PRIORITY_LABELS } from '../../../lib/copy/enum-labels';
-import { GLOSSARY } from '../../../lib/copy/glossary';
-import { REPORTER_STATUS_LABELS } from '../../../lib/copy/reporter-status-labels';
-import { TaskDetailPanel } from '../../../test/host-adapters/features/tasks/components/TaskDetailPanel';
-import { TaskListRoute } from '../../../test/screen-host/features/tasks/routes/TaskListRoute';
+import { getTask, listTasks } from '../../../../lib/api';
+import { getMilestone } from '../../../../lib/api/milestones';
+import { fetchManagedSystems } from '../../../../lib/api/registry-reads';
+import { ApiError } from '../../../../lib/api/types';
+import { TASK_PRIORITY_LABELS } from '../../../../lib/copy/enum-labels';
+import { GLOSSARY } from '../../../../lib/copy/glossary';
+import { REPORTER_STATUS_LABELS } from '../../../../lib/copy/reporter-status-labels';
+import { TaskDetailPanel } from '../../../../test/host-adapters/features/tasks/components/TaskDetailPanel';
+import { TaskListRoute } from '../../../../test/screen-host/features/tasks/routes/TaskListRoute';
 import {
   type MilestoneDetailDto,
   type TaskDetailDto,
@@ -53,14 +53,14 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }));
 
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({
     actors: [{ id: '20000000-0000-0000-0000-000000000002', display_name: '담당자' }],
   }),
 }));
 
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({
     items: [
       {
@@ -72,7 +72,7 @@ vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
   })),
 }));
 
-vi.mock('../../../lib/api', () => {
+vi.mock('../../../../lib/api', () => {
   const task = {
     id: '10000000-0000-0000-0000-000000000001',
     workspace_id: '90000000-0000-0000-0000-000000000009',
@@ -109,13 +109,13 @@ vi.mock('../../../lib/api', () => {
 });
 
 // The panel imports the module path; forward at call time to the barrel fake above.
-vi.mock('../../../lib/api/tasks', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/tasks')>()),
+vi.mock('../../../../lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/tasks')>()),
   listTasks: (...args: Parameters<typeof listTasks>) => listTasks(...args),
   getTask: (...args: Parameters<typeof getTask>) => getTask(...args),
 }));
 
-vi.mock('../../../lib/api/milestones', () => ({
+vi.mock('../../../../lib/api/milestones', () => ({
   getMilestone: vi.fn(),
 }));
 

@@ -1,15 +1,15 @@
-import { fetchTaskRequests } from '../../../lib/api';
-import * as barrel from '../../../lib/api';
-import { useMe } from '../../../lib/auth/useMe';
-import { TaskRequestsRoute } from '../../../test/screen-host/features/tasks/routes/TaskRequestsRoute';
-import { taskRequestPage } from '../../../test/task-request-pages';
+import { fetchTaskRequests } from '../../../../lib/api';
+import * as barrel from '../../../../lib/api';
+import { useMe } from '../../../../lib/auth/useMe';
+import { TaskRequestsRoute } from '../../../../test/screen-host/features/tasks/routes/TaskRequestsRoute';
+import { taskRequestPage } from '../../../../test/task-request-pages';
 import type { ListTaskRequestsResponse, TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { useLayoutEffect, useSyncExternalStore } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { installListMotionEnvironment } from '../../voc/components/triage/__tests__/list-motion-environment';
+import { installListMotionEnvironment } from '../../../voc/components/triage/__tests__/list-motion-environment';
 
 const slot = vi.hoisted(() => {
   let node: unknown;
@@ -30,36 +30,36 @@ function SlotContent() {
   return useSyncExternalStore(slot.subscribe, slot.get, slot.get) as import('react').ReactNode;
 }
 
-vi.mock('../../../lib/api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api')>()),
+vi.mock('../../../../lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api')>()),
   fetchTaskRequests: vi.fn(),
   resolveActors: async () => ({ actors: [], teams: [] }),
 }));
 // The hooks import the module paths; forward at call time so the barrel fakes above still apply.
-vi.mock('../../../lib/api/task-requests', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/task-requests')>()),
+vi.mock('../../../../lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/task-requests')>()),
   fetchTaskRequests: (...args: Parameters<typeof barrel.fetchTaskRequests>) =>
     barrel.fetchTaskRequests(...args),
 }));
-vi.mock('../../../lib/api/actors', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/actors')>()),
+vi.mock('../../../../lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/actors')>()),
   resolveActors: (...args: Parameters<typeof barrel.resolveActors>) =>
     barrel.resolveActors(...args),
 }));
-vi.mock('../../../lib/api/me', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/me')>()),
+vi.mock('../../../../lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/me')>()),
   useMeBridge: () => useMe(),
 }));
-vi.mock('../../../lib/auth/useMe', () => ({
+vi.mock('../../../../lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { id: 'admin', role_level: 'admin' } } }),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: async () => ({ items: [] }),
 }));
 // Motion tests await isFetching() === 0; the picker's candidate read must not
 // keep a query in flight.
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
 vi.mock('@ap/ui', async (importOriginal) => ({
@@ -74,8 +74,8 @@ vi.mock('@ap/ui', async (importOriginal) => ({
     </main>
   ),
 }));
-vi.mock('../../../ui/index', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../ui/index')>()),
+vi.mock('../../../../ui/index', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../ui/index')>()),
   useDetailPanelSlot: (node: import('react').ReactNode) => {
     useLayoutEffect(() => {
       slot.set(node);
@@ -83,8 +83,8 @@ vi.mock('../../../ui/index', async (importOriginal) => ({
     }, [node]);
   },
 }));
-vi.mock('./task-requests/TaskRequestPanelParts', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./task-requests/TaskRequestPanelParts')>();
+vi.mock('../task-requests/TaskRequestPanelParts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../task-requests/TaskRequestPanelParts')>();
   const TaskRequestPanelBody = ({
     item,
     onDecisionComplete,

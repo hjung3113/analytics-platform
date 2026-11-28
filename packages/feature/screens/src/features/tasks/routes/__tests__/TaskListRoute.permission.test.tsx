@@ -1,10 +1,10 @@
-import * as registryReads from '../../../lib/api/registry-reads';
-import { useMe } from '../../../lib/auth/useMe';
-import { GLOSSARY } from '../../../lib/copy/glossary';
-import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
-import { HostSeamProvider, useHostSeam } from '../../../lib/host/host-seam';
-import { TaskListRoute } from '../../../test/screen-host/features/tasks/routes/TaskListRoute';
-import { useAccessRequestState } from '../../../test-support/access-request-host';
+import * as registryReads from '../../../../lib/api/registry-reads';
+import { useMe } from '../../../../lib/auth/useMe';
+import { GLOSSARY } from '../../../../lib/copy/glossary';
+import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reasons';
+import { HostSeamProvider, useHostSeam } from '../../../../lib/host/host-seam';
+import { TaskListRoute } from '../../../../test/screen-host/features/tasks/routes/TaskListRoute';
+import { useAccessRequestState } from '../../../../test-support/access-request-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -48,18 +48,18 @@ vi.mock('@ap/ui', async (importOriginal) => ({
     </main>
   ),
 }));
-vi.mock('../../../lib/api/me', async (io) => ({
-  ...(await io<typeof import('../../../lib/api/me')>()),
+vi.mock('../../../../lib/api/me', async (io) => ({
+  ...(await io<typeof import('../../../../lib/api/me')>()),
   useMeBridge: () => useMe(),
 }));
-vi.mock('../../../lib/auth/useMe', () => ({
+vi.mock('../../../../lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { id: 'developer', role_level: 'developer' } } }),
 }));
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: async () => ({ items: [] }),
 }));
 

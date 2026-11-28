@@ -2,19 +2,19 @@
 // complete feature href, carried keys kept, absent means cleared, and the replace flag of the old
 // router calls (replace only for the q draft and the panel close).
 
-import { ApiError } from '../../../lib/api/types';
-import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
-import { SEARCH_DEBOUNCE_MS } from '../../../lib/forms/search-debounce';
-import { type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
+import { ApiError } from '../../../../lib/api/types';
+import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reasons';
+import { SEARCH_DEBOUNCE_MS } from '../../../../lib/forms/search-debounce';
+import { type HostSeam, HostSeamProvider } from '../../../../lib/host/host-seam';
 import type { TaskDto } from '@ap/feature-shared';
-import { useDetailPanelSlot } from '../../../ui/index';
+import { useDetailPanelSlot } from '../../../../ui/index';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TaskListScreen } from './TaskListScreen';
+import { TaskListScreen } from '../TaskListScreen';
 
 const MS = '30000000-0000-0000-0000-000000000003';
 const AREA = '11111111-1111-4111-8111-111111111111';
@@ -25,23 +25,23 @@ const listTasksMock = vi.hoisted(() => vi.fn());
 const getTaskMock = vi.hoisted(() => vi.fn());
 let searchState: Record<string, string> = {};
 
-vi.mock('../../../lib/api/tasks', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/tasks')>()),
+vi.mock('../../../../lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/tasks')>()),
   listTasks: (...args: unknown[]) => listTasksMock(...args),
   getTask: (...args: unknown[]) => getTaskMock(...args),
 }));
-vi.mock('../../../lib/api/me', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/me')>()),
+vi.mock('../../../../lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/me')>()),
   useMeBridge: () => ({ data: { actor: { id: ME, role_level: 'admin' } } }),
 }));
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: async () => ({ items: [] }),
 }));
-vi.mock('../../../lib/useAnalyticsAreaFilterLabel', () => ({
+vi.mock('../../../../lib/useAnalyticsAreaFilterLabel', () => ({
   useAnalyticsAreaFilterLabel: () => '분석 영역: Revenue',
 }));
 

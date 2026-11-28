@@ -1,13 +1,13 @@
 // TaskListRoute.search-literal.test.tsx — the standalone route's navigate writes every href value as the string it is;
 // only the boolean `overdue` keeps its decoded type (#763 l, review F1).
 
-import { getTask, listTasks } from '../../../lib/api';
-import { useMe } from '../../../lib/auth/useMe';
+import { getTask, listTasks } from '../../../../lib/api';
+import { useMe } from '../../../../lib/auth/useMe';
 import {
   parseAppSearch,
   stringifyAppSearch,
-} from '../../../test/host-adapters/lib/router/search-serialization';
-import { TasksRouteView, validateTasksSearch } from '../../../test/screen-host/routes/_authed/tasks';
+} from '../../../../test/host-adapters/lib/router/search-serialization';
+import { TasksRouteView, validateTasksSearch } from '../../../../test/screen-host/routes/_authed/tasks';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   RouterProvider,
@@ -19,30 +19,30 @@ import {
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../lib/api', async (original) => ({
-  ...(await original<typeof import('../../../lib/api')>()),
+vi.mock('../../../../lib/api', async (original) => ({
+  ...(await original<typeof import('../../../../lib/api')>()),
   listTasks: vi.fn(),
   getTask: vi.fn(),
 }));
-vi.mock('../../../lib/api/tasks', async (io) => ({
-  ...(await io<typeof import('../../../lib/api/tasks')>()),
+vi.mock('../../../../lib/api/tasks', async (io) => ({
+  ...(await io<typeof import('../../../../lib/api/tasks')>()),
   listTasks: (...args: Parameters<typeof listTasks>) => listTasks(...args),
   getTask: (...args: Parameters<typeof getTask>) => getTask(...args),
 }));
-vi.mock('../../../lib/api/me', async (io) => ({
-  ...(await io<typeof import('../../../lib/api/me')>()),
+vi.mock('../../../../lib/api/me', async (io) => ({
+  ...(await io<typeof import('../../../../lib/api/me')>()),
   useMeBridge: () => useMe(),
 }));
-vi.mock('../../../lib/auth/useMe', () => ({
+vi.mock('../../../../lib/auth/useMe', () => ({
   useMe: () => ({
     data: { actor: { id: '20000000-0000-0000-0000-000000000002', role_level: 'admin' } },
   }),
 }));
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: async () => ({ items: [] }),
 }));
 const A = '30000000-0000-0000-0000-000000000003';
