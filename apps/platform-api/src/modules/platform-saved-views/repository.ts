@@ -5,7 +5,7 @@ import { sql } from 'drizzle-orm';
 
 import { sqlUuidArray } from '../../db/sql-arrays.js';
 import type { Tx } from '../../db/tx.js';
-import type { ActorContext, Pending, Standings, ViewBody, ViewRecord } from './acl.js';
+import { type ActorContext, type Pending, type Standings, type ViewBody, type ViewRecord, hasApprovalAuthority } from './acl.js';
 
 interface ViewRow extends Record<string, unknown> {
   id: string;
@@ -97,7 +97,7 @@ export async function viewsOfMenu(
       and ${menuId === null ? sql`v.kind = ${kind ?? 'condition-set'}` : sql`v.menu_id = ${menuId} and ${kind === undefined}`}
       and (v.owner_id = ${actor.id} or v.visibility_kind = 'official'
         or ${sharedCandidate(actor)}
-        or (${actor.approver} and (v.approval = 'pending' or v.pending ->> 'approval' = 'pending')))
+        or (${hasApprovalAuthority(actor, menuId)} and (v.approval = 'pending' or v.pending ->> 'approval' = 'pending')))
     order by v.updated_at_ms desc, v.id`);
   return rows.map(toRecord);
 }

@@ -55,7 +55,7 @@ describe('write re-judges console:access after the lock', () => {
         expectedVersion: 1,
       } as never,
     );
-    expect(result).toMatchObject({ ok: false, reason: 'invalid' });
+    expect(result).toEqual({ ok: false, reason: 'forbidden' });
     const txCalls = check.checkCapability.mock.calls.filter((c) => c[3]?.tx === tx);
     expect(txCalls).toHaveLength(1);
   });

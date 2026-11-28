@@ -1,7 +1,7 @@
 import type { SavedView } from '@ap/contracts';
 
 /** Mock identity of the local ACL simulation (not a server): who the current role is, what it may open, which rooms it may read. */
-export type Actor = { userId: string; admin: boolean; permissions: readonly string[]; rooms: readonly string[] };
+export type Actor = { userId: string; admin: boolean; permissions: readonly string[]; rooms: readonly string[]; approvalSpaces?: readonly string[] };
 export type DirectoryPerson = { userId: string; displayName: string; affiliation: string };
 /** Stored group: membership lives here, so a member leaving cuts the group path on the next read. */
 export type GroupRecord = { id: string; kind: 'org-team' | 'custom'; name: string; managerIds: string[]; memberIds: string[] };
@@ -9,7 +9,7 @@ export type GroupRecord = { id: string; kind: 'org-team' | 'custom'; name: strin
 /** Same role ids as the mock session (`platform:role`); unknown values fall back to `engineer`. */
 export const ROLE_KEY = 'platform:role';
 export const ACTORS: Readonly<Record<string, Actor>> = {
-  engineer: { userId: 'engineer', admin: false, permissions: ['analytics:view', 'metrics:view', 'equipment:view', 'master:view'], rooms: ['PHOTO', 'ETCH', 'CVD'] },
+  engineer: { userId: 'engineer', admin: false, permissions: ['analytics:view', 'metrics:view', 'equipment:view', 'master:view'], rooms: ['PHOTO', 'ETCH', 'CVD'], approvalSpaces: ['mars'] },
   admin: { userId: 'admin', admin: true, permissions: ['analytics:view', 'metrics:view', 'equipment:view', 'master:view'], rooms: ['PHOTO', 'ETCH', 'CVD', 'DIFF', 'CMP'] },
   viewer: { userId: 'viewer', admin: false, permissions: ['metrics:view'], rooms: ['PHOTO'] },
 };

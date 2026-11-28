@@ -25,6 +25,7 @@ export interface PlatformSavedViewsOptions {
   sessionService: SessionService;
   checkService: CheckService;
   workspaceId: string;
+  menuSpaces?: ReadonlyMap<string, string> | undefined;
   db: Db;
   now?: () => number;
 }
@@ -36,6 +37,7 @@ export const platformSavedViewRoutes: FastifyPluginAsync<PlatformSavedViewsOptio
   const service = createSavedViewService({
     db: opts.db,
     checkService: opts.checkService,
+    menuSpaces: opts.menuSpaces,
     ...(opts.now ? { now: opts.now } : {}),
   });
   const csrf = requireCsrf(opts.sessionService);

@@ -282,6 +282,8 @@ export function planSavedViewChecks(harness: ServerConformanceHarness): Conforma
       if (request.requestedBy !== who.user) return `requestedBy is the owner, got ${request.requestedBy}`;
       if (request.targetVersion !== pending.view.version) return 'targetVersion is the version the approval would publish';
       if (JSON.stringify(request.changes) !== JSON.stringify([`공식 등록 신청: "${saved.view.name}"`])) return `the change summary of a first request is one line naming the view, got ${JSON.stringify(request.changes)}`;
+      if (request.approverSpace !== undefined && (typeof request.approverSpace !== 'string' || request.approverSpace.length === 0))
+        return 'approverSpace is a non-empty Registry Space id when supplied';
       if (typeof request.requestedAt !== 'number') return 'requestedAt is a timestamp';
       const approved = okOf(await admin.decide(id, 'approve', undefined, { expectedVersion: pending.view.version }), 'decide(approve)');
       if (typeof approved === 'string') return approved;

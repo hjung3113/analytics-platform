@@ -26,6 +26,7 @@ import {
   isOwnerOrManager,
   isPersonallyReachable,
   isReachable,
+  mayApproveView,
   proposalChanges,
   savedViewOf,
   shownTo,
@@ -53,6 +54,7 @@ export interface SavedViewSession {
 export interface SavedViewServiceDeps {
   db: Db;
   checkService: CheckService;
+  menuSpaces?: ReadonlyMap<string, string> | undefined;
   now?: () => number;
 }
 
@@ -98,27 +100,20 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
   const now = deps.now ?? Date.now;
   const audit = createAuditService();
 
-  /** The session's role in the actor handed to a command, so a write can re-judge it after the lock. */
-  const sessions = new WeakMap<ActorContext, SavedViewSession>();
-
-  async function actorOf(session: SavedViewSession, tx?: Tx): Promise<ActorContext> {
-    const approver = await holdsPlatformPermission(
-      deps.checkService,
-      {
-        actor_id: session.actorId,
-        workspace_id: session.workspaceId,
-        role_level: session.roleLevel,
-      },
-      'console:access',
-      tx ? { tx } : {},
-    );
-    const actor = { id: session.actorId, workspaceId: session.workspaceId, approver };
-    sessions.set(actor, session);
-    return actor;
+  async function actorOf(session: SavedViewSession, tx: Tx): Promise<ActorContext> {
+    const permissionActor = { actor_id: session.actorId, workspace_id: session.workspaceId, role_level: session.roleLevel };
+    const approver = await holdsPlatformPermission(deps.checkService, permissionActor, 'console:access', { tx });
+    const spaces = !approver && deps.menuSpaces?.size
+      ? await deps.checkService.savedViewApprovalSpaces?.(permissionActor, tx)
+      : undefined;
+    return {
+      id: session.actorId, workspaceId: session.workspaceId, approver,
+      approvesMenu: (menuId) => spaces?.has(deps.menuSpaces?.get(menuId) ?? '') === true,
+    };
   }
 
-  function read<T>(work: (tx: Tx) => Promise<T>): Promise<T> {
-    return deps.db.transaction(work, {
+  function read<T>(session: SavedViewSession, work: (tx: Tx, actor: ActorContext) => Promise<T>): Promise<T> {
+    return deps.db.transaction(async (tx) => work(tx, await actorOf(session, tx)), {
       isolationLevel: 'repeatable read',
       accessMode: 'read only',
     });
@@ -126,17 +121,16 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
 
   /**
    * One workspace-serialized transaction; a `Failure` from `work` rolls everything back (rows and audit).
-   * `console:access` is judged again inside the transaction after the lock, so a grant revoked, denied or expired
+   * Official approval authority is judged inside the transaction after the lock, so a grant revoked, denied or expired
    * while this call waited never authorizes it; `work` receives that fresh actor and must use it.
    */
   async function write<T>(
-    stale: ActorContext,
+    session: SavedViewSession,
     work: (tx: Tx, standings: Standings, actor: ActorContext) => Promise<ResultOf<T>>,
   ): Promise<ResultOf<T>> {
     try {
       return await deps.db.transaction(async (tx) => {
-        await repo.lockWorkspace(tx, stale.workspaceId);
-        const session = sessions.get(stale) as SavedViewSession;
+        await repo.lockWorkspace(tx, session.workspaceId);
         const actor = await actorOf(session, tx);
         const result = await work(tx, await repo.standingsOf(tx, actor), actor);
         if (!result.ok) throw new Abort(result);
@@ -158,10 +152,9 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
   });
 
   /**
-   * Order matters: missing or unreachable → invalid; lacking the static entitlement (relation to the object or
-   * the console grant, never its approval state) → forbidden; stale version → conflict; then the state-dependent
-   * capability → forbidden. A concurrent loser who was entitled therefore gets `conflict`, and an unauthorized
-   * actor never learns the version or state through it.
+   * Order matters: missing or unreachable → invalid, or forbidden for a non-admin approval decision;
+   * lacking static entitlement → forbidden; stale version → conflict; then check the state-dependent capability.
+   * An entitled concurrent loser gets conflict, while an unauthorized actor stays unaware of the version or state.
    */
   async function target(
     tx: Tx,
@@ -171,14 +164,15 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
     expectedVersion: number,
     entitled: (view: ViewRecord) => boolean,
     allowed: (view: ViewRecord, caps: ReturnType<typeof capabilitiesOf>) => boolean = () => true,
-    options: { official?: boolean } = {},
+    options: { official?: boolean; approvalDecision?: boolean } = {},
   ): Promise<ResultOf<ViewRecord>> {
     const uuid = asUuid(id);
     const view = uuid ? await repo.viewById(tx, actor.workspaceId, uuid) : null;
-    if (!view || !isReachable(view, actor, standings)) return fail('invalid', 'not-found');
+    if (!view || !isReachable(view, actor, standings))
+      return options.approvalDecision && !actor.approver ? fail('forbidden') : fail('invalid', 'not-found');
     if (options.official && view.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
     const caps = capabilitiesOf(view, actor, standings);
-    if (!entitled(view)) return fail('forbidden', caps.reason);
+    if (!entitled(view)) return fail('forbidden', options.approvalDecision ? undefined : caps.reason);
     if (view.version !== expectedVersion) return fail('conflict');
     if (!allowed(view, caps)) return fail('forbidden', caps.reason);
     return ok(view);
@@ -219,10 +213,10 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
 
   // ---- views ----
 
-  const list = (actor: ActorContext, menuId: string | null, kind?: 'custom-group') =>
+  const list = (session: SavedViewSession, menuId: string | null, kind?: 'custom-group') =>
     menuId !== null && !isPgSafeString(menuId)
       ? Promise.resolve([] as SavedViewListItemJson[])
-      : read(async (tx) => {
+      : read(session, async (tx, actor) => {
           const standings = await repo.standingsOf(tx, actor);
           const views = await repo.viewsOfMenu(tx, actor, menuId, kind);
           return views
@@ -230,16 +224,16 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
             .map((v): SavedViewListItemJson => entryOf(v, actor, standings));
         });
 
-  const listMyMenus = (actor: ActorContext) =>
-    read(async (tx) => {
+  const listMyMenus = (session: SavedViewSession) =>
+    read(session, async (tx, actor) => {
       const standings = await repo.standingsOf(tx, actor);
       const views = await repo.myMenuCandidates(tx, actor);
       return views.filter((view) => isPersonallyReachable(view, actor, standings))
         .map((view) => entryOf(view, actor, standings));
     });
 
-  const get = (actor: ActorContext, id: string) =>
-    read(async (tx): Promise<SavedViewListItemJson | null> => {
+  const get = (session: SavedViewSession, id: string) =>
+    read(session, async (tx, actor): Promise<SavedViewListItemJson | null> => {
       const uuid = asUuid(id);
       const view = uuid ? await repo.viewById(tx, actor.workspaceId, uuid) : null;
       if (!view) return null;
@@ -249,8 +243,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
         : { id: view.id, denied: true, reason: 'no-access' };
     });
 
-  const save = (actor: ActorContext, draft: SavedViewDraftIn) =>
-    write(actor, async (tx, standings, actor) => {
+  const save = (session: SavedViewSession, draft: SavedViewDraftIn) =>
+    write(session, async (tx, standings, actor) => {
       if (!isPgSafeDeep(draft)) return fail('invalid', 'unicode');
       const id = await repo.insertView(tx, {
         workspaceId: actor.workspaceId,
@@ -266,8 +260,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       return ok(entryOf(view, actor, standings));
     });
 
-  const update = (actor: ActorContext, cmd: CommandOf<'update'>) =>
-    write(actor, async (tx, standings, actor) => {
+  const update = (session: SavedViewSession, cmd: CommandOf<'update'>) =>
+    write(session, async (tx, standings, actor) => {
       const t = await target(
         tx,
         actor,
@@ -340,8 +334,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       return ok(entryOf(written, actor, standings));
     });
 
-  const remove = (actor: ActorContext, id: string) =>
-    write(actor, async (tx, standings, actor) => {
+  const remove = (session: SavedViewSession, id: string) =>
+    write(session, async (tx, standings, actor) => {
       const uuid = asUuid(id);
       const view = uuid ? await repo.viewById(tx, actor.workspaceId, uuid) : null;
       if (!view || !isReachable(view, actor, standings)) return fail('invalid', 'not-found');
@@ -357,8 +351,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       return ok(null);
     });
 
-  const setDefault = (actor: ActorContext, menuId: string | null, id: string | null, kind?: 'custom-group') =>
-    write(actor, async (tx, standings, actor) => {
+  const setDefault = (session: SavedViewSession, menuId: string | null, id: string | null, kind?: 'custom-group') =>
+    write(session, async (tx, standings, actor) => {
       if (kind === 'custom-group') return fail('invalid', 'custom-group-default');
       if (menuId !== null && !isPgSafeString(menuId)) return fail('invalid', 'menuId');
       if (id === null) {
@@ -373,13 +367,13 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       return ok(null);
     });
 
-  const getDefaultId = (actor: ActorContext, menuId: string | null, kind?: 'custom-group') =>
+  const getDefaultId = (session: SavedViewSession, menuId: string | null, kind?: 'custom-group') =>
     kind === 'custom-group' || (menuId !== null && !isPgSafeString(menuId))
       ? Promise.resolve(null)
-      : read(async (tx) => usableDefault(tx, actor, await repo.standingsOf(tx, actor), menuId));
+      : read(session, async (tx, actor) => usableDefault(tx, actor, await repo.standingsOf(tx, actor), menuId));
 
-  const setVisibility = (actor: ActorContext, cmd: CommandOf<'setVisibility'>) =>
-    write(actor, async (tx, standings, actor) => {
+  const setVisibility = (session: SavedViewSession, cmd: CommandOf<'setVisibility'>) =>
+    write(session, async (tx, standings, actor) => {
       const { visibility } = cmd;
       if (visibility.kind === 'official') return fail('invalid', 'use requestOfficial');
       const t = await target(
@@ -459,8 +453,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       );
     });
 
-  const requestOfficial = (actor: ActorContext, cmd: CommandOf<'requestOfficial'>) =>
-    write(actor, async (tx, standings, actor) => {
+  const requestOfficial = (session: SavedViewSession, cmd: CommandOf<'requestOfficial'>) =>
+    write(session, async (tx, standings, actor) => {
       const t = await target(
         tx,
         actor,
@@ -491,8 +485,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       return ok(entryOf(written, actor, standings));
     });
 
-  const withdraw = (actor: ActorContext, cmd: CommandOf<'withdraw'>) =>
-    write(actor, async (tx, standings, actor) => {
+  const withdraw = (session: SavedViewSession, cmd: CommandOf<'withdraw'>) =>
+    write(session, async (tx, standings, actor) => {
       const t = await target(
         tx,
         actor,
@@ -523,8 +517,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       return ok(entryOf(written, actor, standings));
     });
 
-  const decide = (actor: ActorContext, cmd: CommandOf<'decide'>) =>
-    write(actor, async (tx, standings, actor) => {
+  const decide = (session: SavedViewSession, cmd: CommandOf<'decide'>) =>
+    write(session, async (tx, standings, actor) => {
       const note = cmd.note?.trim() || null;
       if (note !== null && (note.length > NOTE_MAX || !isPgSafeString(note)))
         return fail('invalid', 'note');
@@ -534,9 +528,9 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
         standings,
         cmd.id,
         cmd.expectedVersion,
-        () => actor.approver,
+        (view) => mayApproveView(view, actor),
         undefined,
-        { official: true },
+        { official: true, approvalDecision: true },
       );
       if (!t.ok) return t;
       const view = t.value;
@@ -585,17 +579,17 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       );
     });
 
-  const revoke = (actor: ActorContext, cmd: CommandOf<'revoke'>) =>
-    write(actor, async (tx, standings, actor) => {
+  const revoke = (session: SavedViewSession, cmd: CommandOf<'revoke'>) =>
+    write(session, async (tx, standings, actor) => {
       const t = await target(
         tx,
         actor,
         standings,
         cmd.id,
         cmd.expectedVersion,
-        () => actor.approver,
+        (view) => mayApproveView(view, actor, { revoking: true }),
         undefined,
-        { official: true },
+        { official: true, approvalDecision: true },
       );
       if (!t.ok) return t;
       const view = t.value;
@@ -626,18 +620,16 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       return ok(entryOf(written, actor, standings));
     });
 
-  const listApprovalRequests = (actor: ActorContext, menuId: string | null, kind?: 'custom-group') =>
+  const listApprovalRequests = (session: SavedViewSession, menuId: string | null, kind?: 'custom-group') =>
     kind === 'custom-group' || (menuId !== null && !isPgSafeString(menuId))
       ? Promise.resolve([])
-      : read(async (tx) => {
-          const standings = await repo.standingsOf(tx, actor);
+      : read(session, async (tx, actor) => {
+          const approverSpace = menuId === null ? undefined : deps.menuSpaces?.get(menuId) || undefined;
           const views = await repo.viewsOfMenu(tx, actor, menuId);
           return views.flatMap((view) => {
             const proposal = view.pending ?? { approval: view.approval, note: view.approvalNote };
-            if (proposal.approval !== 'pending' && proposal.approval !== 'rejected') return [];
-            if (!isReachable(view, actor, standings)) return [];
-            const caps = capabilitiesOf(view, actor, standings);
-            if (!(view.ownerId === actor.id || caps.canApprove || caps.canRevoke)) return [];
+            const ownRejection = proposal.approval === 'rejected' && view.ownerId === actor.id;
+            if (!(proposal.approval === 'pending' && mayApproveView(view, actor)) && !ownRejection) return [];
             return [
               {
                 viewId: view.id,
@@ -645,9 +637,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
                 requestedAt: view.updatedAt,
                 targetVersion: view.version,
                 changes: proposalChanges(view),
-                ...(proposal.approval === 'rejected' && proposal.note
-                  ? { rejectReason: proposal.note }
-                  : {}),
+                ...(approverSpace === undefined ? {} : { approverSpace }),
+                ...(ownRejection && proposal.note ? { rejectReason: proposal.note } : {}),
               },
             ];
           });
@@ -684,16 +675,16 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
     };
   };
 
-  const listGroups = (actor: ActorContext) =>
-    read(async (tx) =>
+  const listGroups = (session: SavedViewSession) =>
+    read(session, async (tx, actor) =>
       (await repo.groupsOf(tx, actor.workspaceId))
         .map((g) => groupEntry(g, actor))
         .filter((g) => g.canView)
         .map((g) => g.entry),
     );
 
-  const createGroup = (actor: ActorContext, cmd: CommandOf<'createGroup'>) =>
-    write(actor, async (tx, _standings, actor) => {
+  const createGroup = (session: SavedViewSession, cmd: CommandOf<'createGroup'>) =>
+    write(session, async (tx, _standings, actor) => {
       const name = cmd.name.trim();
       if (!name || name.length > NAME_MAX || !isPgSafeString(name)) return fail('invalid', 'name');
       const uuids = unique(cmd.memberIds).map(asUuid);
@@ -724,8 +715,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       );
     });
 
-  const updateGroup = (actor: ActorContext, cmd: CommandOf<'updateGroup'>) =>
-    write(actor, async (tx, _standings, actor) => {
+  const updateGroup = (session: SavedViewSession, cmd: CommandOf<'updateGroup'>) =>
+    write(session, async (tx, _standings, actor) => {
       const gid = asUuid(cmd.id);
       const group = gid ? await repo.groupById(tx, actor.workspaceId, gid) : null;
       const view = group ? groupEntry(group, actor) : null;
@@ -800,8 +791,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
   });
 
   /** Same directory as `lookupPeople`; an exact id hit is always kept, whatever the result cap. */
-  const searchPeople = (actor: ActorContext, rawQuery: string) =>
-    read(async (tx) => {
+  const searchPeople = (session: SavedViewSession, rawQuery: string) =>
+    read(session, async (tx, actor) => {
       const query = rawQuery.trim().slice(0, QUERY_MAX);
       if (!query || !isPgSafeString(query)) return [];
       const exactId = asUuid(query);
@@ -812,19 +803,19 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
     });
 
   /** Exact opaque ids (`POST /people/lookup`): a non-uuid or unknown id is simply omitted. */
-  const lookupPeople = (actor: ActorContext, ids: readonly string[]) =>
-    read(async (tx) => {
+  const lookupPeople = (session: SavedViewSession, ids: readonly string[]) =>
+    read(session, async (tx, actor) => {
       const uuids = unique(ids.flatMap((id) => asUuid(id) ?? []));
       return (await repo.peopleByIds(tx, actor.workspaceId, uuids)).map(asMember);
     });
 
   // ---- one-time browser import ----
 
-  const importLocal = (actor: ActorContext, cmd: CommandOf<'importLocal'>) =>
+  const importLocal = (session: SavedViewSession, cmd: CommandOf<'importLocal'>) =>
     // The token reaches SQL as text: a value PostgreSQL cannot store is a normal `invalid`, before any statement.
     !isPgSafeString(cmd.importToken)
       ? Promise.resolve(fail('invalid', 'unicode'))
-      : write<ImportOutcomeJson>(actor, async (tx, standings, actor) => {
+      : write<ImportOutcomeJson>(session, async (tx, standings, actor) => {
           const results: ImportOutcomeJson['results'] = [];
           const committed = new Map<string, string>();
           const created: string[] = [];
@@ -928,51 +919,50 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
 
   /** Runs one parsed command for the session's actor. The response is exactly the port's return shape. */
   async function execute(session: SavedViewSession, cmd: SavedViewCommandIn): Promise<unknown> {
-    const actor = await actorOf(session);
     switch (cmd.op) {
       case 'list':
-        return list(actor, cmd.key.menuId, cmd.key.kind);
+        return list(session, cmd.key.menuId, cmd.key.kind);
       case 'get':
-        return get(actor, cmd.id);
+        return get(session, cmd.id);
       case 'save':
-        return save(actor, cmd.draft);
+        return save(session, cmd.draft);
       case 'update':
-        return update(actor, cmd);
+        return update(session, cmd);
       case 'remove':
-        return remove(actor, cmd.id);
+        return remove(session, cmd.id);
       case 'setDefault':
-        return setDefault(actor, cmd.key.menuId, cmd.id, cmd.key.kind);
+        return setDefault(session, cmd.key.menuId, cmd.id, cmd.key.kind);
       case 'getDefaultId':
-        return getDefaultId(actor, cmd.key.menuId, cmd.key.kind);
+        return getDefaultId(session, cmd.key.menuId, cmd.key.kind);
       case 'setVisibility':
-        return setVisibility(actor, cmd);
+        return setVisibility(session, cmd);
       case 'requestOfficial':
-        return requestOfficial(actor, cmd);
+        return requestOfficial(session, cmd);
       case 'withdraw':
-        return withdraw(actor, cmd);
+        return withdraw(session, cmd);
       case 'decide':
-        return decide(actor, cmd);
+        return decide(session, cmd);
       case 'revoke':
-        return revoke(actor, cmd);
+        return revoke(session, cmd);
       case 'listApprovalRequests':
-        return listApprovalRequests(actor, cmd.key.menuId, cmd.key.kind);
+        return listApprovalRequests(session, cmd.key.menuId, cmd.key.kind);
       case 'listMyMenus':
-        return listMyMenus(actor);
+        return listMyMenus(session);
       case 'listGroups':
-        return listGroups(actor);
+        return listGroups(session);
       case 'createGroup':
-        return createGroup(actor, cmd);
+        return createGroup(session, cmd);
       case 'updateGroup':
-        return updateGroup(actor, cmd);
+        return updateGroup(session, cmd);
       case 'searchPeople':
-        return searchPeople(actor, cmd.query);
+        return searchPeople(session, cmd.query);
       case 'importLocal':
-        return importLocal(actor, cmd);
+        return importLocal(session, cmd);
     }
   }
 
   async function lookup(session: SavedViewSession, ids: readonly string[]) {
-    return lookupPeople(await actorOf(session), ids);
+    return lookupPeople(session, ids);
   }
 
   return { execute, lookup };

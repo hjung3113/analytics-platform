@@ -13,7 +13,7 @@ import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';
 import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
-import { uid } from '../../../test-support/ids.js';
+import { randomUUID, uid } from '../../../test-support/ids.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -21,6 +21,9 @@ const WORKSPACE_ID = process.env.WORKSPACE_ID ?? '';
 const runIntegration = Boolean(APP_URL && MIGRATE_URL && WORKSPACE_ID);
 const PREFIX = uid('it-saved-views');
 const MENU = `${PREFIX}-menu`;
+const OTHER_MENU = `${PREFIX}-other-menu`;
+const APPROVAL_SPACE = 'approval-test';
+const OTHER_SPACE = 'approval-other';
 const URL = '/api/v1/platform/saved-views/commands';
 
 type Role = 'admin' | 'developer' | 'user';
@@ -135,7 +138,7 @@ describe.skipIf(!runIntegration)('platform saved views (#1105a, ADR-0099)', () =
     dbHandle = createDb(APP_URL);
     migrate = createDb(MIGRATE_URL);
     await migrate.pool.query('delete from core.rate_limits');
-    app = await buildServer({ config: loadConfig(), dbHandle });
+    app = await buildServer({ config: loadConfig(), dbHandle, menuSpaces: new Map([[MENU, APPROVAL_SPACE], [OTHER_MENU, OTHER_SPACE]]) });
     await app.ready();
     alice = await account('user', `${PREFIX} Alice Kim`);
     bob = await account('user', `${PREFIX} Bob Lee`);
@@ -856,14 +859,13 @@ describe.skipIf(!runIntegration)('platform saved views (#1105a, ADR-0099)', () =
         (await call(alice, 'decide', { id: v.id, decision: 'approve', expectedVersion: version }))
           .reason,
       ).toBe('forbidden');
-      expect(
-        (await call(dev, 'decide', { id: v.id, decision: 'approve', expectedVersion: version }))
-          .reason,
-      ).toBe('invalid');
-      expect(
-        (await call(bob, 'decide', { id: v.id, decision: 'approve', expectedVersion: version }))
-          .reason,
-      ).toBe('invalid');
+      const missingId = randomUUID();
+      for (const actor of [dev, bob]) {
+        for (const id of [v.id, missingId]) {
+          expect(await call(actor, 'decide', { id, decision: 'approve', expectedVersion: version }))
+            .toEqual({ ok: false, reason: 'forbidden' });
+        }
+      }
       const approved = await call(admin, 'decide', {
         id: v.id,
         decision: 'approve',
@@ -908,6 +910,69 @@ describe.skipIf(!runIntegration)('platform saved views (#1105a, ADR-0099)', () =
       expect(
         (await audits(['saved_view_official_approved'])).filter((x) => x.subject_id === v.id),
       ).toHaveLength(1);
+    });
+
+    async function grantApprover(recipient: Acct, space = APPROVAL_SPACE) {
+      return send(admin, '/permissions/grants', {
+        actor_id: recipient.id, capability: 'saved_view.approve', scope_kind: 'space', scope_space: space,
+        reason: 'Saved View approval',
+      });
+    }
+
+    async function request(owner: Acct, draft: Record<string, unknown>) {
+      const view = await save(owner, draft);
+      return (await call(owner, 'requestOfficial', { id: view.id, expectedVersion: view.version })).value.view;
+    }
+
+    it('a space approver sees the queue and can reject, approve and revoke in that space', async () => {
+      const approver = await account('user');
+      expect((await grantApprover(approver)).statusCode).toBe(201);
+      const pending = await request(alice, menuDraft('space approval'));
+      expect(await call(approver, 'listApprovalRequests', { key: KEY })).toContainEqual(expect.objectContaining({ viewId: pending.id, approverSpace: APPROVAL_SPACE }));
+      expect((await call(approver, 'get', { id: pending.id })).capabilities.canApprove).toBe(true);
+      const rejected = await call(approver, 'decide', { id: pending.id, expectedVersion: pending.version, decision: 'reject', note: 'Revise' });
+      expect(rejected.value.view.approval).toBe('rejected');
+      const again = await call(alice, 'requestOfficial', { id: pending.id, expectedVersion: rejected.value.view.version });
+      const approved = await call(approver, 'decide', { id: pending.id, expectedVersion: again.value.view.version, decision: 'approve' });
+      expect(approved.value).toMatchObject({ view: { approval: 'approved' }, capabilities: { canRevoke: true } });
+      const revoked = await call(approver, 'revoke', { id: pending.id, expectedVersion: approved.value.view.version });
+      expect(revoked.value.view.visibility.kind).toBe('private');
+      expect((await audits()).filter(row => row.subject_id === pending.id).map(row => row.event_type)).toEqual(expect.arrayContaining([
+        'saved_view_official_approved', 'saved_view_official_rejected', 'saved_view_official_revoked',
+      ]));
+    });
+
+    it.each([
+      ['another space', { menuId: OTHER_MENU }, menuDraft('other space', { menuId: OTHER_MENU })],
+      ['a condition set', { menuId: null }, condDraft('condition set approval')],
+    ])('hides and forbids %s for the space approver, while the admin may decide', async (_name, key, draft) => {
+      const approver = await account('user');
+      expect((await grantApprover(approver)).statusCode).toBe(201);
+      const pending = await request(alice, draft);
+      expect(await call(approver, 'listApprovalRequests', { key })).not.toContainEqual(expect.objectContaining({ viewId: pending.id }));
+      expect(await call(approver, 'get', { id: pending.id })).toEqual({ id: pending.id, denied: true, reason: 'no-access' });
+      const decision = { id: pending.id, expectedVersion: pending.version, decision: 'approve' };
+      const missingId = randomUUID();
+      for (const id of [pending.id, missingId]) {
+        expect(await call(approver, 'decide', { ...decision, id })).toEqual({ ok: false, reason: 'forbidden' });
+        expect(await call(approver, 'decide', { ...decision, id, decision: 'reject', note: 'Out of scope' }))
+          .toEqual({ ok: false, reason: 'forbidden' });
+      }
+      const approved = (await call(admin, 'decide', decision)).value.view;
+      expect(approved.approval).toBe('approved');
+      for (const id of [pending.id, missingId]) {
+        expect(await call(approver, 'revoke', { id, expectedVersion: approved.version }))
+          .toEqual({ ok: false, reason: 'forbidden' });
+      }
+      expect((await call(admin, 'revoke', { id: pending.id, expectedVersion: approved.version })).ok).toBe(true);
+    });
+
+    it('a space approver cannot approve their own request', async () => {
+      const approver = await account('user');
+      expect((await grantApprover(approver)).statusCode).toBe(201);
+      const pending = await request(approver, menuDraft('self approval'));
+      expect((await call(approver, 'get', { id: pending.id })).capabilities.canApprove).toBe(false);
+      expect(await call(approver, 'decide', { id: pending.id, expectedVersion: pending.version, decision: 'approve' })).toMatchObject({ ok: false, reason: 'forbidden' });
     });
 
     it('stale expectedVersion: an unauthorized actor gets forbidden with no change or audit; an authorized approver gets conflict, also after the object left the pending state', async () => {
@@ -1491,6 +1556,26 @@ describe.skipIf(!runIntegration)('platform saved views (#1105a, ADR-0099)', () =
       }
     }
 
+    it('checks delegated approval again after the workspace lock when the grant is revoked', async () => {
+      const approver = await account('user');
+      const grant = await send(admin, '/permissions/grants', {
+        actor_id: approver.id, capability: 'saved_view.approve', scope_kind: 'space', scope_space: APPROVAL_SPACE,
+        reason: 'Saved View approval',
+      });
+      expect(grant.statusCode).toBe(201);
+      const view = await save(alice);
+      const pending = (await call(alice, 'requestOfficial', { id: view.id, expectedVersion: view.version })).value.view;
+      const decision = await afterLockWait(
+        () => call(approver, 'decide', { id: pending.id, expectedVersion: pending.version, decision: 'approve' }),
+        async () => {
+          const revoked = await send(admin, `/permissions/grants/${grant.json().id}/revoke`, { reason: 'End delegation' });
+          expect(revoked.statusCode).toBe(200);
+        },
+      );
+      expect(decision).toEqual({ ok: false, reason: 'forbidden' });
+      expect(await call(approver, 'listApprovalRequests', { key: KEY })).not.toContainEqual(expect.objectContaining({ viewId: pending.id }));
+    });
+
     describe('C2 console:access is judged again after the workspace lock', () => {
       const grantApprover = async (g: Acct) => {
         await q(
@@ -1536,7 +1621,7 @@ describe.skipIf(!runIntegration)('platform saved views (#1105a, ADR-0099)', () =
                 decision: 'approve',
                 expectedVersion: r.value.view.version,
               }),
-            reason: 'invalid',
+            reason: 'forbidden',
           };
         },
         revoke: async (g) => {

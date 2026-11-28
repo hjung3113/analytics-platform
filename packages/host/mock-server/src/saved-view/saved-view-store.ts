@@ -100,8 +100,6 @@ function groupCapabilities(g: GroupRecord, a: Actor): GroupCapabilities {
   return { canView, canEditMembers: mutable, canRename: mutable, canDelete: mutable };
 }
 
-/** The only place scope, menu permission and sharing are judged; every read goes through it again. */
-/** `forced` skips reachability for the entry a mutation answers with (an admin's revoke makes the view unreachable to the admin). */
 /** Every grant the menu needs (`menuPermissions`); the actor must hold all of them. `undefined` = unknown menu. */
 type MenuPermissionsOf = (menuId: string) => readonly string[] | undefined;
 type LocalSavedViewStoreOptions = {
@@ -110,6 +108,7 @@ type LocalSavedViewStoreOptions = {
   now?: () => number;
   getActor?: () => Actor;
   menuPermissionsOf?: MenuPermissionsOf;
+  spaceOf?: (menuId: string) => string | undefined;
   sessionPermissions?: () => readonly string[] | undefined;
   /** Replaces actors, directory, groups and views at once; the default is the mock directory (#1702h). */
   seed?: SavedViewSeed;
@@ -119,9 +118,9 @@ type StoredContent = Exclude<SavedView, { kind: 'menu-view' }>
   | (Omit<Extract<SavedView, { kind: 'menu-view' }>, 'panels' | 'panelsUnreadable'> & { panels?: unknown });
 type Stored = StoredContent & { pending?: StoredContent };
 /** The owner and an approver see the proposed change; everyone else the approved copy. */
-const shownTo = (v: Stored, a: Actor, owner: boolean): StoredContent => {
+const shownTo = (v: Stored, showProposal: boolean): StoredContent => {
   const { pending, ...published } = v;
-  if (!pending || !(owner || a.admin)) return published;
+  if (!pending || !showProposal) return published;
   if (pending.kind !== 'menu-view' || v.kind !== 'menu-view') return pending;
   const { myMenu: _flag, ...proposal } = pending; void _flag;
   return { ...proposal, ...(v.myMenu ? { myMenu: true } : {}) };
@@ -143,13 +142,23 @@ const personallyReachable = (v: Stored, a: Actor, groups: readonly GroupRecord[]
   || (v.visibility.kind === 'people' && v.visibility.userIds.includes(a.userId))
   || sharedGroups(v, groups).some(g => isMember(g, a) || isManager(g, a));
 
-function evaluate(stored: Stored, a: Actor, groups: readonly GroupRecord[], perm: MenuPermissionsOf, forced = false): SavedViewListItem | null {
+/** The server's audience rule (ADR-0099 §6): the owner, a shared-group manager and a workspace administrator see every target; others only their own. */
+function audienceFor(v: Stored, a: Actor, groups: readonly GroupRecord[]): ViewVisibility {
+  const vis = v.visibility;
+  if (v.ownerId === a.userId || a.admin || sharedGroups(v, groups).some(g => isManager(g, a))) return vis;
+  if (vis.kind === 'people') return { kind: 'people', userIds: vis.userIds.filter(id => id === a.userId) };
+  if (vis.kind === 'groups') return { kind: 'groups', groupIds: sharedGroups(v, groups).filter(g => isMember(g, a)).map(g => g.id) };
+  return vis;
+}
+
+// A mutation can return its result even if the new state removes the caller's object access.
+function evaluate(stored: Stored, a: Actor, groups: readonly GroupRecord[], approval: { decide: boolean; revoke: boolean }, forced: boolean, dataPermissions?: MenuPermissionsOf): SavedViewListItem | null {
   const v = stored;
   const owner = v.ownerId === a.userId;
-  const reachable = personallyReachable(v, a, groups) || isOfficial(v) || (a.admin && (v.approval === 'pending' || v.pending?.approval === 'pending'));
+  const reachable = personallyReachable(v, a, groups) || isOfficial(v) || (approval.decide && (v.approval === 'pending' || v.pending?.approval === 'pending'));
   if (!reachable && !forced) return null;
-  const shown = shownTo(v, a, owner);
-  const reason = denial(shown, a, perm);
+  const shown = shownTo(v, owner || approval.decide);
+  const reason = dataPermissions && denial(shown, a, dataPermissions);
   if (reason) return { id: v.id, denied: true, reason };
   const manager = v.kind !== 'custom-group' && sharedGroups(v, groups).some(g => isManager(g, a));
   const published = isOfficial(shown) && shown.approval === 'approved';
@@ -157,16 +166,18 @@ function evaluate(stored: Stored, a: Actor, groups: readonly GroupRecord[], perm
   const capabilities: ViewCapabilities = {
     canView: true, canCopy: true, canEdit,
     canShare: (owner || manager) && !isOfficial(shown),
-    canApprove: v.kind !== 'custom-group' && a.admin && canTransition(shown.approval, 'approve'),
+    canApprove: v.kind !== 'custom-group' && approval.decide && canTransition(shown.approval, 'approve'),
     canWithdraw: v.kind !== 'custom-group' && owner && shown.approval === 'pending',
-    canRevoke: v.kind !== 'custom-group' && a.admin && isOfficial(v) && canTransition(v.approval, 'revoke'),
+    canRevoke: v.kind !== 'custom-group' && approval.revoke && isOfficial(v) && canTransition(v.approval, 'revoke'),
     ...(canEdit ? {} : { reason: published ? '공식 등록본은 직접 편집할 수 없습니다. 변경하면 재승인을 요청합니다.' : '다른 사람의 뷰입니다. 복제해서 편집하세요.' }),
   };
-  if (shown.kind !== 'menu-view') return { view: shown, capabilities };
+  const visibility = audienceFor(v, a, groups);
+  if (shown.kind !== 'menu-view') return { view: { ...shown, visibility }, capabilities };
   const read = readMenuViewPanels(shown.panels);
   const unreadable = read.status !== 'ok' && shown.panels !== null;
   const view: SavedView = {
     ...shown,
+    visibility,
     panels: read.status === 'ok' ? read.panels : null,
     ...(unreadable ? { panelsUnreadable: true } : {}),
   };
@@ -196,11 +207,24 @@ function proposalChanges(stored: Stored): string[] {
 type Tx = { buckets: Map<string, { ownerId: string; menuId: string | null; views: Stored[] }>; groups: GroupRecord[] | null; defaults: Map<string, string | null> };
 
 /** Browser-local simulation of a server ACL behind the SavedViewStore port. Mutations need the origin lock and fail closed without it. */
-export function createLocalSavedViewStore({ getStorage = () => localStorage, locks = typeof navigator === 'undefined' ? undefined : navigator.locks, now = Date.now, getActor, menuPermissionsOf = () => undefined, sessionPermissions, seed = defaultSavedViewSeed }: LocalSavedViewStoreOptions = {}): SavedViewStore {
+export function createLocalSavedViewStore({ getStorage = () => localStorage, locks = typeof navigator === 'undefined' ? undefined : navigator.locks, now = Date.now, getActor, menuPermissionsOf = () => undefined, spaceOf = () => undefined, sessionPermissions, seed = defaultSavedViewSeed }: LocalSavedViewStoreOptions = {}): SavedViewStore {
   /** The fallback actor for a missing/obsolete stored role is the seed's first actor, not a hard-coded one; a seed with no actor cannot answer who is asking. */
   const fallbackRole = Object.keys(seed.actors)[0];
   if (!fallbackRole) throw new Error('saved-view seed must contain at least one actor');
-  const ev = (v: Stored, a: Actor, groups: readonly GroupRecord[], forced = false) => evaluate(v, a, groups, menuPermissionsOf, forced);
+  const approverSpaceOf = (view: StoredContent) => {
+    const menuId = viewMenuId(view);
+    return menuId === null ? undefined : spaceOf(menuId) || undefined;
+  };
+  const mayApproveView = (view: StoredContent, actor: Actor, options: { revoking?: boolean } = {}) => {
+    const space = approverSpaceOf(view);
+    return actor.admin || (space !== undefined && actor.approvalSpaces?.includes(space) === true
+      && (options.revoking === true || view.ownerId !== actor.userId));
+  };
+  // Approval commands apply the object ACL. Opening or restoring the result still checks menu and room access.
+  const ev = (v: Stored, a: Actor, groups: readonly GroupRecord[], { forced = false, objectOnly = false } = {}) =>
+    evaluate(v, a, groups, {
+      decide: mayApproveView(v, a), revoke: mayApproveView(v, a, { revoking: true }),
+    }, forced, objectOnly ? undefined : menuPermissionsOf);
   /** The permission vocabulary is the real session's (what the Kernel judges menus by); the mock role fills it in before a session exists. */
   const actorNow = (): Actor => { const a = (getActor ?? (() => storedActor(getStorage(), seed.actors, fallbackRole)))(); const p = sessionPermissions?.(); return p ? { ...a, permissions: p } : a; };
   const readBucket = (storage: StoragePort, ownerId: string, menuId: string | null) => {
@@ -261,23 +285,27 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
   }
 
   /** Replace a stored view in its owner's bucket, bumping the version; the caller already passed the capability and version checks. */
-  const commit = (c: { bucket: (o: string, m: string | null) => Stored[] | null }, next: Stored, a: Actor, groups: readonly GroupRecord[]): Result<SavedViewEntry> => {
+  const commit = (c: { bucket: (o: string, m: string | null) => Stored[] | null }, next: Stored, a: Actor, groups: readonly GroupRecord[], { objectOnly = false } = {}): Result<SavedViewEntry> => {
     const views = c.bucket(next.ownerId, viewMenuId(next)); if (!views) return fail('unavailable');
     const version = next.version + 1; const updatedAt = now();
     const stamped: Stored = { ...next, version, updatedAt, ...(next.pending ? { pending: { ...next.pending, version, updatedAt } } : {}) };
-    const item = ev(stamped, a, groups, true);
+    const item = ev(stamped, a, groups, { forced: true, objectOnly });
     if (!item) return fail('invalid', 'not-found');
     if (item.denied) return fail('forbidden', item.reason);
     views[views.findIndex(v => v.id === next.id)] = stamped;
     return { ok: true, value: item };
   };
   /** Missing/unreachable → invalid; denied or lacking the capability → forbidden; stale version → conflict, nothing written. */
-  const target = (c: { storage: StoragePort; actor: Actor; groups: GroupRecord[]; bucket: (o: string, m: string | null) => Stored[] | null }, id: string, expectedVersion: number, allowed: (e: SavedViewEntry) => boolean): Result<Stored> => {
+  const target = (c: { storage: StoragePort; actor: Actor; groups: GroupRecord[]; bucket: (o: string, m: string | null) => Stored[] | null }, id: string, expectedVersion: number, allowed: (e: SavedViewEntry) => boolean, approvalCommand?: 'owner' | 'decision'): Result<Stored> => {
     const at = parseId(id); const views = at ? c.bucket(at.ownerId, at.menuId) : null;
     const view = views?.find(v => v.id === id);
-    const item = view ? ev(view, c.actor, c.groups) : null;
-    if (!view || !item) return fail('invalid', 'not-found');
-    if (item.denied || !allowed(item)) return fail('forbidden', item.denied ? item.reason : item.capabilities.reason);
+    const item = view ? ev(view, c.actor, c.groups, { objectOnly: approvalCommand !== undefined }) : null;
+    if (!view || !item)
+      return approvalCommand === 'decision' && !c.actor.admin ? fail('forbidden') : fail('invalid', 'not-found');
+    if (item.denied || !allowed(item)) {
+      const reason = item.denied ? item.reason : item.capabilities.reason;
+      return fail('forbidden', approvalCommand === 'decision' ? undefined : reason);
+    }
     if (view.version !== expectedVersion) return fail('conflict');
     return { ok: true, value: view };
   };
@@ -323,12 +351,12 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       const seq = `${now().toString(36)}-${globalThis.crypto.randomUUID().slice(0, 8)}`;
       const view = { ...draft, name: draft.name.trim(), id: `${c.actor.userId}|${menuId ?? ''}|${seq}`, ownerId: c.actor.userId, version: 1, updatedAt: now(), visibility: { kind: 'private' }, approval: 'none' } as SavedView;
       views.push(view);
-      return { ok: true, value: ev(view, c.actor, c.groups, true) as SavedViewEntry };
+      return { ok: true, value: ev(view, c.actor, c.groups, { forced: true }) as SavedViewEntry };
     }),
     update: (id, patch: SavedViewPatch, { expectedVersion }) => run(c => {
       const t = target(c, id, expectedVersion, e => e.capabilities.canEdit || (patch.myMenu === undefined && e.view.ownerId === c.actor.userId && isOfficial(e.view)));
       if (!t.ok) return t;
-      const stored = t.value; const view = shownTo(stored, c.actor, stored.ownerId === c.actor.userId);
+      const stored = t.value; const view = shownTo(stored, stored.ownerId === c.actor.userId || mayApproveView(stored, c.actor));
       if (view.kind !== 'menu-view' && patch.myMenu !== undefined) return fail('invalid', 'myMenu is only for menu views');
       if (view.kind === 'condition-set' && ('menuSchemaVersion' in patch || 'page' in patch || 'chartOptions' in patch || 'layout' in patch || 'panels' in patch || 'tables' in patch)) return fail('invalid', 'a condition set has no page');
       const { id: _id, ownerId: _o, version: _v, updatedAt: _u, visibility, approval, approvalNote, ...content } = view;
@@ -400,57 +428,60 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       return commit(c, { ...t.value, visibility }, c.actor, c.groups);
     }),
     requestOfficial: (id, { expectedVersion }) => run(c => {
-      const t = target(c, id, expectedVersion, e => e.view.ownerId === c.actor.userId); if (!t.ok) return t;
+      const t = target(c, id, expectedVersion, e => e.view.ownerId === c.actor.userId, 'owner'); if (!t.ok) return t;
       if (t.value.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
-      const shown = shownTo(t.value, c.actor, true);
+      const shown = shownTo(t.value, true);
       if (!canTransition(shown.approval, 'request')) return fail('invalid', 'approval-state');
-      if (t.value.pending) return commit(c, { ...t.value, pending: { ...t.value.pending, approval: 'pending', approvalNote: undefined } }, c.actor, c.groups);
-      return commit(c, { ...t.value, approval: 'pending', approvalNote: undefined }, c.actor, c.groups);
+      if (t.value.pending) return commit(c, { ...t.value, pending: { ...t.value.pending, approval: 'pending', approvalNote: undefined } }, c.actor, c.groups, { objectOnly: true });
+      return commit(c, { ...t.value, approval: 'pending', approvalNote: undefined }, c.actor, c.groups, { objectOnly: true });
     }),
     withdraw: (id, { expectedVersion }) => run(c => {
-      const t = target(c, id, expectedVersion, e => e.view.ownerId === c.actor.userId);
+      const t = target(c, id, expectedVersion, e => e.view.ownerId === c.actor.userId, 'owner');
       if (!t.ok) return t.detail === 'not-found' ? fail('forbidden') : t;
       if (t.value.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
       const { pending, ...published } = t.value;
       if ((pending ?? published).approval !== 'pending') return fail('invalid', 'approval-state');
       const next: Stored = pending ? published : { ...published, approval: 'none', approvalNote: undefined };
-      return commit(c, next, c.actor, c.groups);
+      return commit(c, next, c.actor, c.groups, { objectOnly: true });
     }),
     decide: (id, decision, note, { expectedVersion }) => run(c => {
       // The approval right gates the call (ADR-0099 §2); the pending state is checked after it, as the server does.
-      const t = target(c, id, expectedVersion, () => c.actor.admin); if (!t.ok) return t;
+      const t = target(c, id, expectedVersion, ({ view }) => mayApproveView(view, c.actor), 'decision');
+      if (!t.ok) return t;
       if (t.value.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
       const action = decision === 'approve' ? 'approve' : 'reject';
-      const stored = t.value; const shown = shownTo(stored, c.actor, false);
+      const stored = t.value; const shown = shownTo(stored, mayApproveView(stored, c.actor));
       if (!canTransition(shown.approval, action)) return fail('invalid', 'approval-state');
       const note1 = note?.trim() || undefined;
       if (decision === 'reject' && note1 === undefined) return fail('invalid', 'note');
       const { pending, ...published } = stored;
-      if (decision === 'approve') return commit(c, { ...shown, approval: 'approved', visibility: { kind: 'official' }, approvalNote: note1 }, c.actor, c.groups);
+      if (decision === 'approve') return commit(c, { ...shown, approval: 'approved', visibility: { kind: 'official' }, approvalNote: note1 }, c.actor, c.groups, { objectOnly: true });
       // A rejected change never reaches readers: the approved copy stays and only the proposal carries the rejection.
-      if (pending) return commit(c, { ...stored, pending: { ...pending, approval: 'rejected', approvalNote: note1 } }, c.actor, c.groups);
-      return commit(c, { ...published, approval: 'rejected', approvalNote: note1 }, c.actor, c.groups);
+      if (pending) return commit(c, { ...stored, pending: { ...pending, approval: 'rejected', approvalNote: note1 } }, c.actor, c.groups, { objectOnly: true });
+      return commit(c, { ...published, approval: 'rejected', approvalNote: note1 }, c.actor, c.groups, { objectOnly: true });
     }),
     // Revoke republishes nowhere (policy undecided): the view goes back to private and carries a note the UI can show.
     revoke: (id, { expectedVersion }) => run(c => {
       // The approval right gates the call (ADR-0099 §2); the official/approved state is checked after it, as the server does.
-      const t = target(c, id, expectedVersion, () => c.actor.admin); if (!t.ok) return t;
+      const t = target(c, id, expectedVersion, ({ view }) => mayApproveView(view, c.actor, { revoking: true }), 'decision');
+      if (!t.ok) return t;
       if (t.value.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
       if (!isOfficial(t.value) || !canTransition(t.value.approval, 'revoke')) return fail('invalid', 'approval-state');
-      return commit(c, { ...(({ pending: _drop, ...rest }) => (void _drop, rest))(t.value), approval: 'none', visibility: { kind: 'private' }, approvalNote: REVOKE_NOTE }, c.actor, c.groups);
+      return commit(c, { ...(({ pending: _drop, ...rest }) => (void _drop, rest))(t.value), approval: 'none', visibility: { kind: 'private' }, approvalNote: REVOKE_NOTE }, c.actor, c.groups, { objectOnly: true });
     }),
     listApprovalRequests: async key => {
       const storage = getStorage(); const a = actorNow(); if (key.userId !== a.userId) return [];
-      const groups = readGroups(storage).groups;
       return seed.directory.flatMap(p => readBucket(storage, p.userId, key.menuId).views.flatMap((stored: Stored): ApprovalRequestInfo[] => {
         if (stored.kind === 'custom-group' || !matchesKey(stored, key)) return [];
         const proposal = stored.pending ?? stored;
-        if (proposal.approval !== 'pending' && proposal.approval !== 'rejected') return [];
-        const item = ev(stored, a, groups);
-        if (!item || item.denied || !(stored.ownerId === a.userId || item.capabilities.canApprove || item.capabilities.canRevoke)) return [];
+        const ownRejection = proposal.approval === 'rejected' && stored.ownerId === a.userId;
+        const actionable = proposal.approval === 'pending' && mayApproveView(stored, a);
+        if (!actionable && !ownRejection) return [];
+        const approverSpace = approverSpaceOf(stored);
         return [{
           viewId: stored.id, requestedBy: stored.ownerId, requestedAt: proposal.updatedAt, targetVersion: proposal.version, changes: proposalChanges(stored),
-          ...(proposal.approval === 'rejected' && proposal.approvalNote ? { rejectReason: proposal.approvalNote } : {}),
+          ...(approverSpace === undefined ? {} : { approverSpace }),
+          ...(ownRejection && proposal.approvalNote ? { rejectReason: proposal.approvalNote } : {}),
         }];
       }));
     },

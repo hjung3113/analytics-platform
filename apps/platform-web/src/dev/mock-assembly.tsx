@@ -140,6 +140,7 @@ export const createAssembly: CreateAssembly = ({ registry }) => {
   const adapter = createMockAdapter({ equipmentAxes: EQUIPMENT_AXES, endpoints: MOCK_ENDPOINTS, registry, permissions: registry.permissions, auditEvents: MOCK_AUDIT_EVENTS, actions: MOCK_ACTIONS });
   const savedViews = createLocalSavedViewStore({
     menuPermissionsOf: menuId => { try { return menuPermissions(registry.menuById(menuId)); } catch { return undefined; } },
+    spaceOf: menuId => registry.has(menuId) ? registry.spaceOf(registry.menuById(menuId))?.id : undefined,
     sessionPermissions: () => adapter.session().user.permissions,
   });
   // Dev server only: the black-box E2E reads the raw usage rows (not exposed by any adapter port) to check the entry's
