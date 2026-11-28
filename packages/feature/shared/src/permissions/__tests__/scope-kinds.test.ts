@@ -14,6 +14,18 @@ describe('Scope kind wire compatibility', () => {
   ] as const)('round trips a legacy managed-system payload unchanged', (schema, payload) => {
     expect(schema.parse(payload)).toEqual(payload);
   });
+  it('accepts the Space coordinate on direct grants and their audit events', () => {
+    const scope = { scope_kind: 'space', scope_space: 'bravo' };
+    const capability = 'saved_view.approve';
+    const grant = { actor_id: id, capability, reason: 'Approve saved views', ...scope };
+    expect(directPermissionGrantSchema.parse(grant)).toEqual(grant);
+    const audit = { grant_id: id, capability, managed_system_id: null, grantee_actor_id: id, reason: 'Approved', ...scope };
+    expect(PERMISSION_AUDIT_EVENT_DETAIL_SCHEMAS.permission_revoked.parse(audit)).toEqual(audit);
+    const granted = { ...audit, expires_at: null, mode: 'create' };
+    expect(PERMISSION_AUDIT_EVENT_DETAIL_SCHEMAS.permission_granted.parse(granted)).toEqual(granted);
+    expect(createPermissionRequestSchema.safeParse({ requested_capability: capability, reason: 'Approve', requested_scope_kind: 'space', requested_scope_space: 'bravo' }).success).toBe(false);
+  });
+
   it('accepts site-room requests and site-to-room approval fields', () => {
     const request = { requested_capability: 'scope.read', reason: 'Read', requested_scope_kind: 'site_room', requested_scope_site: 'SITE-A', requested_scope_room: 'RA1' };
     expect(createPermissionRequestSchema.parse(request)).toEqual(request);

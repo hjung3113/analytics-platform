@@ -71,6 +71,7 @@ export const permissionGrants = permissionSchema.table(
     scopeKind: text('scope_kind').notNull().default('managed_system'),
     scopeSite: text('scope_site'),
     scopeRoom: text('scope_room'),
+    scopeSpace: text('scope_space'),
     managedSystemId: uuid('managed_system_id'),
     objectType: text('object_type'),
     objectId: uuid('object_id'),
@@ -95,12 +96,14 @@ export const permissionGrants = permissionSchema.table(
     // NOTE: Drizzle 0.38 does not encode COALESCE expressions on partial
     // indexes; this index is replaced/normalised by hand in the generated SQL.
     scopeKindCheck: check('permission_grants_scope_kind_check', sql`(
-      (${t.scopeKind} = 'managed_system' AND ${t.scopeSite} IS NULL AND ${t.scopeRoom} IS NULL AND ${t.capability} <> 'scope.read')
-      OR (${t.scopeKind} = 'site' AND ${t.capability} = 'scope.read' AND ${t.managedSystemId} IS NULL AND ${t.scopeRoom} IS NULL AND ${t.scopeSite} IS NOT NULL AND btrim(${t.scopeSite}) <> '')
-      OR (${t.scopeKind} = 'site_room' AND ${t.capability} = 'scope.read' AND ${t.managedSystemId} IS NULL AND ${t.scopeSite} IS NOT NULL AND btrim(${t.scopeSite}) <> '' AND ${t.scopeRoom} IS NOT NULL AND btrim(${t.scopeRoom}) <> '')
+      (${t.scopeKind} = 'managed_system' AND ${t.scopeSite} IS NULL AND ${t.scopeRoom} IS NULL AND ${t.scopeSpace} IS NULL AND ${t.capability} NOT IN ('scope.read', 'saved_view.approve'))
+      OR (${t.scopeKind} = 'site' AND ${t.scopeSpace} IS NULL AND ${t.capability} = 'scope.read' AND ${t.managedSystemId} IS NULL AND ${t.scopeRoom} IS NULL AND ${t.scopeSite} IS NOT NULL AND btrim(${t.scopeSite}) <> '')
+      OR (${t.scopeKind} = 'site_room' AND ${t.scopeSpace} IS NULL AND ${t.capability} = 'scope.read' AND ${t.managedSystemId} IS NULL AND ${t.scopeSite} IS NOT NULL AND btrim(${t.scopeSite}) <> '' AND ${t.scopeRoom} IS NOT NULL AND btrim(${t.scopeRoom}) <> '')
+      OR (${t.scopeKind} = 'space' AND ${t.capability} = 'saved_view.approve' AND ${t.scopeSpace} IS NOT NULL AND btrim(${t.scopeSpace}) <> ''
+        AND ${t.managedSystemId} IS NULL AND ${t.scopeSite} IS NULL AND ${t.scopeRoom} IS NULL AND ${t.objectType} IS NULL AND ${t.objectId} IS NULL)
     )`),
     activeUniq: uniqueIndex('permission_grants_active_uq')
-      .on(t.workspaceId, t.actorId, t.capability, t.scopeKind, t.scopeSite, t.scopeRoom)
+      .on(t.workspaceId, t.actorId, t.capability, t.scopeKind, t.scopeSite, t.scopeRoom, t.scopeSpace)
       .where(sql`${t.revokedAt} is null AND ${t.supersededAt} is null`),
   }),
 );

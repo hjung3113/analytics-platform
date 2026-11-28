@@ -54,10 +54,13 @@ test('a root given through a symbolic link matches module ids reported by the re
 
 test('only the real build carries the menu declaration snapshot, with the kit menus and endpoints (#1900)', () => {
   const asset = (snapshot) => ({ type: 'asset', fileName: 'menu-declarations.snapshot.json', source: JSON.stringify(snapshot) });
-  const kit = { schemaVersion: 1, menus: [{ id: 'kit-sample' }], endpoints: [{ id: 'kit-sample.rows' }] };
+  const kit = { schemaVersion: 2, menus: [{ id: 'kit-sample', space: 'kit' }], endpoints: [{ id: 'kit-sample.rows' }] };
   assert.doesNotThrow(() => assertKitSnapshot('real', { output: [asset(kit)] }));
   assert.doesNotThrow(() => assertKitSnapshot('mock', { output: [] }));
   assert.throws(() => assertKitSnapshot('real', { output: [] }), /not in the build output/);
   assert.throws(() => assertKitSnapshot('real', { output: [asset({ ...kit, endpoints: [] })] }), /lacks/);
+  // #2765: a version-1 snapshot, or one with no menu Space, is what an old SDK build wrote.
+  assert.throws(() => assertKitSnapshot('real', { output: [asset({ ...kit, schemaVersion: 1 })] }), /lacks/);
+  assert.throws(() => assertKitSnapshot('real', { output: [asset({ ...kit, menus: [{ id: 'kit-sample' }] })] }), /lacks/);
   assert.throws(() => assertKitSnapshot('mock', { output: [asset(kit)] }), /only the real build/);
 });

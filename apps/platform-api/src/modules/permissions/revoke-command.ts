@@ -7,7 +7,7 @@ import type { Tx } from '../../db/tx.js';
 import { HttpError } from '../../lib/errors.js';
 import type { AuditService } from '../core/audit/audit-service.js';
 import type { NotificationNotifier } from '../notifications/index.js';
-import { grantScope, scopeFields } from './site-scope-policy.js';
+import { grantScope, grantScopeFields } from './site-scope-policy.js';
 
 /**
  * Permission-owned revoke of one active grant, inside the caller's transaction.
@@ -66,7 +66,7 @@ export async function revokePermissionGrant(
     detail: {
       grant_id: grant.id,
       capability: grant.capability,
-      ...scopeFields(grantScope(grant)),
+      ...grantScopeFields(grantScope(grant)),
       managed_system_id: grant.managedSystemId,
       grantee_actor_id: grant.actorId,
       reason: input.reason,

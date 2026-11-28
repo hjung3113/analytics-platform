@@ -26,6 +26,7 @@
 - **공개 경로:** 공개 GitHub Release. 이미지 안의 코드는 공개 저장소의 소스와 같고, 사내 값(주소·비밀)은 이미지가 아니라 운영자의 env 파일에 있다.
 - **검사:** main push(또는 수동 실행) CI가 tar를 네트워크 없이 `docker load`하고 기동해 `/health/ready` 200을 확인한다. PR CI에는 넣지 않는다(루트 AGENTS.md §Verification).
 - **한 릴리스의 마이그레이션은 더하기만 한다.** 테이블·열을 지우거나 이름·형을 바꾸거나 `NOT NULL`을 거는 단계는 다음 릴리스로 미룬다. 이유: 롤백(N-1)은 DB를 N 스키마에 둔 채 N-1 백엔드를 돌린다. 결정자: 팀장 — 2026-11-25(사내 운영 규칙이라 소유자 질문 아님). main push 검사는 [#2961](https://github.com/hjung3113/analytics-platform/issues/2961).
+  - 예외(#2765): `saved_view.approve`의 공간 부여 행(`scope_kind: 'space'`)은 N-1 콘솔의 부여 목록·회수가 읽지 못한다. 운영·사내 설치가 아직 없어 배포 스위치 없이 둔다. 다시 여는 조건: 첫 사내 설치 일정 또는 [#1931](https://github.com/hjung3113/analytics-platform/issues/1931) 출시일 확정 — [#3252](https://github.com/hjung3113/analytics-platform/issues/3252).
 
 ## Considered Options
 

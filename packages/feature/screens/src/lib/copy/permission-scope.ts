@@ -34,14 +34,16 @@ export function formatPermissionScopeTarget(
   return kind === 'site' ? `Site ${site} 전체` : `Site ${site} · 공정 ${room ?? ''}`;
 }
 
-/** The site/room target of a row carrying `<prefix>scope_kind`/`_site`/`_room`, or null for a Managed System row. */
+/** Display the explicit Site, room or Space target. Managed System labels are resolved by the caller. */
 export function scopeTargetLabelOf(
   row: {
     scope_kind?: string | undefined;
     scope_site?: string | null | undefined;
     scope_room?: string | null | undefined;
+    scope_space?: string | null | undefined;
   },
 ): string | null {
+  if (row.scope_kind === 'space' && row.scope_space) return `업무 시스템 ${row.scope_space}`;
   if ((row.scope_kind === 'site' || row.scope_kind === 'site_room') && row.scope_site) {
     return formatPermissionScopeTarget(row.scope_kind, row.scope_site, row.scope_room);
   }

@@ -14,6 +14,7 @@ import { ROLE_LEVEL_VALUES, type RoleLevel } from './index.js';
 
 export const CAPABILITIES = [
   'scope.read',
+  'saved_view.approve',
   'workspace.read',
   'workspace.admin',
   'voc.triage',
@@ -115,6 +116,8 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   // itself, so no module layers anything on top: `adminModuleBypass: 'none'`.
   // ADR-0154: carrier for site/room grants; no role or module bypass.
   'scope.read': { sensitive: false, adminModuleBypass: 'none' },
+  // Saved View independently checks console:access; this capability only represents the space delegation.
+  'saved_view.approve': { sensitive: true, adminModuleBypass: 'none', sessionOnly: true },
   'workspace.read': { sensitive: false, adminModuleBypass: 'none' },
   'workspace.admin': { sensitive: true, adminModuleBypass: 'none', sessionOnly: true },
   // voc.triage: NOT sensitive — Developers may request it for a specific MS.

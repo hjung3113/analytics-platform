@@ -163,6 +163,10 @@ image_rollback_cmd() { # the docker tag commands that move :local back to the :p
   [ -z "$PRE_WEB" ] || s="${s:+$s; }docker tag $PRE_WEB $WEB_REPO:local"
   printf '%s' "$s"
 }
+print_snapshot_rollback() {
+  bk_log "   If using a declaration bundle, before starting or restoring the previous images, set MENU_DECLARATIONS_SNAPSHOT_FILE in $ENV_FILE to the snapshot staged for the previous release (and restore its matching bundle settings if changed)."
+  bk_log "   Also clear or restore any exported MENU_DECLARATIONS_SNAPSHOT_FILE to match the previous release."
+}
 print_stopped() { # the last lines of a failed run whose maintenance work has settled: what state the stack is in now
   local rc="$1"
   if [ "$STACK_STARTED" -eq 1 ]; then
@@ -175,6 +179,7 @@ print_stopped() { # the last lines of a failed run whose maintenance work has se
   bk_log "Nothing was migrated. To serve again without upgrading, restart the existing container: $(dc_hint) start backend"
   [ "$TARGET" = local ] || return 0
   if [ -n "$PRE_MIGRATE" ]; then
+    print_snapshot_rollback
     bk_log "   Target local: the :local tags already hold the new images, so \`up -d\` would first run the NEW migrate image on a database without a verified backup. Use \`start backend\` only, or first move :local back: $(image_rollback_cmd)"
   else
     bk_log "   Target local: the :local tags already hold the new images, so \`up -d\` would first run the NEW migrate image on a database without a verified backup (no :pre-$TS migrate tag was taken). Use \`start backend\` only."
@@ -183,7 +188,8 @@ print_stopped() { # the last lines of a failed run whose maintenance work has se
 print_rollback() { # the one place that tells how to go back after a failure past the backup step; printed once
   [ "$ROLLBACK_PRINTED" -eq 0 ] || return 0
   ROLLBACK_PRINTED=1
-  bk_log "Rollback: restore the matching data and image pair:"
+  bk_log "Rollback: restore the matching data and release inputs:"
+  print_snapshot_rollback
   bk_log "   $RESTORE_CMD"
   if [ "$HAS_PINS" -eq 1 ]; then
     if pins_committed; then
@@ -227,6 +233,10 @@ trap 'exit 143' TERM
 trap 'exit 129' HUP
 trap on_exit EXIT
 bk_lock_acquire upgrade
+
+# Check the selected snapshot while the old backend is still serving.
+bash "$HERE/production-preflight.sh" "$ENV_FILE" --snapshot-only "$NEW_BACKEND" "$(dirname "$COMPOSE_FILE")" \
+  || bk_die 'menu snapshot preflight failed; nothing was stopped'
 
 # Pin decision under the lock, before anything is stopped. A failure here still says nothing was stopped.
 if [ -f "$PINS_FILE" ]; then
@@ -280,7 +290,8 @@ BACKUP_DIR="$(tail -n 1 "$tmp/backup.out")"
 [ -d "$BACKUP_DIR" ] || bk_die 'backup.sh did not report a backup directory'
 bash "$BACKUP_SCRIPTS/verify-backup.sh" "$BACKUP_DIR" || bk_die "verification of $BACKUP_DIR failed; nothing was migrated and the backend stays stopped"
 BACKUP_DONE=1
-RESTORE_CMD="BACKUP_ROOT=\"$BACKUP_ROOT\" bash $BACKUP_SCRIPTS/restore.sh \"$BACKUP_DIR\" --project <new-project>"
+printf -v RESTORE_CMD 'BACKUP_ROOT=%q bash %q %q --project <new-project> --env-file %q --compose-file %q' \
+  "$BACKUP_ROOT" "$BACKUP_SCRIPTS/restore.sh" "$BACKUP_DIR" "$ENV_FILE" "$COMPOSE_FILE"
 
 # 4. Migrate with the new images.
 if [ "$TARGET" != local ]; then
@@ -333,4 +344,5 @@ if [ "$HAS_PINS" -eq 1 ]; then
   bk_log "restore pin file updated to the new images: $PINS_FILE"
   bk_log "   to roll the pins back: mv -f '$PINS_PRE' '$PINS_FILE' (together with the image rollback)"
 fi
+print_snapshot_rollback
 bk_log "UPGRADE OK. Backup taken first: $BACKUP_DIR"

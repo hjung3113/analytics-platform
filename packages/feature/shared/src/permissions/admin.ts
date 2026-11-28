@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { permissionScopeFields } from './scope-kinds.js';
+import { permissionGrantScopeFields } from './scope-kinds.js';
 
 import {
   CAPABILITIES,
@@ -26,7 +26,7 @@ export const permissionGrantAdminItemSchema = z
     actor_id: z.string().uuid(),
     capability: z.string().min(1),
     managed_system_id: z.string().uuid().nullable(),
-    ...permissionScopeFields,
+    ...permissionGrantScopeFields,
     in_catalog: z.boolean().optional(),
     // ADR-0157 decision 7: present on a declared-prefix row; false when the server's bundle no longer declares it.
     in_declarations: z.boolean().optional(),
@@ -70,7 +70,7 @@ export const directPermissionGrantSchema = z
     managed_system_id: z.string().uuid().optional(),
     expires_at: z.string().datetime().optional(),
     reason: z.string().trim().min(1).max(2000),
-    ...permissionScopeFields,
+    ...permissionGrantScopeFields,
     self_approval: z
       .object({
         policy_citation: z.string().trim().min(1),
@@ -92,7 +92,7 @@ export const directPermissionGrantBatchSchema = z
     items: z
       .array(
         z
-          .object({ capability: capabilityNameSchema, managed_system_id: z.string().uuid().optional(), ...permissionScopeFields })
+          .object({ capability: capabilityNameSchema, managed_system_id: z.string().uuid().optional(), ...permissionGrantScopeFields })
           .strict(),
       )
       .min(1)

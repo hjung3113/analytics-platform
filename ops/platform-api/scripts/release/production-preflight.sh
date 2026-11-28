@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
 # Production preflight (#1266 b1b): static check of the env file for docker-compose.production.yml. No network,
-# no Docker. Usage: production-preflight.sh <env-file>. Prints one line per problem; exits 1 if any, 2 on usage.
+# no Docker in standalone mode. Prints one line per problem; exits 1 if any, 2 on usage.
+# upgrade.sh uses --snapshot-only to compare against the actual target backend image.
 set -u
 
 env_file="${1:-}"
-if [ -z "$env_file" ] || [ ! -f "$env_file" ]; then
-  echo "usage: production-preflight.sh <env-file>" >&2
+usage() {
+  echo "usage: production-preflight.sh <env-file> [--snapshot-only <backend-image> <compose-dir>]" >&2
   exit 2
+}
+[ -f "$env_file" ] || usage
+if [ "$#" -ne 1 ]; then
+  [ "$#" -eq 4 ] && [ "$2" = --snapshot-only ] && [ -n "$3" ] && [ -n "$4" ] || usage
 fi
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 demo_file="$here/../../.env.release.example"
+backend_image="${3:-}"
+compose_dir="${4:-$here/../..}"
 
 # Strict dotenv reader that mirrors what `docker compose --env-file` consumes for the forms accepted here, so the
 # checks below see the value Compose will use. Values are data, never sourced or executed. Accepted: KEY=value,
@@ -81,6 +88,75 @@ demo_values() { printf '%s\n' "$demo_parsed" | awk -F'\t' 'NF >= 2 && $2 != "" {
 
 problems=0
 fail() { echo "preflight: $1"; problems=$((problems + 1)); }
+
+# Out-of-repo menu assembly (#1881): with MENU_DECLARATIONS_FILE set the backend reads the bundle, its snapshot and the
+# identity key from the two read-only mounts (container paths /menu-assembly and /menu-identity, host dirs
+# MENU_ASSEMBLY_DIR and MENU_KEY_DIR, relative ones from ops/platform-api). Unset: nothing here applies.
+host_dir() { # var-name, default -> absolute host path
+  local d
+  d="$(menu_val_of "$1")"; [ -n "$d" ] || d="$2"
+  case "$d" in /*) printf '%s' "$d" ;; *) printf '%s/%s' "$compose_dir" "${d#./}" ;; esac
+}
+menu_file_ok() { # var-name, container-prefix, host-dir
+  local name="$1" prefix="$2" hostdir="$3" cpath
+  cpath="$(menu_val_of "$name")"
+  if [ -z "$cpath" ]; then fail "$name is required when MENU_DECLARATIONS_FILE is set"; return 1; fi
+  case "$cpath" in
+    "$prefix"/*) ;;
+    *) fail "$name must be under $prefix/ (the read-only mount)"; return 1 ;;
+  esac
+  case "$cpath" in *..*) fail "$name must not contain .."; return 1 ;; esac
+  if [ ! -f "$hostdir/${cpath#"$prefix"/}" ] || [ ! -r "$hostdir/${cpath#"$prefix"/}" ]; then
+    fail "$name: file not found or not readable on the host ($hostdir/${cpath#"$prefix"/})"
+    return 1
+  fi
+  return 0
+}
+# Compose gives exported values precedence over --env-file, including a deliberately empty value.
+menu_val_of() {
+  local name="$1"
+  printf '%s' "${!name-$(val_of "$name")}"
+}
+
+check_snapshot() {
+  # Standalone preflight is for the release of this checkout.
+  local assembly_dir="$1" expected=2 cpath
+  menu_file_ok MENU_DECLARATIONS_SNAPSHOT_FILE /menu-assembly "$assembly_dir" || return
+  if [ -n "$backend_image" ]; then
+    # Read the target image's own constant without starting its server or mounting deployment data.
+    if ! expected="$(docker run --rm --pull never --network none --memory 128m --entrypoint node "$backend_image" \
+      --input-type=module -e 'import { MENU_SNAPSHOT_SCHEMA_VERSION } from "./dist/modules/menu-dispatch/menu-snapshot.js"; console.log(MENU_SNAPSHOT_SCHEMA_VERSION);')" \
+      || ! [[ "$expected" =~ ^[1-9][0-9]*$ ]]; then
+      fail "could not determine the menu snapshot schemaVersion accepted by $backend_image"
+      return
+    fi
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    fail "python3 is required to check MENU_DECLARATIONS_SNAPSHOT_FILE"
+    return
+  fi
+  cpath="$(menu_val_of MENU_DECLARATIONS_SNAPSHOT_FILE)"
+  if ! python3 - "$assembly_dir/${cpath#/menu-assembly/}" "$expected" <<'PYTHON' 2>/dev/null
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as file:
+    snapshot = json.load(file)
+version = snapshot.get("schemaVersion") if isinstance(snapshot, dict) else None
+sys.exit(not (type(version) in (int, float) and version == int(sys.argv[2])))
+PYTHON
+  then
+    fail "MENU_DECLARATIONS_SNAPSHOT_FILE must be JSON with numeric schemaVersion $expected (rebuild and stage the snapshot for the target release)"
+  fi
+}
+
+if [ -n "$backend_image" ]; then
+  if [ -n "$(menu_val_of MENU_DECLARATIONS_FILE)" ]; then
+    check_snapshot "$(host_dir MENU_ASSEMBLY_DIR ./menu-assembly)"
+  fi
+  [ "$problems" -eq 0 ]
+  exit $?
+fi
 
 secret_ok() { # name
   local name="$1" val demo
@@ -227,40 +303,17 @@ case "$channel" in
   *) fail "NOTIFICATION_EMAIL_CHANNEL must be mock or smtp" ;;
 esac
 
-# Out-of-repo menu assembly (#1881): with MENU_DECLARATIONS_FILE set the backend reads the bundle, its snapshot and the
-# identity key from the two read-only mounts (container paths /menu-assembly and /menu-identity, host dirs
-# MENU_ASSEMBLY_DIR and MENU_KEY_DIR, relative ones from ops/platform-api). Unset: nothing here applies.
-host_dir() { # var-name, default -> absolute host path
-  local d
-  d="$(val_of "$1")"; [ -n "$d" ] || d="$2"
-  case "$d" in /*) printf '%s' "$d" ;; *) printf '%s/../../%s' "$here" "${d#./}" ;; esac
-}
-menu_file_ok() { # var-name, container-prefix, host-dir
-  local name="$1" prefix="$2" hostdir="$3" cpath
-  cpath="$(val_of "$name")"
-  if [ -z "$cpath" ]; then fail "$name is required when MENU_DECLARATIONS_FILE is set"; return 1; fi
-  case "$cpath" in
-    "$prefix"/*) ;;
-    *) fail "$name must be under $prefix/ (the read-only mount)"; return 1 ;;
-  esac
-  case "$cpath" in *..*) fail "$name must not contain .."; return 1 ;; esac
-  if [ ! -f "$hostdir/${cpath#"$prefix"/}" ] || [ ! -r "$hostdir/${cpath#"$prefix"/}" ]; then
-    fail "$name: file not found or not readable on the host ($hostdir/${cpath#"$prefix"/})"
-    return 1
-  fi
-  return 0
-}
-if [ -n "$(val_of MENU_DECLARATIONS_FILE)" ]; then
+if [ -n "$(menu_val_of MENU_DECLARATIONS_FILE)" ]; then
   assembly_dir="$(host_dir MENU_ASSEMBLY_DIR ./menu-assembly)"
   key_dir="$(host_dir MENU_KEY_DIR ./menu-assembly)"
   menu_file_ok MENU_DECLARATIONS_FILE /menu-assembly "$assembly_dir" || true
-  menu_file_ok MENU_DECLARATIONS_SNAPSHOT_FILE /menu-assembly "$assembly_dir" || true
+  check_snapshot "$assembly_dir"
   # The identity key is needed only for a bundle with an envelope destination; the backend refuses to boot when that
   # case lacks it (menu-declarations.ts). A bundle of mapped connectors only is legal without one, so check the key
   # only when it is supplied, and a key file always together with its id.
-  if [ -n "$(val_of MENU_IDENTITY_KEY_FILE)" ]; then
+  if [ -n "$(menu_val_of MENU_IDENTITY_KEY_FILE)" ]; then
     if menu_file_ok MENU_IDENTITY_KEY_FILE /menu-identity "$key_dir"; then
-      key_path="$key_dir/$(val_of MENU_IDENTITY_KEY_FILE | sed 's|^/menu-identity/||')"
+      key_path="$key_dir/$(menu_val_of MENU_IDENTITY_KEY_FILE | sed 's|^/menu-identity/||')"
       perm="$(stat -c '%a' "$key_path" 2>/dev/null || stat -f '%Lp' "$key_path" 2>/dev/null || echo 0)"
       case "$perm" in
         *[0-9]) [ "$(( 8#${perm: -1} & 4 ))" -eq 0 ] || fail "MENU_IDENTITY_KEY_FILE is world-readable (mode $perm): chmod 600" ;;
@@ -283,9 +336,9 @@ if [ -n "$(val_of MENU_DECLARATIONS_FILE)" ]; then
         fail "MENU_IDENTITY_KEY_FILE is not readable by the backend user (uid $ruid gid $rgid): chown -R $ruid:$rgid '$key_dir' && chmod 0700 '$key_dir' && chmod 0600 '$key_path' (set MENU_RUNTIME_UID/MENU_RUNTIME_GID if the backend runs as another user)"
       fi
     fi
-    [ -n "$(val_of MENU_IDENTITY_KEY_ID)" ] || fail "MENU_IDENTITY_KEY_ID is required when MENU_IDENTITY_KEY_FILE is set"
+    [ -n "$(menu_val_of MENU_IDENTITY_KEY_ID)" ] || fail "MENU_IDENTITY_KEY_ID is required when MENU_IDENTITY_KEY_FILE is set"
   fi
-  systems="$(val_of PLATFORM_SYSTEMS_FILE)"
+  systems="$(menu_val_of PLATFORM_SYSTEMS_FILE)"
   case "$systems" in
     /menu-assembly/*) menu_file_ok PLATFORM_SYSTEMS_FILE /menu-assembly "$assembly_dir" || true ;;
   esac

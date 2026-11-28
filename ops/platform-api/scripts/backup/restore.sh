@@ -334,9 +334,9 @@ bk_dc stop >/dev/null
 bk_log "RESTORE VERIFIED into project '$PROJECT' (volumes $PG_VOL, $MINIO_VOL). Stack is stopped."
 bk_log "WARNING: this restore brings back the state of $BACKUP_CREATED_AT. $ACTIVE_API_TOKENS API token(s) are active in it. Before switching traffic, re-apply every API token revocation, capability grant/deny change and role change made after $BACKUP_CREATED_AT (restore never revokes anything itself)."
 bk_log "Switch traffic: stop the old stack's edge/backend, then start this one with the SAME env plus"
-bk_log "  RELEASE_POSTGRES_VOLUME=$PG_VOL RELEASE_MINIO_VOLUME=$MINIO_VOL (put both lines in .env.production),"
+bk_log "  RELEASE_POSTGRES_VOLUME=$PG_VOL RELEASE_MINIO_VOLUME=$MINIO_VOL (put both lines in $ENV_FILE),"
 bk_log "  and run (keep $PINS_FILE: it pins the verified images; use it on every start of this project; upgrade.sh keeps it current):"
-bk_log "  docker compose -p $PROJECT --env-file .env.production -f $COMPOSE_FILE -f $PINS_FILE up -d"
+bk_log "  $(bk_dc_hint "$PINS_FILE") up -d"
 trap - EXIT
 rm -rf -- "${TMP:?}"
 bk_lock_release

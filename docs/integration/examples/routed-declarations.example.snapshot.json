@@ -1,9 +1,10 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "sdkVersion": "0.0.0-synthetic",
   "menus": [
     {
       "id": "syn",
+      "space": "",
       "permission": "syn:view",
       "requiresScope": false,
       "context": {
@@ -69,5 +70,5 @@
     }
   ],
   "actions": [],
-  "digest": "sha256:8fbef392167bc6d01e9deb27c0728f59721530f1c98606b62cc2e7138cc5d4b4"
+  "digest": "sha256:73c60284ab9d54703154e3884e91690ee0caf0b0208a2b8b0fbb5e1682467e66"
 }

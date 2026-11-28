@@ -20,7 +20,7 @@ import { ASSESSMENT_KINDS } from './bundle/routing.js';
 import { DeclarationBundleError, type BundleSnapshotCheck, type DeclaredAction, type DeclaredEndpoint, type DeclaredEndpointRow } from './declarations-file.js';
 import { CONTEXT_KEYS } from './types.js';
 
-export const MENU_SNAPSHOT_SCHEMA_VERSION = 1;
+export const MENU_SNAPSHOT_SCHEMA_VERSION = 2;
 
 const appliedContext = z.strictObject(
   Object.fromEntries(CONTEXT_KEYS.map((key) => [key, z.enum(['apply', 'reference']).optional()])),
@@ -28,6 +28,7 @@ const appliedContext = z.strictObject(
 
 const menuSchema = z.strictObject({
   id: z.string().min(1),
+  space: z.string().regex(new RegExp(String.raw`^[^\s?#&/\x00]*$`)),
   permission: z.string().min(1),
   requiresScope: z.boolean(),
   context: appliedContext,

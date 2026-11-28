@@ -2,6 +2,7 @@ import type { Capability } from './capabilities.js';
 
 export const CAPABILITY_LABELS: Readonly<Record<Capability, string>> = {
   'scope.read': 'Site·공정 조회',
+  'saved_view.approve': '저장된 뷰 공식 승인',
   'workspace.read': '전체 읽기',
   'workspace.admin': '관리자 권한',
   'voc.triage': 'VOC 분류',
@@ -47,6 +48,7 @@ export const CAPABILITY_LABELS: Readonly<Record<Capability, string>> = {
 
 export const CAPABILITY_LABELS_EN: Readonly<Record<Capability, string>> = {
   'scope.read': 'View sites and processes',
+  'saved_view.approve': 'Approve official saved views',
   'workspace.read': 'Read all data',
   'workspace.admin': 'Workspace administration',
   'voc.triage': 'Triage VOC',

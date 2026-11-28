@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { overlappingDenies } from './deny-overlap.js';
 import type { ScopeCatalog } from './scope-catalog.js';
-import { grantScope, managedScope, scopeFields, inScopeCatalog, type GrantScope } from './site-scope-policy.js';
+import { grantScope, managedScope, grantScopeFields, inScopeCatalog, type GrantScope } from './site-scope-policy.js';
 import { and, asc, desc, eq, gt, inArray, isNull, or } from 'drizzle-orm';
 
 import {
@@ -53,6 +53,7 @@ import {
 
 export interface GrantAdminServiceDeps {
   scopeCatalog?: ScopeCatalog | undefined;
+  grantSpaces?: ReadonlySet<string> | undefined;
   db: Db;
   checkService: CheckService;
   auditService: AuditService;
@@ -109,7 +110,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
     managedSystemId: string | null,
     scope: GrantScope = managedScope,
   ): Promise<PermissionGrantPreflight> {
-    const [request] = await tx
+    const [request] = scope.kind === 'space' ? [] : await tx
       .select({ id: permissionRequests.id })
       .from(permissionRequests)
       .where(
@@ -136,7 +137,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
         request_id: request.id,
         review_route: `/admin/permissions/requests?selected=${request.id}`,
       };
-    if (scope.kind !== 'managed_system') return { state: 'available' };
+    if (scope.kind === 'site' || scope.kind === 'site_room') return { state: 'available' };
     const denies = await overlappingDenies(tx, workspaceId, actorId, capability, managedSystemId);
     if (denies.length > 0)
       return {
@@ -252,7 +253,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
     capabilities: ReturnType<typeof capabilitiesOf>,
     batchId?: string,
   ): Promise<PermissionGrantAdminItem> {
-    const scope = { kind: input.scope_kind ?? 'managed_system', site: input.scope_site ?? null, room: input.scope_room ?? null };
+    const scope = { kind: input.scope_kind ?? 'managed_system', site: input.scope_site ?? null, room: input.scope_room ?? null, space: input.scope_space ?? null };
     const managedSystemId = input.managed_system_id ?? null;
     await validateSupportedScope(
       tx,
@@ -263,7 +264,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
       null,
       {
         approval: true,
-        scope, scopeCatalog: deps.scopeCatalog, scopePrefix: '',
+        scope, scopeCatalog: deps.scopeCatalog, scopePrefix: '', grantSpaces: deps.grantSpaces,
         field: 'managed_system_id',
         recipientRole: recipient.role_level,
         capabilityField: 'capability',
@@ -329,7 +330,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
         grant_id: result.item.id,
         grantee_actor_id: input.actor_id,
         capability: input.capability,
-        ...scopeFields(scope),
+        ...grantScopeFields(scope),
         managed_system_id: managedSystemId,
         reason: input.reason,
         expires_at: result.item.expires_at,
@@ -404,7 +405,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
         if (!capabilities.has(item.capability)) {
           throw new HttpError('validation.unknown_capability', `row ${index + 1}: unknown capability`, { capability: item.capability, item_index: index });
         }
-        const key = JSON.stringify([item.capability, item.managed_system_id ?? null, item.scope_kind ?? 'managed_system', item.scope_site ?? null, item.scope_room ?? null]);
+        const key = JSON.stringify([item.capability, item.managed_system_id ?? null, item.scope_kind ?? 'managed_system', item.scope_site ?? null, item.scope_room ?? null, item.scope_space ?? null]);
         if (seen.has(key)) {
           throw new HttpError('validation.failed', `row ${index + 1}: duplicate candidate`, { fields: [{ path: ['items', index], code: 'duplicate' }], item_index: index });
         }
@@ -448,6 +449,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
         scopeKind: permissionGrants.scopeKind,
         scopeSite: permissionGrants.scopeSite,
         scopeRoom: permissionGrants.scopeRoom,
+        scopeSpace: permissionGrants.scopeSpace,
         managedSystemId: permissionGrants.managedSystemId,
         grantedByActorId: permissionGrants.grantedByActorId,
         grantedAt: permissionGrants.grantedAt,
@@ -457,6 +459,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
       .where(
         and(
           filters.scope_kind ? eq(permissionGrants.scopeKind, filters.scope_kind) : undefined,
+          filters.scope_space ? eq(permissionGrants.scopeSpace, filters.scope_space) : undefined,
           filters.scope_site ? eq(permissionGrants.scopeSite, filters.scope_site) : undefined,
           eq(permissionGrants.workspaceId, actor.workspace_id),
           isNull(permissionGrants.revokedAt),
@@ -469,8 +472,9 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
     return {
       items: await Promise.all(rows.map(async (row) => ({
         permission_group: await permissionGroupOrigin(deps.db, actor.workspace_id, row.permissionGroupId),
-        ...scopeFields(grantScope(row)),
-        ...(row.scopeKind !== 'managed_system' ? { in_catalog: inScopeCatalog(grantScope(row), deps.scopeCatalog) } : {}),
+        ...grantScopeFields(grantScope(row)),
+        ...(row.scopeKind === 'space' ? { in_catalog: row.scopeSpace !== null && deps.grantSpaces?.has(row.scopeSpace) === true } : {}),
+        ...(row.scopeKind === 'site' || row.scopeKind === 'site_room' ? { in_catalog: inScopeCatalog(grantScope(row), deps.scopeCatalog) } : {}),
         ...declarationMark(row.capability),
         id: row.id,
         actor_id: row.actorId,

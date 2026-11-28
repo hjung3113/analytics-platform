@@ -6,7 +6,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
-import { menuSnapshotDigest, type MenuDeclarationSnapshot } from '../modules/menu-dispatch/menu-snapshot.js';
+import { MENU_SNAPSHOT_SCHEMA_VERSION, menuSnapshotDigest, type MenuDeclarationSnapshot } from '../modules/menu-dispatch/menu-snapshot.js';
 
 type Row = Record<string, unknown>;
 const rows = (value: unknown): Row[] => (Array.isArray(value) ? value.filter((row): row is Row => row !== null && typeof row === 'object') : []);
@@ -16,7 +16,7 @@ const firstById = <T extends { id: string }>(list: T[]) => list.filter((row, ind
 
 /** A valid snapshot (digest computed) from the given parts. */
 export function menuSnapshot(parts: Omit<MenuDeclarationSnapshot, 'schemaVersion' | 'sdkVersion' | 'digest'> & { sdkVersion?: string }): MenuDeclarationSnapshot {
-  const body = { schemaVersion: 1 as const, sdkVersion: parts.sdkVersion ?? '0.0.0-test', menus: parts.menus, permissions: parts.permissions, endpoints: parts.endpoints, actions: parts.actions };
+  const body: Omit<MenuDeclarationSnapshot, 'digest'> = { schemaVersion: MENU_SNAPSHOT_SCHEMA_VERSION, sdkVersion: parts.sdkVersion ?? '0.0.0-test', menus: parts.menus, permissions: parts.permissions, endpoints: parts.endpoints, actions: parts.actions };
   return { ...body, digest: menuSnapshotDigest(body) };
 }
 
@@ -55,7 +55,7 @@ export function menuSnapshotFor(bundle: unknown): MenuDeclarationSnapshot {
     for (const row of endpoints.filter((endpoint) => endpoint.menuId === id)) {
       for (const [key, capability] of Object.entries(row.context)) if (capability === 'apply' || context[key] === undefined) context[key] = capability;
     }
-    return { id, permission: owned[0]?.permission ?? 'platform:view', requiresScope: owned.every((row) => row.requiresScope), context };
+    return { id, space: '', permission: owned[0]?.permission ?? 'platform:view', requiresScope: owned.every((row) => row.requiresScope), context };
   });
   const permissions = [...new Set(rows(source.permissions).map((row) => row.permission).filter((name): name is string => typeof name === 'string' && name.length > 0))];
   return menuSnapshot({ menus, permissions, endpoints, actions });
