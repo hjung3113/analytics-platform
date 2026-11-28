@@ -1,12 +1,12 @@
-import { useContext, useId, useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
+import { useContext, useId, useLayoutEffect, useRef, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2, MoreHorizontal, Pin, X } from 'lucide-react';
 import type { Text } from '@ap/contracts';
 import { useAnalysisSelectionChips, useI18n, useMessages } from '@ap/kernel';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@ap/ui';
-import { DockChartLayoutActionsSlot, DockChartMaximizeTarget, type DockChartCloseFocus, type DockChartLayoutActions } from '../dock/DockChartHead';
+import { DockChartLayoutActionsSlot, DockChartMaximizeTarget, type DockChartCloseFocus } from '../dock/DockChartHead';
 import type { DockLayoutMenu } from '../dock/layoutMenu';
-import { DockMenuItem, DockMenuSeparator } from '../dock/DockMenuItem';
+import { DockMenuItem, DockMenuSeparator, FocusOnUnmount, MergedLayoutActions } from '../dock/DockMenuItem';
 import { analysisSelectionChipLabel } from '../filters/analysisSelectionChipLabel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { PanelWorkspaceSelectionDrop } from './PanelWorkspace';
@@ -204,24 +204,4 @@ function WorkspaceQueryMenuItems({ panelId, closeFocus }: { panelId: string | un
     }}>{label}</DockMenuItem>)}
     <div ref={extras} className="contents" />
   </>;
-}
-
-function MergedLayoutActions({ register, takeCloseFocus, claimFocus, children }: {
-  register: (actions: DockChartLayoutActions | undefined) => void;
-  takeCloseFocus: DockChartLayoutActions['takeCloseFocus'];
-  claimFocus: NonNullable<DockChartLayoutActions['claimFocus']>;
-  children: ReactNode;
-}) {
-  useLayoutEffect(() => () => { register(undefined); }, [register]);
-  useLayoutEffect(() => { register({ content: children, takeCloseFocus, claimFocus }); }, [register, children, takeCloseFocus, claimFocus]);
-  return null;
-}
-
-/** Records whether the trigger or its open menu still held focus as they unmount; layout cleanups run before the nodes leave the document. */
-function FocusOnUnmount({ trigger, menu, held }: { trigger: RefObject<HTMLElement | null>; menu: RefObject<HTMLElement | null>; held: RefObject<boolean> }) {
-  useLayoutEffect(() => () => {
-    const active = document.activeElement;
-    held.current = !!active && (!!trigger.current?.contains(active) || !!menu.current?.contains(active));
-  }, [trigger, menu, held]);
-  return null;
 }

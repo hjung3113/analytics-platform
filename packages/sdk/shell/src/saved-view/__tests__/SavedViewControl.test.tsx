@@ -1350,6 +1350,21 @@ describe('My Menus sidebar', () => {
     expect(link).not.toBeInTheDocument();
   });
 
+  it.each([
+    { clipped: null },
+    { clipped: '포토 뷰' },
+    { clipped: 'home' },
+  ])('shows a native title only when one of the row labels is clipped ($clipped)', async ({ clipped }) => {
+    using width = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return clipped !== null && this.textContent === clipped ? this.clientWidth + 1 : this.clientWidth;
+    });
+    mount(createFakeViewStore([mine]), '/', <AppSidebar onToggle={() => {}} />);
+    const link = await screen.findByRole('link', { name: '포토 뷰 · home' });
+
+    if (clipped === null) expect(link).not.toHaveAttribute('title');
+    else expect(link).toHaveAttribute('title', '포토 뷰 · home');
+  });
+
   it('opens the source menu and selects the view using the current Scope', async () => {
     const user = userEvent.setup();
     const store = createFakeViewStore([mine]);

@@ -296,9 +296,11 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
     return { ok: true, value: item };
   };
   /** Missing/unreachable → invalid; denied or lacking the capability → forbidden; stale version → conflict, nothing written. */
-  const target = (c: { storage: StoragePort; actor: Actor; groups: GroupRecord[]; bucket: (o: string, m: string | null) => Stored[] | null }, id: string, expectedVersion: number, allowed: (e: SavedViewEntry) => boolean, approvalCommand?: 'owner' | 'decision'): Result<Stored> => {
-    const at = parseId(id); const views = at ? c.bucket(at.ownerId, at.menuId) : null;
-    const view = views?.find(v => v.id === id);
+  const target = (c: { storage: StoragePort; actor: Actor; groups: GroupRecord[] }, id: string, expectedVersion: number, allowed: (e: SavedViewEntry) => boolean, approvalCommand?: 'owner' | 'decision'): Result<{ stored: Stored; entry: SavedViewEntry }> => {
+    // Only commit adds this bucket to the write set. A checked update can still be a no-op.
+    const at = parseId(id);
+    const bucket = at ? readBucket(c.storage, at.ownerId, at.menuId) : null;
+    const view = bucket && !bucket.future ? bucket.views.find(v => v.id === id) : undefined;
     const item = view ? ev(view, c.actor, c.groups, { objectOnly: approvalCommand !== undefined }) : null;
     if (!view || !item)
       return approvalCommand === 'decision' && !c.actor.admin ? fail('forbidden') : fail('invalid', 'not-found');
@@ -307,7 +309,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       return fail('forbidden', approvalCommand === 'decision' ? undefined : reason);
     }
     if (view.version !== expectedVersion) return fail('conflict');
-    return { ok: true, value: view };
+    return { ok: true, value: { stored: view, entry: item } };
   };
   const person = (userId: string): GroupMember | undefined => { const p = seed.directory.find(d => d.userId === userId); return p && { userId, displayName: p.displayName, affiliation: p.affiliation }; };
   const groupEntry = (g: GroupRecord, a: Actor): ViewGroupEntry => ({
@@ -356,7 +358,8 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
     update: (id, patch: SavedViewPatch, { expectedVersion }) => run(c => {
       const t = target(c, id, expectedVersion, e => e.capabilities.canEdit || (patch.myMenu === undefined && e.view.ownerId === c.actor.userId && isOfficial(e.view)));
       if (!t.ok) return t;
-      const stored = t.value; const view = shownTo(stored, stored.ownerId === c.actor.userId || mayApproveView(stored, c.actor));
+      const { stored, entry } = t.value;
+      const view = shownTo(stored, stored.ownerId === c.actor.userId || mayApproveView(stored, c.actor));
       if (view.kind !== 'menu-view' && patch.myMenu !== undefined) return fail('invalid', 'myMenu is only for menu views');
       if (view.kind === 'condition-set' && ('menuSchemaVersion' in patch || 'page' in patch || 'chartOptions' in patch || 'layout' in patch || 'panels' in patch || 'tables' in patch)) return fail('invalid', 'a condition set has no page');
       const { id: _id, ownerId: _o, version: _v, updatedAt: _u, visibility, approval, approvalNote, ...content } = view;
@@ -378,10 +381,12 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
           if (myMenu) withFlag.myMenu = true;
           else delete withFlag.myMenu;
         }
-        if (myMenu !== undefined && sameContent(
+        if (sameContent(
           { ...merged, myMenu: undefined, name: checked.value.name.trim() },
           { ...content, myMenu: undefined, name: content.name.trim() },
         )) {
+          const wasMyMenu = stored.kind === 'menu-view' && stored.myMenu === true;
+          if (myMenu === undefined || myMenu === wasMyMenu) return { ok: true, value: entry };
           return commit(c, withFlag, c.actor, c.groups);
         }
         return commit(c, { ...withFlag, pending: { ...next, approval: 'pending' } as StoredContent }, c.actor, c.groups);
@@ -417,29 +422,32 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
     setVisibility: (id, visibility: ViewVisibility, { expectedVersion }) => run(c => {
       if (visibility.kind === 'official') return fail('invalid', 'use requestOfficial');
       const t = target(c, id, expectedVersion, e => e.capabilities.canShare); if (!t.ok) return t;
-      if (t.value.kind === 'custom-group' && visibility.kind !== 'private' && visibility.kind !== 'groups') return fail('invalid', 'custom-group-visibility');
+      const { stored } = t.value;
+      if (stored.kind === 'custom-group' && visibility.kind !== 'private' && visibility.kind !== 'groups') return fail('invalid', 'custom-group-visibility');
       if (visibility.kind === 'people' && !visibility.userIds.every(u => person(u))) return fail('invalid', 'unknown person');
       if (visibility.kind === 'groups') {
-        const current = t.value.visibility.kind === 'groups' ? t.value.visibility.groupIds : [];
+        const current = stored.visibility.kind === 'groups' ? stored.visibility.groupIds : [];
         const fresh = visibility.groupIds.filter(g => !current.includes(g));
         // ADR-0099 §6: a group the actor cannot see is "unknown" like a missing one — its existence is not revealed.
         if (!visibility.groupIds.every(g => { const rec = c.groups.find(x => x.id === g); return rec && (!fresh.includes(g) || c.actor.admin || isMember(rec, c.actor) || isManager(rec, c.actor)); })) return fail('invalid', 'unknown group');
       }
-      return commit(c, { ...t.value, visibility }, c.actor, c.groups);
+      return commit(c, { ...stored, visibility }, c.actor, c.groups);
     }),
     requestOfficial: (id, { expectedVersion }) => run(c => {
       const t = target(c, id, expectedVersion, e => e.view.ownerId === c.actor.userId, 'owner'); if (!t.ok) return t;
-      if (t.value.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
-      const shown = shownTo(t.value, true);
+      const { stored } = t.value;
+      if (stored.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
+      const shown = shownTo(stored, true);
       if (!canTransition(shown.approval, 'request')) return fail('invalid', 'approval-state');
-      if (t.value.pending) return commit(c, { ...t.value, pending: { ...t.value.pending, approval: 'pending', approvalNote: undefined } }, c.actor, c.groups, { objectOnly: true });
-      return commit(c, { ...t.value, approval: 'pending', approvalNote: undefined }, c.actor, c.groups, { objectOnly: true });
+      if (stored.pending) return commit(c, { ...stored, pending: { ...stored.pending, approval: 'pending', approvalNote: undefined } }, c.actor, c.groups, { objectOnly: true });
+      return commit(c, { ...stored, approval: 'pending', approvalNote: undefined }, c.actor, c.groups, { objectOnly: true });
     }),
     withdraw: (id, { expectedVersion }) => run(c => {
       const t = target(c, id, expectedVersion, e => e.view.ownerId === c.actor.userId, 'owner');
       if (!t.ok) return t.detail === 'not-found' ? fail('forbidden') : t;
-      if (t.value.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
-      const { pending, ...published } = t.value;
+      const { stored } = t.value;
+      if (stored.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
+      const { pending, ...published } = stored;
       if ((pending ?? published).approval !== 'pending') return fail('invalid', 'approval-state');
       const next: Stored = pending ? published : { ...published, approval: 'none', approvalNote: undefined };
       return commit(c, next, c.actor, c.groups, { objectOnly: true });
@@ -448,9 +456,10 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       // The approval right gates the call (ADR-0099 §2); the pending state is checked after it, as the server does.
       const t = target(c, id, expectedVersion, ({ view }) => mayApproveView(view, c.actor), 'decision');
       if (!t.ok) return t;
-      if (t.value.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
+      const { stored } = t.value;
+      if (stored.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
       const action = decision === 'approve' ? 'approve' : 'reject';
-      const stored = t.value; const shown = shownTo(stored, mayApproveView(stored, c.actor));
+      const shown = shownTo(stored, mayApproveView(stored, c.actor));
       if (!canTransition(shown.approval, action)) return fail('invalid', 'approval-state');
       const note1 = note?.trim() || undefined;
       if (decision === 'reject' && note1 === undefined) return fail('invalid', 'note');
@@ -465,9 +474,10 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       // The approval right gates the call (ADR-0099 §2); the official/approved state is checked after it, as the server does.
       const t = target(c, id, expectedVersion, ({ view }) => mayApproveView(view, c.actor, { revoking: true }), 'decision');
       if (!t.ok) return t;
-      if (t.value.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
-      if (!isOfficial(t.value) || !canTransition(t.value.approval, 'revoke')) return fail('invalid', 'approval-state');
-      return commit(c, { ...(({ pending: _drop, ...rest }) => (void _drop, rest))(t.value), approval: 'none', visibility: { kind: 'private' }, approvalNote: REVOKE_NOTE }, c.actor, c.groups, { objectOnly: true });
+      const { stored } = t.value;
+      if (stored.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
+      if (!isOfficial(stored) || !canTransition(stored.approval, 'revoke')) return fail('invalid', 'approval-state');
+      return commit(c, { ...(({ pending: _drop, ...rest }) => (void _drop, rest))(stored), approval: 'none', visibility: { kind: 'private' }, approvalNote: REVOKE_NOTE }, c.actor, c.groups, { objectOnly: true });
     }),
     listApprovalRequests: async key => {
       const storage = getStorage(); const a = actorNow(); if (key.userId !== a.userId) return [];

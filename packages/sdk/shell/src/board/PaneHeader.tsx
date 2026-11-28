@@ -2,7 +2,7 @@ import { ChevronDown, ChevronUp, Maximize2, Minimize2, CornerUpLeft, MoreHorizon
 import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { RETURN_CONTEXT_LABELS, useI18n } from '@ap/kernel';
-import { DockMenuItem, DockMenuSeparator, dockTabElements, isActiveDockTab, dockStripElement, radioGroupsOf, useDockChartMerge, useDockMenuInline, useWorkspaceCommands, type DockChartLayoutActions, type WorkspaceCommand } from '@ap/components/dock';
+import { DockMenuItem, DockMenuSeparator, FocusOnUnmount, MergedLayoutActions, dockTabElements, isActiveDockTab, dockStripElement, radioGroupsOf, useDockChartMerge, useDockMenuInline, useWorkspaceCommands, type WorkspaceCommand } from '@ap/components/dock';
 import {
   Button, buttonVariants, cn, DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
   Popover, PopoverAnchor, PopoverContent,
@@ -386,7 +386,7 @@ export function PaneHeader(props: PaneHeaderProps) {
           </Button>}
         </>}
         {!chartHead.maximize && dockMaximize}
-        {merged && (hasContentMenu || dock) && <MergedMenu register={chartHead.registerLayoutActions} takeCloseFocus={takeCloseFocus} claimFocus={claimFocus}>{menuItems}</MergedMenu>}
+        {merged && (hasContentMenu || dock) && <MergedLayoutActions wrapGroup register={chartHead.registerLayoutActions} takeCloseFocus={takeCloseFocus} claimFocus={claimFocus}>{menuItems}</MergedLayoutActions>}
         {!merged && (hasContentMenu || dock) && <DropdownMenu open={menuOpen} onOpenChange={open => { if (open) cancelMenuFocus.current = false; setMenuOpen(open); }}>
           <FocusOnUnmount trigger={menuTrigger} menu={menuContent} held={focusHandoff} />
           <DropdownMenuTrigger asChild>
@@ -459,27 +459,4 @@ function WorkspaceCommandItems({ commands, label, id }: { commands: readonly Wor
     })}
     {otherCommands.map(command => <DockMenuItem key={command.id} disabled={command.disabled} onSelect={() => command.run()}>{command.description ? <span className="grid">{command.label}<span className="text-tiny text-text-muted">{command.description}</span></span> : command.label}</DockMenuItem>)}
   </>;
-}
-
-/** Registers the pane menu as the merged chart `⋯`'s layout content, and withdraws it when the head stops merging or unmounts. */
-function MergedMenu({ register, takeCloseFocus, claimFocus, children }: {
-  register: (actions: DockChartLayoutActions | undefined) => void;
-  takeCloseFocus: DockChartLayoutActions['takeCloseFocus'];
-  claimFocus: NonNullable<DockChartLayoutActions['claimFocus']>;
-  children: ReactNode;
-}) {
-  useLayoutEffect(() => () => { register(undefined); }, [register]);
-  useLayoutEffect(() => {
-    register({ content: <div role="group" className="w-full border-t border-border-subtle pt-2">{children}</div>, takeCloseFocus, claimFocus });
-  }, [register, children, takeCloseFocus, claimFocus]);
-  return null;
-}
-
-/** Records whether the pane's own `⋯` or its open menu held focus as they unmount, so the merged `⋯` that replaces them takes it (#3095). */
-function FocusOnUnmount({ trigger, menu, held }: { trigger: RefObject<HTMLElement | null>; menu: RefObject<HTMLElement | null>; held: RefObject<boolean> }) {
-  useLayoutEffect(() => () => {
-    const active = document.activeElement;
-    held.current = !!active && (!!trigger.current?.contains(active) || !!menu.current?.contains(active));
-  }, [trigger, menu, held]);
-  return null;
 }

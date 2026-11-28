@@ -1,6 +1,6 @@
-import { useContext, type ReactNode } from 'react';
+import { useContext, useLayoutEffect, type ReactNode, type RefObject } from 'react';
 import { Button, DropdownMenuItem, DropdownMenuSeparator } from '@ap/ui';
-import { DockChartCloseMore } from './DockChartHead';
+import { DockChartCloseMore, type DockChartLayoutActions } from './DockChartHead';
 
 /** True while the content renders inside a merged chart head's `⋯` (a popover of buttons) rather than a dropdown menu. */
 export function useDockMenuInline() {
@@ -39,4 +39,29 @@ export function DockMenuItem({ onSelect, children, disabled, pressed, 'aria-labe
 /** The separator between item groups, in the dropdown or the merged `⋯`. */
 export function DockMenuSeparator() {
   return useDockMenuInline() ? <div aria-hidden className="my-1 w-full border-t border-border-subtle" /> : <DropdownMenuSeparator />;
+}
+
+/** Registers layout actions in the merged chart menu until the owning header unmounts. */
+export function MergedLayoutActions({ register, takeCloseFocus, claimFocus, wrapGroup = false, children }: {
+  register: (actions: DockChartLayoutActions | undefined) => void;
+  takeCloseFocus: DockChartLayoutActions['takeCloseFocus'];
+  claimFocus: NonNullable<DockChartLayoutActions['claimFocus']>;
+  wrapGroup?: boolean;
+  children: ReactNode;
+}) {
+  useLayoutEffect(() => () => { register(undefined); }, [register]);
+  useLayoutEffect(() => {
+    const content = wrapGroup ? <div role="group" className="w-full border-t border-border-subtle pt-2">{children}</div> : children;
+    register({ content, takeCloseFocus, claimFocus });
+  }, [register, children, takeCloseFocus, claimFocus, wrapGroup]);
+  return null;
+}
+
+/** Records whether the departing trigger or menu held focus so its replacement can take it (#3095). */
+export function FocusOnUnmount({ trigger, menu, held }: { trigger: RefObject<HTMLElement | null>; menu: RefObject<HTMLElement | null>; held: RefObject<boolean> }) {
+  useLayoutEffect(() => () => {
+    const active = document.activeElement;
+    held.current = !!active && (!!trigger.current?.contains(active) || !!menu.current?.contains(active));
+  }, [trigger, menu, held]);
+  return null;
 }

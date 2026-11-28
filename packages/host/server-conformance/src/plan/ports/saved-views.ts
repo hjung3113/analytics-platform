@@ -362,6 +362,32 @@ export function planSavedViewChecks(harness: ServerConformanceHarness): Conforma
     },
   });
 
+  checks.push({
+    id: 'port · savedViews: an update of an official view that changes neither content nor myMenu writes no proposal and keeps the version',
+    uses: ['save', 'requestOfficial', 'decide', 'get', 'update', 'listApprovalRequests'],
+    mode: 'sequential',
+    nonEnvelope: true,
+    run: async () => {
+      const { user, admin, menuId } = sample;
+      const who = await actors(user, admin);
+      if (typeof who === 'string') return who;
+      const saved = okOf(await user.save(draft()), 'save');
+      if (typeof saved === 'string') return saved;
+      const id = saved.view.id;
+      const pending = okOf(await user.requestOfficial(id, { expectedVersion: saved.view.version }), 'requestOfficial');
+      if (typeof pending === 'string') return pending;
+      const approved = okOf(await admin.decide(id, 'approve', undefined, { expectedVersion: pending.view.version }), 'decide(approve)');
+      if (typeof approved === 'string') return approved;
+      const before = await user.get(id);
+      if (before === null || before.denied || before.view.approval !== 'approved') return 'the owner reads the approved view';
+      const updated = okOf(await user.update(id, { name: before.view.name }, { expectedVersion: before.view.version }), 'unchanged update');
+      if (typeof updated === 'string') return updated;
+      if (!sameJson(updated.view, before.view) || !sameJson(await user.get(id), before)) return 'the update and get both return the unchanged approved view';
+      if ((await admin.listApprovalRequests({ userId: who.admin, menuId })).some(row => row.viewId === id)) return 'an unchanged edit creates no approval request';
+      return null;
+    },
+  });
+
   // The per-action outcome vocabulary (Result): conflict on a stale version with nothing written, invalid where
   // visibility is not an input, forbidden for another actor's key and for decisions without the approval right.
   checks.push({
