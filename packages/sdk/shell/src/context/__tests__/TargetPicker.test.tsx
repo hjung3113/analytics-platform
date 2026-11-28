@@ -189,6 +189,20 @@ it('fixes an equipment ID and retains it outside a changed rule, without materia
   expect(apply).toHaveBeenCalledWith({ roomNames: ['ETCH'], selection: ['E1'] });
 });
 
+it('turns on «select all found» for the equipment result, fixing every found ID (#3199)', async () => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const session = testSession(['platform:view']);
+  const apply = vi.fn();
+  render(<I18nProvider><PlatformProvider registry={registry} equipmentAxes={equipmentAxes} adapter={testAdapter({ session: () => session, listEquipmentFacts: async () => facts })}>
+    <TargetPicker global={baseGlobal} cap={{ ...noContext, roomNames: 'apply', selection: 'apply' }} onChange={apply} />
+  </PlatformProvider></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
+  fireEvent.click(await screen.findByRole('checkbox', { name: `조회된 설비 2대 전체 선택` }));
+  fireEvent.click(await screen.findByRole('button', { name: `고정 2대 적용` }));
+  expect(apply).toHaveBeenCalledWith(expect.objectContaining({ selection: ['E1', 'E2'] }));
+});
+
 it('preserves carried Context and preset-excluded axes, excludes their facets and fixed-selection UI, and explains asOf counts', async () => {
   vi.stubGlobal('localStorage', memoryStorage());
   window.history.replaceState(null, '', '/?scopeId=MEM');
