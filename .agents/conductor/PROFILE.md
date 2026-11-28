@@ -8,6 +8,7 @@ Repository-specific settings for the global `issue-wave-conductor` skill; root `
 
 - Base is `main`. Squash merge. Branch name is `feat/<n>-<slug>`. `$MAIN` = `AP_MAIN`. `WAVE_BRIEFS` = `$AP_MAIN/.review/wave/`.
 - **Lanes on two hosts.** Lane sessions run on the Mac and the desktop host, one per area of the release scope, by the engine's `references/lanes-multisession.md`; the lead assigns issues, answers questions and releases. A lane runs at most 2 workers at once (reviewers included) and starts one only when `capacity.sh` on its host says `start=yes`; a newly paired host follows the engine's remote ramp. The same worker fixes its own review findings. Reason: the second host adds capacity only when work runs there, and per-host limits keep either machine from saturating.
+- **Lane messages:** a lane messages the lead only through `lane-send.sh` (engine `references/lanes-multisession.md` §Lane session step 3), which refuses any other kind and wakes the lead only for a question, a block, red `main`, rotation or an actionable wait; there is no kind for plain progress (a worker started, a review round passed, CI running), which stays in `board.py`. Reason: every lead turn re-reads the lead's whole context, measured 120k–230k tokens per turn.
 - The lead merges, one PR at a time: the next merges only after `main` CI of the previous is green. Reason: independently green PRs met on `main` and turned it red. Merges never wait for a release tag; the tag SHA is the release-docs PR's merge commit ([`lead.md`](lead.md) §Slice close).
 
 ## Size and path
