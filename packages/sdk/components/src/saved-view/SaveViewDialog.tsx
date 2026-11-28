@@ -90,7 +90,7 @@ function DialogBody({ units, updatable, initialMode, initialName = '', showMyMen
         <DialogTitle>{m(updating ? 'svDialogUpdateTitle' : 'svDialogTitle')}</DialogTitle>
         <DialogDescription className="sr-only">{m('svDialogTitle')}</DialogDescription>
       </DialogHeader>
-      <form className="space-y-3 text-sm" onSubmit={event => { event.preventDefault(); void submit(); }}>
+      <form className="space-y-3 break-keep text-sm" onSubmit={event => { event.preventDefault(); void submit(); }}>
         {hasDraft && <p role="note" className="text-xs text-text-secondary">{m('svDraftNotice')}</p>}
         {updatable && (
           <fieldset className="space-y-1">
@@ -119,7 +119,7 @@ function DialogBody({ units, updatable, initialMode, initialName = '', showMyMen
         {offerMyMenu && (
           <div className="space-y-0.5">
             <div className="flex items-center gap-2"><Checkbox id={myMenuId} aria-describedby={`${myMenuId}-hint`} checked={myMenu} onCheckedChange={value => setMyMenu(value === true)} /><Label htmlFor={myMenuId}>{m('svAddToMyMenus')}</Label></div>
-            <p id={`${myMenuId}-hint`} className="pl-6 text-caption text-text-muted">{m('svMyMenusHint')}</p>
+            <p id={`${myMenuId}-hint`} className="break-keep pl-6 text-caption text-text-muted">{m('svMyMenusHint')}</p>
           </div>
         )}
         {!updating && visibilityOptions.length > 0 && (

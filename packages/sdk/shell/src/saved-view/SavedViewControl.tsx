@@ -1,6 +1,6 @@
 import { PICK_FAILURE_KEYS, useSavedViewPickWarning, type PickFailure } from './useSavedViewPickWarning';
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { PEOPLE_LOOKUP_MAX, type ApprovalRequestInfo, type GroupMember, type SavedViewSupport, type Result, type SavedView, type SavedViewListItem, type SavedViewStore, type ViewVisibility } from '@ap/contracts';
+import type { ApprovalRequestInfo, GroupMember, SavedViewSupport, Result, SavedView, SavedViewListItem, SavedViewStore, ViewVisibility } from '@ap/contracts';
 import { CONTEXT_LABELS, diagnoseSavedView, useEquipmentAxes, useI18n, useMessages, type SavedViewDiagnosis } from '@ap/kernel';
 import { captureApplied, prepareSavedViewPreview, useAnalysisSelectionLabels, useHostPlatform, useMyMenus, useSavedViews, type SavedViews } from '@ap/kernel/host';
 import { DirtyConfirmation } from '@ap/ui';
@@ -8,6 +8,7 @@ import { failureText, SaveViewDialog, ShareTargetPicker, ViewManagement, ViewSel
 import { SHELL_MESSAGES } from '../messages';
 import { QueryBarTools } from '../context/queryBarTools';
 import { OpenApprovalReview } from './approvalReview';
+import { lookupPeopleNames } from './lookupPeopleNames';
 
 /**
  * The Saved View selector of the query tool row (06 §21): current view, `수정됨`, the save menu and the requested `뷰 관리` surface.
@@ -162,12 +163,9 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     const ids = lookupKey.split('\n');
     const controller = new AbortController();
     let live = true;
-    const chunks: string[][] = [];
-    for (let at = 0; at < ids.length; at += PEOPLE_LOOKUP_MAX) chunks.push(ids.slice(at, at + PEOPLE_LOOKUP_MAX));
-    // A failed chunk falls through silently: the name then comes from the group members or the opaque id.
-    Promise.all(chunks.map(chunk => adapter.lookupPeople(chunk, controller.signal).then(found => found, () => [] as readonly GroupMember[]))).then(found => {
+    void lookupPeopleNames(adapter, ids, controller.signal).then(names => {
       if (!live) return;
-      setLooked(previous => new Map([...previous, ...found.flat().filter(person => person.displayName !== '').map(person => [person.userId, person.displayName] as const)]));
+      setLooked(previous => new Map([...previous, ...names]));
     });
     return () => { live = false; controller.abort(); };
   }, [lookupKey, adapter]);

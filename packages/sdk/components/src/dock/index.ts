@@ -6,4 +6,4 @@ export { dockLayoutMenu, type DockGroupInfo, type DockLayoutMenu } from './layou
 export { WorkspaceCommandsHost, radioGroupsOf, useWorkspaceCommands, type WorkspaceCommand } from './WorkspaceCommandsHost';
 export { dockTabElements, isActiveDockTab, dockStripElement } from './tabElements';
 export { useDockChartMerge, type DockChartLayoutActions, type DockChartCloseFocus } from './DockChartHead';
-export { DockMenuItem, DockMenuSeparator, useDockMenuInline } from './DockMenuItem';
+export { DockMenuItem, DockMenuSeparator, FocusOnUnmount, MergedLayoutActions, useDockMenuInline } from './DockMenuItem';

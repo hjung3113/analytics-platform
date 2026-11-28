@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { JsonValue, SavedView, SavedViewDraft, SavedViewEntry, SavedViewListItem, SavedViewPatch, SavedViewStore, ViewVisibility } from '@ap/contracts';
 import { rejectedChartConfigCases, storedPanelCases } from '@ap/contracts/testing/saved-view-panels';
 import { ACTORS } from '../saved-view-seed';
@@ -395,6 +395,24 @@ it('menu permission is re-judged on read: a viewer without the menu permission g
   expect(items.length).toBeGreaterThan(0);
   expect(items.every(i => i.denied)).toBe(true);
   expect(await s.save(draft('권한 없음'))).toMatchObject({ ok: false, reason: 'forbidden' });
+});
+
+it('keeps an unchanged official view without writing or proposing an edit', async () => {
+  const s = store();
+  const saved = ok(await s.save(draft())).view;
+  const requested = ok(await s.requestOfficial(saved.id, { expectedVersion: saved.version })).view;
+  as('admin');
+  const approved = ok(await s.decide(saved.id, 'approve', undefined, { expectedVersion: requested.version })).view;
+  as('engineer');
+  const before = await s.get(saved.id);
+  using write = vi.spyOn(storage, 'setItem');
+
+  const result = await s.update(saved.id, { name: approved.name }, { expectedVersion: approved.version });
+
+  expect(result).toEqual({ ok: true, value: before });
+  expect(write).not.toHaveBeenCalled();
+  expect(await s.get(saved.id)).toEqual(before);
+  expect(await s.listApprovalRequests(key(ENG))).toEqual([]);
 });
 
 it('editing an official copy asks for approval again and leaves who can see it unchanged', async () => {
