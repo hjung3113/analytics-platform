@@ -1,5 +1,5 @@
-import { ME_QUERY_KEY } from '../../lib/auth/useMe';
-import { routeTree } from './tree';
+import { ME_QUERY_KEY } from '../../../lib/auth/useMe';
+import { routeTree } from '../tree';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';

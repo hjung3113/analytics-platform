@@ -55,7 +55,7 @@ vi.mock('@ap/ui', async (importOriginal) => {
   };
 });
 
-import { VocClusterListPage, vocClustersSearchSchema } from './index';
+import { VocClusterListPage, vocClustersSearchSchema } from '../index';
 
 // uuid-shaped ids — the search schema rejects non-uuid values.
 const MS_1 = '99999999-9999-9999-9999-999999999901';

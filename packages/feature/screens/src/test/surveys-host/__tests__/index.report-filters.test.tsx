@@ -44,12 +44,12 @@ vi.mock('@ap/ui', async (importOriginal) => {
   };
 });
 
-vi.mock('../../lib/useAnalyticsAreaFilterLabel', () => ({
+vi.mock('../../../lib/useAnalyticsAreaFilterLabel', () => ({
   useAnalyticsAreaFilterLabel: (area: string | undefined) =>
     area === 'unset' ? '분석 영역: 미지정' : areaLabel,
 }));
 let areaLabel = '분석 영역: Revenue';
-import { SurveysIndexRoute, surveysSearchSchema } from './screen';
+import { SurveysIndexRoute, surveysSearchSchema } from '../screen';
 
 // uuid-shaped ids — the search schema rejects non-uuid values.
 const MS_1 = '99999999-9999-9999-9999-999999999901';

@@ -2,19 +2,19 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../features/admin/permissions/permission-gate', () => ({
+vi.mock('../../../../features/admin/permissions/permission-gate', () => ({
   PermissionGate: ({ capability, children }: { capability: string; children: ReactNode }) => (
     <div data-testid="permission-gate" data-capability={capability}>
       {children}
     </div>
   ),
 }));
-vi.mock('../../../features/admin/permissions/permission-grants-screen', () => ({
+vi.mock('../../../../features/admin/permissions/permission-grants-screen', () => ({
   PermissionGrantsScreen: () => <div data-testid="permission-grants-screen" />,
 }));
 
-import { validatePermissionGrantsSearch } from '../../../features/admin/permissions/permission-grants-search';
-import { PermissionGrantsConsolePage } from '../screens';
+import { validatePermissionGrantsSearch } from '../../../../features/admin/permissions/permission-grants-search';
+import { PermissionGrantsConsolePage } from '../../screens';
 
 const ID = '11111111-1111-4111-8111-111111111111';
 

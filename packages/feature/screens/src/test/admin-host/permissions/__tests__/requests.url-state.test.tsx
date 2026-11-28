@@ -1,4 +1,4 @@
-import { adminDetailFixture } from '../../permission-details';
+import { adminDetailFixture } from '../../../permission-details';
 // /admin/permissions/requests URL-state tests (issue #397).
 //
 // Tab + selection are URL state (packages/feature/screens/docs/routes-and-layout.md §URL State
@@ -57,7 +57,7 @@ vi.mock('@ap/ui', async (importOriginal) => {
 import {
   PermissionRequestsConsolePage,
   permissionRequestsSearchSchema,
-} from '../screens';
+} from '../../screens';
 
 const REQUESTS = [
   {

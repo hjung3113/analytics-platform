@@ -12,12 +12,12 @@ import { RouterProvider, createMemoryHistory } from '@tanstack/react-router';
 import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { InboxScreen } from '../../features/voc/routes/InboxScreen';
-import { ME_QUERY_KEY } from '../../lib/auth/useMe';
+import { InboxScreen } from '../../../features/voc/routes/InboxScreen';
+import { ME_QUERY_KEY } from '../../../lib/auth/useMe';
 import {
   parseAppSearch,
   stringifyAppSearch,
-} from '../host-adapters/lib/router/search-serialization';
+} from '../../host-adapters/lib/router/search-serialization';
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 
 function jsonResponse(status: number, body: unknown): Response {

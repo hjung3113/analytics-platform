@@ -1,4 +1,4 @@
-import { adminDetailFixture } from '../../permission-details';
+import { adminDetailFixture } from '../../../permission-details';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Outlet,
@@ -13,8 +13,8 @@ import userEvent from '@testing-library/user-event';
 import type React from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
-import { type AdminPermissionRequestRow, errorMapper } from '../../../lib/api';
-import { ADMIN_PERMISSIONS_COPY } from '../../../lib/copy/admin-permissions';
+import { type AdminPermissionRequestRow, errorMapper } from '../../../../lib/api';
+import { ADMIN_PERMISSIONS_COPY } from '../../../../lib/copy/admin-permissions';
 import type { PermissionRiskIndicator } from '@ap/feature-shared';
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
@@ -50,8 +50,8 @@ vi.mock('@ap/ui', async (importOriginal) => {
   };
 });
 
-import { PermissionRequestsConsolePage } from '../screens';
-import { PermissionRequestsScreen } from '../../../features/admin/permissions/permission-requests-screen';
+import { PermissionRequestsConsolePage } from '../../screens';
+import { PermissionRequestsScreen } from '../../../../features/admin/permissions/permission-requests-screen';
 
 const REQUESTS = [
   {

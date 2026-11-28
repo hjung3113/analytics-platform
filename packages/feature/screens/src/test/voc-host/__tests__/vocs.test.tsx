@@ -167,7 +167,7 @@ function stubFetchMeTriage() {
 // Import the VocRouteShell component and the zod schema from the route file.
 // We bypass createFileRoute by mounting the component directly in a harness.
 // This matches the admin route test pattern exactly.
-import { VocRouteShell } from '../screen-host/features/voc/routes/VocRouteShell';
+import { VocRouteShell } from '../../screen-host/features/voc/routes/VocRouteShell';
 
 function buildHarness({ initialPath }: { initialPath: string }) {
   const rootRoute = createRootRoute({ component: () => <Outlet /> });

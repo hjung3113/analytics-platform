@@ -1,9 +1,9 @@
-import { ApiError } from '../../lib/api/types';
+import { ApiError } from '../../../lib/api/types';
 import {
   FINDING_CONFIDENCE_LABELS,
   FINDING_SEVERITY_LABELS,
   FINDING_STATUS_LABELS,
-} from '../../lib/copy/enum-labels';
+} from '../../../lib/copy/enum-labels';
 import {
   type FindingDto,
   findingConfidenceSchema,
@@ -23,7 +23,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import type * as React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { FindingsListPage, findingsSearchSchema } from './screen';
+import { FindingsListPage, findingsSearchSchema } from '../screen';
 
 vi.mock('@ap/ui', async () => {
   const actual = await vi.importActual<typeof import('@ap/ui')>('@ap/ui');
@@ -117,8 +117,8 @@ vi.mock('@ap/ui', async () => {
     ),
   };
 });
-vi.mock('../../ui/index', async () => {
-  const actual = await vi.importActual<typeof import('../../ui/index')>('../../ui/index');
+vi.mock('../../../ui/index', async () => {
+  const actual = await vi.importActual<typeof import('../../../ui/index')>('../../../ui/index');
   return {
     ...actual,
     OutlineBadge: ({ children, ...props }: { children: React.ReactNode }) => (
@@ -179,7 +179,7 @@ const findings = [
 const useFindingsListMock = vi.hoisted(() => vi.fn());
 const requestAccessFlowMock = vi.hoisted(() => vi.fn());
 
-vi.mock('../../components/request-access-button', () => ({
+vi.mock('../../../components/request-access-button', () => ({
   RequestAccessButton: ({
     capability,
     managedSystemId,
@@ -204,7 +204,7 @@ vi.mock('../../components/request-access-button', () => ({
   ),
 }));
 
-vi.mock('../../features/findings/hooks/useFindingsList', () => ({
+vi.mock('../../../features/findings/hooks/useFindingsList', () => ({
   useFindingsPages: (...args: unknown[]) => {
     const result = useFindingsListMock(...args);
     return {
@@ -236,13 +236,13 @@ vi.mock('../../features/findings/hooks/useFindingsList', () => ({
   },
 }));
 
-vi.mock('../host-adapters/features/findings/components/FindingDetail/index', () => ({
+vi.mock('../../host-adapters/features/findings/components/FindingDetail/index', () => ({
   FindingDetailPanel: ({ findingId }: { findingId: string }) => (
     <section data-testid="finding-detail-panel">finding:{findingId}</section>
   ),
 }));
 
-vi.mock('../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({
     actors: [
       {

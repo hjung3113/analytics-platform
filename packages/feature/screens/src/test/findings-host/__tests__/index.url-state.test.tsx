@@ -57,7 +57,7 @@ vi.mock('@ap/ui', async (importOriginal) => {
   };
 });
 
-vi.mock('../host-adapters/features/findings/components/FindingDetail/index', () => ({
+vi.mock('../../host-adapters/features/findings/components/FindingDetail/index', () => ({
   FindingDetailPanel: ({
     findingId,
     headerExtras,
@@ -74,7 +74,7 @@ vi.mock('../host-adapters/features/findings/components/FindingDetail/index', () 
   ),
 }));
 
-import { FindingsListPage, findingsSearchSchema } from './screen';
+import { FindingsListPage, findingsSearchSchema } from '../screen';
 
 // uuid-shaped ids — the search schema rejects non-uuid values.
 const MS_1 = '99999999-9999-9999-9999-999999999901';

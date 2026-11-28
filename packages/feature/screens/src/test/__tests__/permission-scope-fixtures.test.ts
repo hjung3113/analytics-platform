@@ -20,7 +20,7 @@ import {
   scopeGrantItemBody,
   scopeGrantOptionsBody,
   scopeMineRowBody,
-} from './fixtures/permission-scope';
+} from '../fixtures/permission-scope';
 
 const ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1';
 

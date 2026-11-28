@@ -5,34 +5,34 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { NavRouteIntent } from '@ap/feature-shared';
 
-import { validateAnalyticsAreasRouteSearch } from '../features/admin/analytics-areas/search';
-import { validatePermissionRequestsSearch } from '../features/admin/permissions/permission-requests-search';
-import { validateFindingsSearch } from '../features/findings/routes/findings-search';
-import { validateIntegrationDashboardSearch } from '../features/integration/routes/integration-search';
-import { validateSurveysSearch } from '../features/surveys/routes/surveys-search';
-import { validateVocClustersSearch } from '../features/voc-cluster/lib/cluster-search';
-import { validateVocSearch } from '../features/voc/routes/voc-search';
+import { validateAnalyticsAreasRouteSearch } from '../../features/admin/analytics-areas/search';
+import { validatePermissionRequestsSearch } from '../../features/admin/permissions/permission-requests-search';
+import { validateFindingsSearch } from '../../features/findings/routes/findings-search';
+import { validateIntegrationDashboardSearch } from '../../features/integration/routes/integration-search';
+import { validateSurveysSearch } from '../../features/surveys/routes/surveys-search';
+import { validateVocClustersSearch } from '../../features/voc-cluster/lib/cluster-search';
+import { validateVocSearch } from '../../features/voc/routes/voc-search';
 import {
   parseAppSearch,
   stringifyAppSearch,
-} from './host-adapters/lib/router/search-serialization';
-import { validateHomeSearch } from './screen-host/routes/_authed/home';
-import { validateIntegrationCoverageSearch } from './screen-host/routes/_authed/integration/coverage';
-import { validateIntegrationLinksSearch } from './screen-host/routes/_authed/integration/links';
-import { TasksRouteView, validateTasksSearch } from './screen-host/routes/_authed/tasks';
-import { validateSurveyDetailSearch } from './surveys-host/detail';
+} from '../host-adapters/lib/router/search-serialization';
+import { validateHomeSearch } from '../screen-host/routes/_authed/home';
+import { validateIntegrationCoverageSearch } from '../screen-host/routes/_authed/integration/coverage';
+import { validateIntegrationLinksSearch } from '../screen-host/routes/_authed/integration/links';
+import { TasksRouteView, validateTasksSearch } from '../screen-host/routes/_authed/tasks';
+import { validateSurveyDetailSearch } from '../surveys-host/detail';
 import { createRootRoute, createRoute } from '@tanstack/react-router';
 
-vi.mock('./screen-host/features/tasks/routes/MilestonesRoute', () => ({
+vi.mock('../screen-host/features/tasks/routes/MilestonesRoute', () => ({
   MilestonesRoute: () => <div>Milestones view</div>,
 }));
-vi.mock('./screen-host/features/tasks/routes/TaskBoardRoute', () => ({
+vi.mock('../screen-host/features/tasks/routes/TaskBoardRoute', () => ({
   TaskBoardRoute: () => <div>Task board view</div>,
 }));
-vi.mock('./screen-host/features/tasks/routes/TaskListRoute', () => ({
+vi.mock('../screen-host/features/tasks/routes/TaskListRoute', () => ({
   TaskListRoute: () => <div>Task list view</div>,
 }));
-vi.mock('./screen-host/features/tasks/routes/TaskRequestsRoute', () => ({
+vi.mock('../screen-host/features/tasks/routes/TaskRequestsRoute', () => ({
   TaskRequestsRoute: () => <div>Task Requests view</div>,
 }));
 

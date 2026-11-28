@@ -1,7 +1,7 @@
 import {
   ManagedSystemScopePicker,
   type ManagedSystemScopePickerProps,
-} from '../operator-screens/scope-picker/ManagedSystemScopePicker';
+} from '../../operator-screens/scope-picker/ManagedSystemScopePicker';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { expect, it } from 'vitest';
 function PickerHost({
