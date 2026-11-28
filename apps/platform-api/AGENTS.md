@@ -38,6 +38,7 @@ Layer boundaries live in `docs/agents/feature-implementation.md` → Implementat
   - Suites use `describe.skipIf(!runIntegration)`; `runIntegration` needs `DATABASE_URL`, `DATABASE_URL_MIGRATE` and (most files) `WORKSPACE_ID` — a bare `pnpm --filter @ap/platform-api test` skips every integration suite and touches no database.
   - An opt-out run is never a gate result.
   - DB-backed verification is complete only from a `test:integration` result; `src/test-support/__tests__/integration-gate.test.ts` stays ungated and needs the integration environment unless explicitly opted out.
+- **Opt-in, outside the gate:** `src/__tests__/synthetic-datasets.pg.test.ts` loads the synthetic analysis datasets (#3204) into a scratch schema and runs only with `SYNTHETIC_DATASETS_PG_URL`; neither `test` nor `test:integration` sets it. Loader, run command and what a pass does not mean: [synthetic dataset engines](../../docs/integration/synthetic-dataset-engines.md).
 - **The gate resets the database.** `globalSetup` (`src/test-support/global-setup.ts`) truncates every product table and re-seeds before the run, so results never depend on earlier runs (FeedbackOps #205).
   - Point `DATABASE_URL`/`DATABASE_URL_MIGRATE` at a throwaway database.
   - A bare `describe` (not `skipIf`) runs its `beforeAll` in the default gate and fails — deviating from the idiom is a bug.
